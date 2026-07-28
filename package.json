@@ -1,6 +1,6 @@
 {
   "name": "old-github",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "description": "Restore the 2012-2013 GitHub layout as a Chrome extension.",
   "license": "MIT",
