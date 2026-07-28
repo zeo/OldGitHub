@@ -1,22 +1,32 @@
 import { octicon } from "@/icons";
-import { AdapterFailure } from "@/adapters";
 import { getRepoSummary, formatCount, type RepoSummary } from "@/adapters/repo";
 
-const TABS = [
+const PRIMARY_NAV = [
   { key: "code", label: "Code", path: "", icon: "code" },
   { key: "issues", label: "Issues", path: "/issues", icon: "issue-opened" },
   { key: "pulls", label: "Pull requests", path: "/pulls", icon: "git-pull-request" },
+  { key: "wiki", label: "Wiki", path: "/wiki", icon: "book" },
+] as const;
+
+const INSIGHTS_NAV = [
+  { key: "pulse", label: "Pulse", path: "/pulse", icon: "pulse" },
+  { key: "graphs", label: "Graphs", path: "/graphs/contributors", icon: "graph" },
+  { key: "network", label: "Network", path: "/network", icon: "git-branch" },
+] as const;
+
+const MORE_NAV = [
   { key: "discussions", label: "Discussions", path: "/discussions", icon: "comment-discussion" },
   { key: "actions", label: "Actions", path: "/actions", icon: "play" },
   { key: "projects", label: "Projects", path: "/projects", icon: "project" },
-  { key: "wiki", label: "Wiki", path: "/wiki", icon: "book" },
   { key: "releases", label: "Releases", path: "/releases", icon: "tag" },
   { key: "security", label: "Security", path: "/security", icon: "shield" },
-  { key: "insights", label: "Insights", path: "/pulse", icon: "graph" },
   { key: "settings", label: "Settings", path: "/settings", icon: "gear" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+const NAV_ITEMS = [...PRIMARY_NAV, ...INSIGHTS_NAV, ...MORE_NAV] as const;
+
+type NavItem = (typeof NAV_ITEMS)[number];
+type NavKey = NavItem["key"];
 
 const ROOT_CLASS = "oldgh-repo-header";
 
@@ -32,12 +42,15 @@ export async function mountRepoHeader(owner: string, repo: string, prefetched?: 
   header.className = ROOT_CLASS;
   header.dataset.oldghOwner = owner;
   header.dataset.oldghRepo = repo;
+  const active = currentNavKey(owner, repo, window.location.pathname);
   header.innerHTML = summary
-    ? renderRepoHeaderHtml(summary, currentTabKey(owner, repo, window.location.pathname))
-    : renderMinimalHeader(owner, repo, currentTabKey(owner, repo, window.location.pathname));
+    ? renderRepoHeaderHtml(summary, active)
+    : renderMinimalHeader(owner, repo, active);
 
   unmountRepoHeader();
   document.documentElement.setAttribute("data-oldgh-hide-modern-repo-header", "");
+  setNavigationMode(owner, repo, window.location.pathname);
+  bindRepoHeader(header);
   const after = document.querySelector(".oldgh-header");
   if (after && after.parentNode) {
     after.after(header);
@@ -53,7 +66,7 @@ export function prefetchRepoSummary(owner: string, repo: string): Promise<RepoSu
   });
 }
 
-function renderMinimalHeader(owner: string, repo: string, activeTab: TabKey): string {
+function renderMinimalHeader(owner: string, repo: string, active: NavKey | null): string {
   const minimal: RepoSummary = {
     owner,
     repo,
@@ -76,26 +89,40 @@ function renderMinimalHeader(owner: string, repo: string, activeTab: TabKey): st
     hasProjects: true,
     hasDiscussions: false,
   };
-  return renderRepoHeaderHtml(minimal, activeTab);
+  return renderRepoHeaderHtml(minimal, active);
 }
 
 export function unmountRepoHeader(): void {
   document.querySelectorAll(`.${ROOT_CLASS}`).forEach((el) => el.remove());
   document.documentElement.removeAttribute("data-oldgh-hide-modern-repo-header");
+  document.documentElement.removeAttribute("data-oldgh-repo-nav");
 }
 
 export function updateActiveTab(owner: string, repo: string, pathname: string): void {
-  const active = currentTabKey(owner, repo, pathname);
+  const active = currentNavKey(owner, repo, pathname);
+  setNavigationMode(owner, repo, pathname);
   document.querySelectorAll<HTMLAnchorElement>(".oldgh-repo-tabs__link").forEach((link) => {
-    if (link.dataset.tab === active) {
+    if (active && link.dataset.tab === active) {
       link.setAttribute("aria-current", "page");
     } else {
       link.removeAttribute("aria-current");
     }
   });
+  const more = document.querySelector<HTMLDetailsElement>(".oldgh-repo-nav__more");
+  if (more) {
+    more.open = false;
+    const trigger = more.querySelector<HTMLElement>(".oldgh-repo-nav__more-trigger");
+    if (trigger) {
+      if (active && MORE_NAV.some((item) => item.key === active)) {
+        trigger.setAttribute("aria-current", "page");
+      } else {
+        trigger.removeAttribute("aria-current");
+      }
+    }
+  }
 }
 
-function renderRepoHeaderHtml(s: RepoSummary, activeTab: TabKey): string {
+function renderRepoHeaderHtml(s: RepoSummary, active: NavKey | null): string {
   const repoIcon = s.isPrivate
     ? octicon("lock", { size: 18 })
     : s.isFork
@@ -140,7 +167,7 @@ function renderRepoHeaderHtml(s: RepoSummary, activeTab: TabKey): string {
   const star = renderActionButton({
     href: `/${s.owner}/${s.repo}/stargazers`,
     icon: "star",
-    label: "Star",
+    label: "Stars",
     listHref: `/${s.owner}/${s.repo}/stargazers`,
     count: starsText,
   });
@@ -169,9 +196,14 @@ function renderRepoHeaderHtml(s: RepoSummary, activeTab: TabKey): string {
       ${topics}
       ${archivedBanner}
       <nav class="oldgh-repo-tabs" aria-label="Repository">
-        <ul class="oldgh-tabs">
-          ${TABS.filter((t) => isTabAvailable(s, t.key)).map((t) => renderTab(s, t, activeTab)).join("")}
+        <ul class="oldgh-repo-nav__group">
+          ${PRIMARY_NAV.filter((item) => isNavItemAvailable(s, item.key)).map((item) => renderNavItem(s, item, active)).join("")}
         </ul>
+        <ul class="oldgh-repo-nav__group oldgh-repo-nav__group--insights">
+          ${INSIGHTS_NAV.map((item) => renderNavItem(s, item, active)).join("")}
+        </ul>
+        ${renderMoreMenu(s, active)}
+        ${renderClonePanel(s)}
       </nav>
     </div>
   `;
@@ -200,32 +232,131 @@ function renderActionButton(b: ActionButton): string {
   `;
 }
 
-function isTabAvailable(s: RepoSummary, key: TabKey): boolean {
+function isNavItemAvailable(s: RepoSummary, key: NavKey): boolean {
   switch (key) {
     case "issues": return s.hasIssues;
     case "discussions": return s.hasDiscussions;
     case "wiki": return s.hasWiki;
     case "projects": return s.hasProjects;
+    case "settings": return canSeeSettings(s.owner, s.repo);
     default: return true;
   }
 }
 
-function renderTab(s: RepoSummary, tab: (typeof TABS)[number], active: TabKey): string {
-  const href = `/${s.owner}/${s.repo}${tab.path}`;
-  const icon = octicon(tab.icon, { size: 14 });
-  const ariaCurrent = tab.key === active ? ' aria-current="page"' : "";
+function canSeeSettings(owner: string, repo: string): boolean {
+  const settingsPath = `/${owner}/${repo}/settings`;
+  if (window.location.pathname === settingsPath || window.location.pathname.startsWith(`${settingsPath}/`)) {
+    return true;
+  }
+  return Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).some((link) => {
+    if (link.closest(".oldgh-repo-header")) return false;
+    const href = link.getAttribute("href")?.split(/[?#]/, 1)[0];
+    return href === settingsPath || href?.startsWith(`${settingsPath}/`);
+  });
+}
+
+function renderNavItem(s: RepoSummary, item: NavItem, active: NavKey | null): string {
+  const href = `/${s.owner}/${s.repo}${item.path}`;
+  const icon = octicon(item.icon, { size: 16 });
+  const ariaCurrent = item.key === active ? ' aria-current="page"' : "";
   return `
-    <li class="oldgh-tabs__item">
-      <a class="oldgh-tabs__link oldgh-repo-tabs__link"
-         data-tab="${tab.key}"
-         href="${escapeAttr(href)}"${ariaCurrent}>
-        ${icon}<span>${tab.label}</span>
+    <li class="oldgh-repo-nav__item">
+      <a class="oldgh-repo-tabs__link"
+         data-tab="${item.key}"
+         href="${escapeAttr(href)}"
+         title="${escapeAttr(item.label)}"${ariaCurrent}>
+        ${icon}<span>${item.label}</span>
       </a>
     </li>
   `;
 }
 
-function currentTabKey(owner: string, repo: string, pathname: string): TabKey {
+function renderMoreMenu(s: RepoSummary, active: NavKey | null): string {
+  const items = MORE_NAV.filter((item) => isNavItemAvailable(s, item.key));
+  const isActive = !!active && items.some((item) => item.key === active);
+  return `
+    <details class="oldgh-repo-nav__more">
+      <summary class="oldgh-repo-nav__more-trigger" title="More repository sections"${isActive ? ' aria-current="page"' : ""}>
+        ${octicon("ellipsis", { size: 16 })}<span>More</span>
+      </summary>
+      <ul class="oldgh-repo-nav__more-list">
+        ${items.map((item) => renderNavItem(s, item, active)).join("")}
+      </ul>
+    </details>
+  `;
+}
+
+function renderClonePanel(s: RepoSummary): string {
+  const https = `https://github.com/${s.owner}/${s.repo}.git`;
+  const ssh = `git@github.com:${s.owner}/${s.repo}.git`;
+  const branch = s.defaultBranch.split("/").map(encodeURIComponent).join("/");
+  const zip = `/${s.owner}/${s.repo}/archive/refs/heads/${branch}.zip`;
+  return `
+    <div class="oldgh-repo-nav__clone">
+      <p class="oldgh-repo-nav__clone-label"><strong data-clone-label>HTTPS</strong> clone URL</p>
+      <div class="oldgh-repo-nav__clone-field">
+        <input type="text" readonly value="${escapeAttr(https)}" data-clone-url aria-label="HTTPS clone URL" />
+        <button type="button" data-clone-copy aria-label="Copy clone URL" title="Copy clone URL">${octicon("clippy", { size: 14 })}</button>
+      </div>
+      <p class="oldgh-repo-nav__clone-methods">
+        You can clone with
+        <button type="button" data-clone-method="HTTPS" data-clone-value="${escapeAttr(https)}" aria-pressed="true">HTTPS</button>
+        or
+        <button type="button" data-clone-method="SSH" data-clone-value="${escapeAttr(ssh)}" aria-pressed="false">SSH</button>.
+      </p>
+      <a class="oldgh-btn oldgh-repo-nav__download" href="${escapeAttr(zip)}">${octicon("cloud-download", { size: 14 })}<span>Download ZIP</span></a>
+    </div>
+  `;
+}
+
+function bindRepoHeader(header: HTMLElement): void {
+  const input = header.querySelector<HTMLInputElement>("[data-clone-url]");
+  const label = header.querySelector<HTMLElement>("[data-clone-label]");
+  header.addEventListener("click", (event) => {
+    const target = event.target as Element | null;
+    const method = target?.closest<HTMLButtonElement>("[data-clone-method]");
+    if (method && input && label) {
+      const value = method.dataset["cloneValue"];
+      const name = method.dataset["cloneMethod"];
+      if (!value || !name) return;
+      input.value = value;
+      input.setAttribute("aria-label", `${name} clone URL`);
+      label.textContent = name;
+      header.querySelectorAll<HTMLButtonElement>("[data-clone-method]").forEach((button) => {
+        button.setAttribute("aria-pressed", button === method ? "true" : "false");
+      });
+      return;
+    }
+
+    const copy = target?.closest<HTMLButtonElement>("[data-clone-copy]");
+    if (!copy || !input) return;
+    void copyCloneUrl(copy, input);
+  });
+}
+
+async function copyCloneUrl(button: HTMLButtonElement, input: HTMLInputElement): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(input.value);
+    const previous = button.innerHTML;
+    button.innerHTML = octicon("check", { size: 14 });
+    button.classList.add("is-copied");
+    window.setTimeout(() => {
+      button.innerHTML = previous;
+      button.classList.remove("is-copied");
+    }, 1200);
+  } catch {
+    input.focus();
+    input.select();
+  }
+}
+
+function setNavigationMode(owner: string, repo: string, pathname: string): void {
+  const prefix = `/${owner}/${repo}`;
+  const mode = pathname === prefix || pathname === `${prefix}/` ? "wide" : "compact";
+  document.documentElement.setAttribute("data-oldgh-repo-nav", mode);
+}
+
+function currentNavKey(owner: string, repo: string, pathname: string): NavKey | null {
   const prefix = `/${owner}/${repo}`;
   if (pathname === prefix || pathname === `${prefix}/`) return "code";
   const rest = pathname.slice(prefix.length);
@@ -240,9 +371,11 @@ function currentTabKey(owner: string, repo: string, pathname: string): TabKey {
   if (rest.startsWith("/projects")) return "projects";
   if (rest.startsWith("/wiki")) return "wiki";
   if (rest.startsWith("/security") || rest.startsWith("/dependabot")) return "security";
-  if (rest.startsWith("/pulse") || rest.startsWith("/graphs") || rest.startsWith("/network") || rest.startsWith("/community")) return "insights";
+  if (rest.startsWith("/pulse")) return "pulse";
+  if (rest.startsWith("/graphs") || rest.startsWith("/community")) return "graphs";
+  if (rest.startsWith("/network")) return "network";
   if (rest.startsWith("/settings")) return "settings";
-  return "code";
+  return null;
 }
 
 function escapeText(s: string): string {

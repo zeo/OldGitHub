@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, normalizePath, type Plugin } from "vite";
 import { resolve } from "node:path";
 import { buildManifest } from "./src/manifest.config";
 
@@ -10,8 +10,8 @@ function extensionManifest(mode: "development" | "production"): Plugin {
     name: "oldgithub-manifest",
     generateBundle(_, bundle) {
       const chunks = Object.values(bundle).flatMap((output) => output.type === "chunk" ? [output] : []);
-      const content = chunks.find((chunk) => chunk.facadeModuleId === contentEntry);
-      const background = chunks.find((chunk) => chunk.facadeModuleId === backgroundEntry);
+      const content = chunks.find((chunk) => chunk.facadeModuleId && normalizePath(chunk.facadeModuleId) === normalizePath(contentEntry));
+      const background = chunks.find((chunk) => chunk.facadeModuleId && normalizePath(chunk.facadeModuleId) === normalizePath(backgroundEntry));
       if (!content || !background) throw new Error("extension entry chunk missing from build");
 
       this.emitFile({

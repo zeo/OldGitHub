@@ -2,12 +2,16 @@ import { octicon } from "@/icons";
 import { getMe, type Me } from "@/adapters/me";
 import { getUnreadCount } from "@/adapters/notifications";
 import { AdapterFailure } from "@/adapters";
-import { dispatchRoute } from "@/router/dispatch";
 import { getCurrentTheme, setTheme, type Theme } from "@/theme";
 
 const POLL_INTERVAL_MS = 60_000;
 
 const IS_GIST_SUBDOMAIN = typeof window !== "undefined" && window.location.hostname === "gist.github.com";
+
+type RepositoryContext = { owner: string; repo: string };
+type SearchScope = "repository" | "global";
+
+let repositoryContext: RepositoryContext | null = null;
 
 export async function mountHeader(): Promise<void> {
   hideModernHeader();
@@ -51,34 +55,50 @@ function absolutizeGithubHrefs(root: HTMLElement): void {
 }
 
 function renderHeaderHtml(me: Me): string {
-  const logo = octicon("mark-github", { size: 24, ariaLabel: "GitHub" });
-  const bell = octicon("bell", { size: 16, ariaLabel: "Notifications" });
-  const plus = octicon("plus", { size: 16 });
+  const logo = octicon("mark-github", { size: 28, ariaLabel: "GitHub" });
   const chevron = octicon("triangle-down", { className: "oldgh-chevron" });
   return `
-    <a class="oldgh-header__logo" href="/" aria-label="GitHub">${logo}</a>
-    <form class="oldgh-header__search" action="/search" method="get" role="search">
-      <input
-        class="oldgh-header__search-input"
-        type="search"
-        name="q"
-        placeholder="Search GitHub"
-        aria-label="Search GitHub"
-        autocomplete="off"
-      />
-      <input type="hidden" name="ref" value="cmdform" />
-    </form>
-    <nav class="oldgh-header__nav" aria-label="Primary" data-oldgh-topnav>
-      <a href="/pulls" data-topnav-key="pulls">Pull requests</a>
-      <a href="/issues" data-topnav-key="issues">Issues</a>
-      <a href="/marketplace" data-topnav-key="marketplace">Marketplace</a>
-      <a href="/explore" data-topnav-key="explore">Explore</a>
-    </nav>
-    <div class="oldgh-header__actions">
+    <div class="oldgh-header__inner">
+      <a class="oldgh-header__logo" href="/" aria-label="GitHub">${logo}</a>
+      <a class="oldgh-header__notifications" href="/notifications" aria-label="Notifications" title="Notifications">
+        <span class="oldgh-header__notification-dot" aria-hidden="true"></span>
+      </a>
+      <form class="oldgh-header__search" action="/search" method="get" role="search" data-search-scope="global">
+        <details class="oldgh-header__menu oldgh-header__scope">
+          <summary aria-label="Search scope">
+            <strong class="oldgh-header__scope-label">All GitHub</strong>
+            ${chevron}
+          </summary>
+          <ul class="oldgh-header__menu-list" role="menu">
+            <li role="none" data-repository-scope hidden>
+              <button type="button" role="menuitemradio" data-search-scope="repository" aria-checked="false">
+                <strong>This repository</strong>
+                <span class="oldgh-header__scope-repo"></span>
+              </button>
+            </li>
+            <li role="none">
+              <button type="button" role="menuitemradio" data-search-scope="global" aria-checked="true">
+                <strong>All GitHub</strong>
+              </button>
+            </li>
+          </ul>
+        </details>
+        <input
+          class="oldgh-header__search-input"
+          type="search"
+          name="q"
+          placeholder="Search or type a command"
+          aria-label="Search or type a command"
+          autocomplete="off"
+        />
+        <a class="oldgh-header__search-help" href="https://docs.github.com/search-github" aria-label="Search help" title="Search help">
+          ${octicon("question", { size: 14 })}
+        </a>
+        <input type="hidden" name="ref" value="cmdform" />
+      </form>
       <details class="oldgh-header__menu oldgh-header__menu--theme" data-oldgh-theme-menu>
         <summary aria-label="Theme" title="Theme">
-          ${sunSvg("oldgh-header__theme-icon oldgh-header__theme-icon--light", 16)}
-          ${moonSvg("oldgh-header__theme-icon oldgh-header__theme-icon--dark", 16)}
+          ${octicon("gear", { size: 16 })}
         </summary>
         <ul class="oldgh-header__menu-list" role="menu">
           <li class="oldgh-header__menu-label" role="presentation">Theme</li>
@@ -87,42 +107,46 @@ function renderHeaderHtml(me: Me): string {
           <li role="none"><button type="button" role="menuitemradio" class="oldgh-header__menu-button" data-theme="auto">${octicon("device-desktop", { size: 14 })} Match system</button></li>
         </ul>
       </details>
-      <a class="oldgh-header__bell" href="/notifications" aria-label="Notifications">
-        ${bell}
-        <span class="oldgh-header__bell-count" hidden></span>
-      </a>
-      <details class="oldgh-header__menu oldgh-header__menu--new">
-        <summary aria-label="Create new" title="Create new&hellip;">${plus} ${chevron}</summary>
-        <ul class="oldgh-header__menu-list" role="menu">
-          <li role="none"><a role="menuitem" href="/new">New repository</a></li>
-          <li role="none"><a role="menuitem" href="/new/import">Import repository</a></li>
-          <li role="none"><a role="menuitem" href="https://gist.github.com">New gist</a></li>
-          <li role="none"><a role="menuitem" href="/organizations/new">New organization</a></li>
-        </ul>
-      </details>
-      <details class="oldgh-header__menu oldgh-header__menu--user">
-        <summary aria-label="View profile and more" title="View profile and more">
+      <nav class="oldgh-header__nav" aria-label="Primary" data-oldgh-topnav>
+        <a href="/explore" data-topnav-key="explore">Explore</a>
+        <a href="https://gist.github.com">Gist</a>
+        <a href="https://github.blog">Blog</a>
+        <a href="https://docs.github.com">Help</a>
+      </nav>
+      <div class="oldgh-header__actions">
+        <a class="oldgh-header__user" href="${escapeAttr(me.profileUrl)}" title="View profile">
           <img class="oldgh-header__avatar" src="${escapeAttr(me.avatarUrl)}" alt="" width="20" height="20" />
-          ${chevron}
-        </summary>
-        <ul class="oldgh-header__menu-list" role="menu">
-          <li class="oldgh-header__menu-label" role="presentation">
-            Signed in as <strong>${escapeText(me.login)}</strong>
-          </li>
-          <li role="none"><a role="menuitem" href="${escapeAttr(me.profileUrl)}">Your profile</a></li>
-          <li role="none"><a role="menuitem" href="${escapeAttr(me.profileUrl)}?tab=repositories">Your repositories</a></li>
-          <li role="none"><a role="menuitem" href="/issues">Your issues</a></li>
-          <li role="none"><a role="menuitem" href="/pulls">Your pull requests</a></li>
-          <li role="none"><a role="menuitem" href="/stars">Your stars</a></li>
-          <li role="none"><a role="menuitem" href="/settings/profile">Settings</a></li>
-          <li role="separator" class="oldgh-header__menu-sep"></li>
-          <li role="none">
-            <form action="/logout" method="post" data-oldgh-logout>
-              <button type="submit" role="menuitem" class="oldgh-header__menu-button">Sign out</button>
-            </form>
-          </li>
-        </ul>
-      </details>
+          <strong>${escapeText(me.login)}</strong>
+        </a>
+        <details class="oldgh-header__menu oldgh-header__menu--new">
+          <summary aria-label="Create new" title="Create new">
+            <span class="oldgh-header__new-icon">${octicon("repo", { size: 16 })}${octicon("plus-small", { size: 7 })}</span>
+          </summary>
+          <ul class="oldgh-header__menu-list" role="menu">
+            <li role="none"><a role="menuitem" href="/new">New repository</a></li>
+            <li role="none"><a role="menuitem" href="/new/import">Import repository</a></li>
+            <li role="none"><a role="menuitem" href="https://gist.github.com">New gist</a></li>
+            <li role="none"><a role="menuitem" href="/organizations/new">New organization</a></li>
+          </ul>
+        </details>
+        <details class="oldgh-header__menu oldgh-header__menu--account">
+          <summary aria-label="Account menu" title="Account menu">${octicon("tools", { size: 16 })}</summary>
+          <ul class="oldgh-header__menu-list" role="menu">
+            <li class="oldgh-header__menu-label" role="presentation">
+              Signed in as <strong>${escapeText(me.login)}</strong>
+            </li>
+            <li role="none"><a role="menuitem" href="${escapeAttr(me.profileUrl)}">Your profile</a></li>
+            <li role="none"><a role="menuitem" href="${escapeAttr(me.profileUrl)}?tab=repositories">Your repositories</a></li>
+            <li role="none"><a role="menuitem" href="/issues">Your issues</a></li>
+            <li role="none"><a role="menuitem" href="/pulls">Your pull requests</a></li>
+            <li role="none"><a role="menuitem" href="/stars">Your stars</a></li>
+            <li role="none"><a role="menuitem" href="/settings/profile">Settings</a></li>
+          </ul>
+        </details>
+        <form class="oldgh-header__logout" action="/logout" method="post" data-oldgh-logout>
+          <button type="submit" aria-label="Sign out" title="Sign out">${octicon("sign-out", { size: 16 })}</button>
+        </form>
+      </div>
     </div>
   `;
 }
@@ -135,10 +159,27 @@ export function syncSearchInput(pathname: string, search: string): void {
   if (!input) return;
   if (input === document.activeElement) return;
   if (pathname === "/search") {
-    input.value = new URLSearchParams(search).get("q") ?? "";
+    const query = new URLSearchParams(search).get("q") ?? "";
+    input.value = repositoryContext
+      ? query.replace(new RegExp(`(^|\\s)repo:${escapeRegExp(repositoryContext.owner)}/${escapeRegExp(repositoryContext.repo)}(?=\\s|$)`, "i"), " ").trim()
+      : query;
   } else {
     input.value = "";
   }
+}
+
+export function syncHeaderRepositoryContext(owner: string | null, repo: string | null): void {
+  const next = owner && repo ? { owner, repo } : null;
+  repositoryContext = next;
+
+  const form = document.querySelector<HTMLFormElement>("form.oldgh-header__search");
+  if (!form) return;
+  const repositoryItem = form.querySelector<HTMLElement>("[data-repository-scope]");
+  const repositoryName = form.querySelector<HTMLElement>(".oldgh-header__scope-repo");
+  if (repositoryItem) repositoryItem.hidden = !next;
+  if (repositoryName) repositoryName.textContent = next ? `${next.owner}/${next.repo}` : "";
+
+  setSearchScope(form, next ? "repository" : "global");
 }
 
 function bindSearchForm(root: HTMLElement): void {
@@ -146,14 +187,33 @@ function bindSearchForm(root: HTMLElement): void {
   if (IS_GIST_SUBDOMAIN) return;
   const form = root.querySelector<HTMLFormElement>("form.oldgh-header__search");
   if (!form) return;
+  form.addEventListener("click", (e) => {
+    const button = (e.target as Element | null)?.closest<HTMLButtonElement>("button[data-search-scope]");
+    if (!button) return;
+    const scope = button.dataset["searchScope"] as SearchScope | undefined;
+    if (!scope || (scope === "repository" && !repositoryContext)) return;
+    setSearchScope(form, scope);
+    form.querySelector<HTMLDetailsElement>(".oldgh-header__scope")?.removeAttribute("open");
+  });
   form.addEventListener("submit", (e) => {
     const input = form.querySelector<HTMLInputElement>('input[name="q"]');
     const q = input?.value.trim();
     if (!q) return;
     e.preventDefault();
-    const url = `/search?q=${encodeURIComponent(q)}&ref=cmdform`;
-    history.pushState({}, "", url);
-    void dispatchRoute(new URL(url, window.location.origin));
+    const context = form.dataset["searchScope"] === "repository" ? repositoryContext : null;
+    const query = context ? `repo:${context.owner}/${context.repo} ${q}` : q;
+    const type = context ? "&type=code" : "";
+    const url = `/search?q=${encodeURIComponent(query)}${type}&ref=cmdform`;
+    window.location.assign(url);
+  });
+}
+
+function setSearchScope(form: HTMLFormElement, scope: SearchScope): void {
+  form.dataset.searchScope = scope;
+  const label = form.querySelector<HTMLElement>(".oldgh-header__scope-label");
+  if (label) label.textContent = scope === "repository" ? "This repository" : "All GitHub";
+  form.querySelectorAll<HTMLButtonElement>("button[data-search-scope]").forEach((button) => {
+    button.setAttribute("aria-checked", button.dataset["searchScope"] === scope ? "true" : "false");
   });
 }
 
@@ -217,8 +277,9 @@ async function syncThemeMenuState(root: HTMLElement): Promise<void> {
 }
 
 async function startNotificationPolling(root: HTMLElement): Promise<void> {
-  const badge = root.querySelector<HTMLElement>(".oldgh-header__bell-count");
-  if (!badge) return;
+  const dot = root.querySelector<HTMLElement>(".oldgh-header__notification-dot");
+  const link = root.querySelector<HTMLAnchorElement>(".oldgh-header__notifications");
+  if (!dot || !link) return;
 
   let consecutiveFailures = 0;
   let intervalId: number | null = null;
@@ -228,11 +289,13 @@ async function startNotificationPolling(root: HTMLElement): Promise<void> {
       const count = await getUnreadCount();
       consecutiveFailures = 0;
       if (count > 0) {
-        badge.hidden = false;
-        badge.textContent = count > 99 ? "99+" : String(count);
+        dot.classList.add("is-unread");
+        link.setAttribute("aria-label", `${count > 99 ? "99+" : count} unread notifications`);
+        link.title = `${count > 99 ? "99+" : count} unread notifications`;
       } else {
-        badge.hidden = true;
-        badge.textContent = "";
+        dot.classList.remove("is-unread");
+        link.setAttribute("aria-label", "Notifications");
+        link.title = "Notifications";
       }
     } catch (err) {
       consecutiveFailures++;
@@ -259,11 +322,9 @@ async function startNotificationPolling(root: HTMLElement): Promise<void> {
 export function updateTopNavActive(pathname: string): void {
   const nav = document.querySelector<HTMLElement>("[data-oldgh-topnav]");
   if (!nav) return;
-  let key: string | null = null;
-  if (pathname === "/pulls" || pathname.startsWith("/pulls/")) key = "pulls";
-  else if (pathname === "/issues" || pathname.startsWith("/issues/")) key = "issues";
-  else if (pathname === "/marketplace" || pathname.startsWith("/marketplace/")) key = "marketplace";
-  else if (pathname === "/explore" || pathname.startsWith("/explore/") || pathname === "/trending" || pathname.startsWith("/trending/")) key = "explore";
+  const key = pathname === "/explore" || pathname.startsWith("/explore/") || pathname === "/trending" || pathname.startsWith("/trending/")
+    ? "explore"
+    : null;
   for (const a of Array.from(nav.querySelectorAll<HTMLAnchorElement>("a[data-topnav-key]"))) {
     if (key && a.dataset["topnavKey"] === key) {
       a.setAttribute("aria-current", "page");
@@ -287,4 +348,8 @@ function escapeText(s: string): string {
 
 function escapeAttr(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

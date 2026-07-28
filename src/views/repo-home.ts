@@ -165,22 +165,17 @@ function renderEmptyShell(o: RepoOverview): string {
   `;
 }
 
-// 2013 GitHub's signature "numbers summary" strip: commits / branches /
-// releases / contributors as icon+count links below the description. commits
-// comes from the overview payload; the other three counts are read from the
-// REST API's Link rel="last" page number (or the returned array length when a
-// repo is small enough to fit one page). each metric degrades independently —
-// a failed/rate-limited fetch just drops that one item rather than showing a
-// broken count.
+// 2013's numbers strip used commits, branches, tags, and contributors
+// counts come from the REST API's last page or the returned array length
 async function hydrateRepoNumbers(root: HTMLElement, owner: string, repo: string): Promise<void> {
   const base = `https://api.github.com/repos/${owner}/${repo}`;
-  const [branches, releases, contributors] = await Promise.all([
+  const [branches, tags, contributors] = await Promise.all([
     fetchCount(`${base}/branches?per_page=1`),
-    fetchCount(`${base}/releases?per_page=1`),
+    fetchCount(`${base}/tags?per_page=1`),
     fetchCount(`${base}/contributors?per_page=1&anon=1`),
   ]);
   setNumber(root, "branches", branches, "branch", "branches");
-  setNumber(root, "releases", releases, "release", "releases");
+  setNumber(root, "tags", tags, "tag", "tags");
   setNumber(root, "contributors", contributors, "contributor", "contributors");
 }
 
@@ -312,7 +307,7 @@ function renderLanguageBar(langs: Array<{ name: string; bytes: number; percent: 
   const otherSeg = restPercent > 0.1 ? `<span class="oldgh-repo-home__lang-seg oldgh-repo-home__lang-seg--other" style="width:${restPercent.toFixed(2)}%" title="Other ${restPercent.toFixed(1)}%"></span>` : "";
   const labels = top.map((l) => `<span class="oldgh-repo-home__lang-label"><span class="oldgh-repo-home__lang-dot" style="background:${languageColor(l.name)}"></span>${escapeText(l.display)} <strong>${l.percent.toFixed(1)}%</strong></span>`).join(" ");
   return `
-    <div class="oldgh-repo-home__langs">
+    <div class="oldgh-repo-home__langs" tabindex="0" aria-label="Repository languages" title="Show language breakdown">
       <div class="oldgh-repo-home__lang-bar">${segs}${otherSeg}</div>
       <div class="oldgh-repo-home__lang-labels">${labels}${restPercent > 0.1 ? ` <span class="oldgh-repo-home__lang-label"><span class="oldgh-repo-home__lang-dot oldgh-repo-home__lang-dot--other"></span>Other <strong>${restPercent.toFixed(1)}%</strong></span>` : ""}</div>
     </div>
@@ -327,9 +322,9 @@ function renderShell(o: RepoOverview): string {
   return `
     <div class="oldgh-page">
       ${renderNumbersBar(o)}
+      <div class="oldgh-repo-home__langs-slot"></div>
       <div class="oldgh-repo-home__release-slot"></div>
       ${renderTopBar(o)}
-      <div class="oldgh-repo-home__langs-slot"></div>
       <div class="oldgh-repo-home__latest-slot"></div>
       ${renderTreeTable({ owner: o.owner, repo: o.repo, branch: o.branch, basePath: "" }, o.tree)}
       ${renderReadme(o)}
@@ -341,7 +336,7 @@ function renderNumbersBar(o: RepoOverview): string {
   const commits = o.commitCount
     ? `<li class="oldgh-repo-numbers__item"><a href="/${o.owner}/${o.repo}/commits/${escapeAttr(o.branch)}">${octicon("history", { size: 16 })}<span class="oldgh-repo-numbers__num">${escapeText(o.commitCount)}</span> <span class="oldgh-repo-numbers__label">${o.commitCount === "1" ? "commit" : "commits"}</span></a></li>`
     : "";
-  // branches / releases / contributors counts fill in via hydrateRepoNumbers;
+  // branches, tags, and contributors fill in via hydrateRepoNumbers
   // they start with a thin placeholder and each drops out if its fetch fails.
   const pending = (key: string, icon: string, href: string, label: string): string =>
     `<li class="oldgh-repo-numbers__item" data-numbers="${key}"><a href="${escapeAttr(href)}">${octicon(icon, { size: 16 })}<span class="oldgh-repo-numbers__num">&middot;&middot;</span> <span class="oldgh-repo-numbers__label">${label}</span></a></li>`;
@@ -349,7 +344,7 @@ function renderNumbersBar(o: RepoOverview): string {
     <ul class="oldgh-repo-numbers">
       ${commits}
       ${pending("branches", "git-branch", `/${o.owner}/${o.repo}/branches`, "branches")}
-      ${pending("releases", "tag", `/${o.owner}/${o.repo}/releases`, "releases")}
+      ${pending("tags", "tag", `/${o.owner}/${o.repo}/tags`, "tags")}
       ${pending("contributors", "organization", `/${o.owner}/${o.repo}/graphs/contributors`, "contributors")}
     </ul>
   `;
@@ -387,7 +382,6 @@ function renderCloneBox(o: RepoOverview): string {
   const tabs: { key: string; label: string; url: string | null }[] = [
     { key: "https", label: "HTTPS", url: o.clone.https },
     { key: "ssh", label: "SSH", url: o.clone.ssh },
-    { key: "cli", label: "GitHub CLI", url: o.clone.ghCli },
   ];
   const enabled = tabs.filter((t): t is { key: string; label: string; url: string } => !!t.url);
   if (enabled.length === 0 && !o.clone.zip) return "";

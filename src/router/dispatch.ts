@@ -1,6 +1,6 @@
 import { AdapterFailure } from "@/adapters";
 import { mountRepoHeader, unmountRepoHeader, updateActiveTab, prefetchRepoSummary } from "@/views/repo-header";
-import { updateTopNavActive, syncSearchInput } from "@/views/header";
+import { updateTopNavActive, syncHeaderRepositoryContext, syncSearchInput } from "@/views/header";
 import type { RepoListKind } from "@/views/repo-lists";
 import type { TopLevelKind } from "@/views/top-level";
 import { removeAllBodyRoots } from "@/views/_body";
@@ -141,6 +141,15 @@ export async function dispatchRoute(loc: Location | URL): Promise<void> {
     showProgress();
   }
   updateTopNavActive(pathname);
+  if ("owner" in route && "repo" in route) {
+    syncHeaderRepositoryContext(route.owner, route.repo);
+  } else if (route.kind === "top-level" && route.subkind === "search") {
+    const query = new URLSearchParams(search).get("q") ?? "";
+    const repository = /(?:^|\s)repo:([^/\s]+)\/([^\s]+)/i.exec(query);
+    syncHeaderRepositoryContext(repository?.[1] ?? null, repository?.[2] ?? null);
+  } else {
+    syncHeaderRepositoryContext(null, null);
+  }
   syncSearchInput(pathname, search);
   const newTitle = titleForRoute(route, pathname);
   if (newTitle) document.title = newTitle;

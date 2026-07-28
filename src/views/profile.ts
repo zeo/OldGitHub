@@ -65,45 +65,6 @@ export async function mountProfile(login: string, tab: string, query: string): P
   setTimeout(() => decorateContributionCells(root), 500);
   renderContributionStreaks(root);
   bindContributionTooltips(root);
-  trimContributionGraph(root);
-}
-
-// drop the leftmost (oldest) WEEKS_TO_DROP week columns from the contribution
-// graph so the remaining ~44 weeks fit the main column at authentic 11x11 px
-// cells without clipping the newest column on the right. fixed count instead
-// of measuring container.clientWidth — measurement was unreliable at mount
-// time and the trim count needs a safety floor anyway.
-const WEEKS_TO_DROP = 9;
-
-function trimContributionGraph(root: HTMLElement): void {
-  const table = root.querySelector<HTMLTableElement>(".oldgh-profile__contribs-graph table");
-  if (!table) return;
-
-  for (const row of Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr"))) {
-    const cells = Array.from(row.querySelectorAll<HTMLElement>("td.ContributionCalendar-day, td.day"));
-    for (let i = 0; i < WEEKS_TO_DROP && i < cells.length; i++) cells[i]!.remove();
-  }
-  // thead month labels use colspan — walk them left-to-right, drop or shrink
-  // until the cumulative removed columns match WEEKS_TO_DROP. first head cell
-  // is the spacer above the weekday labels — keep it.
-  const headRow = table.querySelector<HTMLTableRowElement>("thead tr");
-  if (headRow) {
-    let remaining = WEEKS_TO_DROP;
-    const labelCells = Array.from(headRow.querySelectorAll<HTMLElement>("th, td"));
-    let i = 1;
-    while (i < labelCells.length && remaining > 0) {
-      const cell = labelCells[i]!;
-      const csAttr = parseInt(cell.getAttribute("colspan") || "1", 10);
-      if (csAttr <= remaining) {
-        cell.remove();
-        remaining -= csAttr;
-      } else {
-        cell.setAttribute("colspan", String(csAttr - remaining));
-        remaining = 0;
-      }
-      i++;
-    }
-  }
 }
 
 function bindContributionTooltips(root: HTMLElement): void {

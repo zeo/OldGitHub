@@ -3,13 +3,12 @@ import {
   searchRepositories,
   searchIssues,
   searchUsers,
-  searchCode,
+  searchCodePage,
   searchCommits,
   searchTopics,
   type RepoResult,
   type IssueResult,
   type UserResult,
-  type CodeResult,
   type CommitResult,
   type TopicResult,
   type SearchSummary,
@@ -66,8 +65,8 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
       const { summary, items } = await searchUsers(query, sort, order as SearchOrder);
       resultsEl.innerHTML = renderUserResults(summary, items, sortCtx);
     } else if (type === "code") {
-      const { summary, items } = await searchCode(query, sort, order as SearchOrder);
-      resultsEl.innerHTML = renderCodeResults(summary, items, sortCtx);
+      const { summary, html } = await searchCodePage(query, sort, order as SearchOrder);
+      resultsEl.innerHTML = `${renderResultBar(summary, sortCtx)}<div class="oldgh-search__web-results">${html}</div>`;
     } else if (type === "commits") {
       const { summary, items } = await searchCommits(query, sort, order as SearchOrder);
       resultsEl.innerHTML = renderCommitResults(summary, items, sortCtx);
@@ -78,16 +77,6 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
     bindSortControl(resultsEl);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (type === "code" && /401/.test(msg)) {
-      resultsEl.innerHTML = `
-        <div class="oldgh-search__empty">
-          ${octicon("lock", { size: 36 })}
-          <p>GitHub's code search REST endpoint requires an authenticated token.</p>
-          <p><a href="https://github.com/search?q=${encodeURIComponent(query)}&type=code">Open code search on modern GitHub</a></p>
-        </div>
-      `;
-      return;
-    }
     if (/rate-?limit/i.test(msg)) {
       const fallbackType = type === "pullrequests" ? "pullrequests" : type;
       resultsEl.innerHTML = `
@@ -254,24 +243,6 @@ function renderUserResults(summary: SearchSummary, items: UserResult[], ctx: Sor
             <a class="oldgh-search__user-name" href="/${escapeAttr(u.login)}"><strong>${escapeText(u.login)}</strong></a>
             <span class="oldgh-search__user-type">${escapeText(u.type)}</span>
           </div>
-        </li>
-      `).join("")}
-    </ul>
-  `;
-}
-
-function renderCodeResults(summary: SearchSummary, items: CodeResult[], ctx: SortContext): string {
-  if (items.length === 0) return renderEmpty(summary);
-  return `
-    ${renderResultBar(summary, ctx)}
-    <ul class="oldgh-search__list">
-      ${items.map((c) => `
-        <li class="oldgh-search__row oldgh-search__row--code">
-          <h2 class="oldgh-search__name">
-            <a href="/${escapeAttr(c.repoFullName)}">${escapeText(c.repoFullName)}</a>
-            — <a href="${c.htmlUrl.replace("https://github.com", "")}"><code>${escapeText(c.path)}</code></a>
-          </h2>
-          ${c.textMatches.slice(0, 2).map((m) => `<pre class="oldgh-search__code-snippet">${escapeText(m.fragment)}</pre>`).join("")}
         </li>
       `).join("")}
     </ul>

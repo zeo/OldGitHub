@@ -47,6 +47,8 @@ test("keeps interactive and embedded pages native", () => {
     "/new",
     "/login",
     "/codespaces",
+    "/mobile",
+    "/education",
     "/open-source/sponsors",
     "/octocat/Hello-World/issues/new",
     "/octocat/Hello-World/compare/main",

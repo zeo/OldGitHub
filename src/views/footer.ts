@@ -1,9 +1,6 @@
 import { octicon } from "@/icons";
 
-// 2013 GitHub footer: full-width strip below the page, centered 980px
-// inner, simple link list with the Octocat mark on the left. Mounted
-// once at boot and stays put across navigations. CSS hides it on
-// out-of-scope routes so the native page renders cleanly.
+// late-2012 directory footer carried into the 2013 layout
 export function mountFooter(): void {
   if (document.querySelector(".oldgh-footer")) return;
   const footer = document.createElement("footer");
@@ -14,33 +11,75 @@ export function mountFooter(): void {
 }
 
 function renderFooterHtml(): string {
-  const year = new Date().getUTCFullYear();
   const mark = octicon("mark-github", { size: 24, ariaLabel: "GitHub" });
-  // 2013 had a short, opinionated link strip. Modern GitHub footers are
-  // bloated; we lean toward the 2013 voice — Status, API, the docs/help
-  // page, the things you'd reach for in the moment.
-  const links: Array<{ label: string; href: string }> = [
-    { label: "Status", href: "https://www.githubstatus.com" },
-    { label: "Docs", href: "https://docs.github.com" },
-    { label: "Pricing", href: "https://github.com/pricing" },
-    { label: "API", href: "https://docs.github.com/rest" },
-    { label: "Training", href: "https://github.com/skills" },
-    { label: "Blog", href: "https://github.blog" },
-    { label: "About", href: "https://github.com/about" },
-    { label: "Terms", href: "https://docs.github.com/site-policy/github-terms/github-terms-of-service" },
-    { label: "Privacy", href: "https://docs.github.com/site-policy/privacy-policies/github-privacy-statement" },
-    { label: "Contact", href: "https://support.github.com/contact" },
+  const columns: Array<{ heading: string; links: Array<{ label: string; href: string }> }> = [
+    {
+      heading: "GitHub",
+      links: [
+        { label: "About us", href: "https://github.com/about" },
+        { label: "Blog", href: "https://github.blog" },
+        { label: "Contact & support", href: "https://support.github.com/contact" },
+        { label: "GitHub Enterprise", href: "https://github.com/enterprise" },
+        { label: "Site status", href: "https://www.githubstatus.com" },
+      ],
+    },
+    {
+      heading: "Applications",
+      links: [
+        { label: "GitHub for Mac", href: "https://desktop.github.com" },
+        { label: "GitHub for Windows", href: "https://desktop.github.com" },
+        { label: "GitHub for Eclipse", href: "https://github.com/eclipse/egit-github" },
+        { label: "GitHub mobile apps", href: "https://github.com/mobile" },
+      ],
+    },
+    {
+      heading: "Services",
+      links: [
+        { label: "Gauges: Web analytics", href: "https://get.gaug.es" },
+        { label: "Speaker Deck: Presentations", href: "https://speakerdeck.com" },
+        { label: "Gist: Code snippets", href: "https://gist.github.com" },
+        { label: "Job board", href: "https://www.github.careers" },
+      ],
+    },
+    {
+      heading: "Documentation",
+      links: [
+        { label: "GitHub Help", href: "https://docs.github.com" },
+        { label: "Developer API", href: "https://docs.github.com/rest" },
+        { label: "GitHub Flavored Markdown", href: "https://github.github.com/gfm" },
+        { label: "GitHub Pages", href: "https://pages.github.com" },
+      ],
+    },
+    {
+      heading: "More",
+      links: [
+        { label: "Training", href: "https://github.com/skills" },
+        { label: "Students & teachers", href: "https://github.com/education" },
+        { label: "The Shop", href: "https://shop.github.com" },
+        { label: "The Octodex", href: "https://octodex.github.com" },
+      ],
+    },
   ];
-  const linksHtml = links
-    .map((l) => `<li><a href="${l.href}" rel="noopener">${l.label}</a></li>`)
-    .join("");
+  const columnsHtml = columns.map((column) => `
+    <section class="oldgh-footer__column">
+      <h2>${column.heading}</h2>
+      <ul>
+        ${column.links.map((link) => `<li><a href="${link.href}" rel="noopener">${link.label}</a></li>`).join("")}
+      </ul>
+    </section>
+  `).join("");
   return `
     <div class="oldgh-footer__inner">
-      <a class="oldgh-footer__mark" href="/" aria-label="GitHub">${mark}</a>
-      <ul class="oldgh-footer__links">
-        <li class="oldgh-footer__year">&copy; ${year} GitHub, Inc.</li>
-        ${linksHtml}
-      </ul>
+      <div class="oldgh-footer__directory">${columnsHtml}</div>
+      <div class="oldgh-footer__legal">
+        <ul>
+          <li><a href="https://docs.github.com/site-policy/github-terms/github-terms-of-service" rel="noopener">Terms of Service</a></li>
+          <li><a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement" rel="noopener">Privacy</a></li>
+          <li><a href="https://github.com/security" rel="noopener">Security</a></li>
+        </ul>
+        <a class="oldgh-footer__mark" href="/" aria-label="GitHub">${mark}</a>
+        <p>&copy; 2013 GitHub Inc. All rights reserved.</p>
+      </div>
     </div>
   `;
 }

@@ -48,6 +48,8 @@ const OUT_OF_SCOPE_PREFIXES = [
   // theming the chrome around them is worse than dormant — let native render.
   "/codespaces",
   "/copilot",
+  "/mobile",
+  "/education",
 ];
 
 const OUT_OF_SCOPE_REPO_SUFFIXES: string[] = [];

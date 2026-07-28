@@ -1,4 +1,5 @@
 import { AdapterFailure } from "./index";
+import { parseRepoPage } from "./_page";
 import { fetchApi } from "./rate-limit";
 
 export type SearchType =
@@ -66,15 +67,6 @@ export type UserResult = {
   score: number;
 };
 
-export type CodeResult = {
-  name: string;
-  path: string;
-  htmlUrl: string;
-  repoFullName: string;
-  ownerAvatar: string;
-  textMatches: Array<{ fragment: string; objectType: string | null }>;
-};
-
 export type CommitResult = {
   sha: string;
   abbrevSha: string;
@@ -122,10 +114,61 @@ export async function searchUsers(query: string, sort: string, order: SearchOrde
   return summaryAnd<UserResult>(query, "users", data, items);
 }
 
-export async function searchCode(query: string, sort: string, order: SearchOrder): Promise<{ summary: SearchSummary; items: CodeResult[] }> {
-  const data = await rawSearch("code", query, sort, order, "application/vnd.github.text-match+json");
-  const items = readArray(data["items"]).map(parseCodeResult).filter((r): r is CodeResult => r !== null);
-  return summaryAnd<CodeResult>(query, "code", data, items);
+export async function searchCodePage(query: string, sort: string, order: SearchOrder): Promise<{ summary: SearchSummary; html: string }> {
+  const params = new URLSearchParams({ q: query.trim(), type: "code" });
+  if (sort && sort !== "best-match") params.set("s", sort);
+  if (order) params.set("o", order);
+  const resp = await fetch(`https://github.com/search?${params.toString()}`, {
+    credentials: "include",
+    headers: { Accept: "text/html" },
+  });
+  if (!resp.ok) {
+    throw new AdapterFailure("search", `/search?type=code responded ${resp.status}`);
+  }
+
+  const doc = parseRepoPage(await resp.text());
+  const app = doc.querySelector<HTMLElement>('react-app[app-name="blackbird-search"]');
+  if (!app) {
+    throw new AdapterFailure("search", "code search app was missing");
+  }
+
+  let totalCount = 0;
+  const embedded = app.querySelector<HTMLScriptElement>('script[data-target="react-app.embeddedData"]')?.textContent;
+  if (embedded) {
+    try {
+      const data = JSON.parse(embedded) as { payload?: { logged_in?: boolean; result_count?: number } };
+      if (data.payload?.logged_in === false) {
+        throw new AdapterFailure("search", "code search did not receive the signed-in GitHub session");
+      }
+      if (typeof data.payload?.result_count === "number") totalCount = data.payload.result_count;
+    } catch (err) {
+      if (err instanceof AdapterFailure) throw err;
+    }
+  }
+
+  const results = app.querySelector<HTMLElement>('[data-hpc="true"], [class*="dataResults"]');
+  if (!results) {
+    throw new AdapterFailure("search", "code search results were missing");
+  }
+  const clone = results.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("script, style, iframe, object, embed").forEach((node) => node.remove());
+  clone.querySelectorAll<HTMLElement>("*").forEach((node) => {
+    for (const attr of Array.from(node.attributes)) {
+      if (/^on/i.test(attr.name) || attr.name === "srcdoc") node.removeAttribute(attr.name);
+    }
+    const href = node.getAttribute("href");
+    if (href && /^\s*javascript:/i.test(href)) node.removeAttribute("href");
+  });
+
+  return {
+    summary: {
+      query,
+      type: "code",
+      totalCount,
+      incompleteResults: false,
+    },
+    html: clone.innerHTML,
+  };
 }
 
 export async function searchCommits(query: string, sort: string, order: SearchOrder): Promise<{ summary: SearchSummary; items: CommitResult[] }> {
@@ -141,7 +184,7 @@ export async function searchTopics(query: string): Promise<{ summary: SearchSumm
 }
 
 async function rawSearch(
-  segment: "repositories" | "issues" | "users" | "code" | "commits" | "topics",
+  segment: "repositories" | "issues" | "users" | "commits" | "topics",
   query: string,
   sort: string,
   order: SearchOrder,
@@ -254,32 +297,6 @@ function parseUserResult(raw: unknown): UserResult | null {
     avatarUrl: readString(r, "avatar_url") ?? `https://github.com/${login}.png?size=96`,
     htmlUrl: readString(r, "html_url") ?? `https://github.com/${login}`,
     score: readNumber(r, "score") ?? 0,
-  };
-}
-
-function parseCodeResult(raw: unknown): CodeResult | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const name = readString(r, "name");
-  if (!name) return null;
-  const repo = readObj(r["repository"]);
-  const owner = repo ? readObj(repo["owner"]) : null;
-  const matches = readArray(r["text_matches"])
-    .map((m) => {
-      if (!m || typeof m !== "object") return null;
-      const o = m as Record<string, unknown>;
-      const fragment = readString(o, "fragment");
-      if (!fragment) return null;
-      return { fragment, objectType: readString(o, "object_type") };
-    })
-    .filter((x): x is { fragment: string; objectType: string | null } => x !== null);
-  return {
-    name,
-    path: readString(r, "path") ?? "",
-    htmlUrl: readString(r, "html_url") ?? "",
-    repoFullName: (repo && readString(repo, "full_name")) ?? "",
-    ownerAvatar: (owner && readString(owner, "avatar_url")) ?? "",
-    textMatches: matches,
   };
 }
 
