@@ -77,7 +77,8 @@ export async function mountStars(pathname: string, search: string): Promise<void
     // from this path so users see what they actually starred.
     if (items.length === 0) {
       const scraped = await scrapeStarredPage(login);
-      if (scraped) items = scraped;
+      if (scraped?.length) items = scraped;
+      else if (!resp.ok) throw new Error(`GitHub responded ${resp.status}`);
     }
     const loading = root.querySelector(".oldgh-stars__loading");
     if (loading) loading.remove();

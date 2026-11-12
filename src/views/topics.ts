@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { formatCount } from "@/util/format";
 import { fetchApi } from "@/adapters/rate-limit";
+import { AdapterFailure } from "@/adapters";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
 
@@ -42,7 +43,7 @@ async function fetchFeaturedTopics(): Promise<Topic[]> {
     "https://api.github.com/search/topics?q=is:featured&per_page=30",
     { credentials: "omit", headers: { Accept: "application/vnd.github.mercy-preview+json" } },
   );
-  if (!resp.ok) return [];
+  if (!resp.ok) throw new AdapterFailure("getTopics", `featured topics responded ${resp.status}`);
   const data = (await resp.json()) as Record<string, unknown>;
   return parseTopics(data, true);
 }
@@ -52,7 +53,7 @@ async function fetchPopularTopics(): Promise<Topic[]> {
     "https://api.github.com/search/topics?q=is:curated&per_page=30",
     { credentials: "omit", headers: { Accept: "application/vnd.github.mercy-preview+json" } },
   );
-  if (!resp.ok) return [];
+  if (!resp.ok) throw new AdapterFailure("getTopics", `curated topics responded ${resp.status}`);
   const data = (await resp.json()) as Record<string, unknown>;
   return parseTopics(data, false);
 }

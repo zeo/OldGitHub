@@ -196,6 +196,9 @@ async function scrapeIssueList(
   const closedTab = doc.querySelector<HTMLElement>("a[href*='is%3Aclosed'], a[href*='is:closed']");
   const openCount = openTab ? parseNumber(openTab.textContent || "") : null;
   const closedCount = closedTab ? parseNumber(closedTab.textContent || "") : null;
+  if (rows.length === 0 && !openTab && !closedTab) {
+    throw new AdapterFailure("getIssueList", `${url} markup not recognized`);
+  }
   const total = state === "closed"
     ? (closedCount ?? rows.length)
     : state === "open"

@@ -286,6 +286,7 @@ function insertBodyNotFound(message: string, inRepo: boolean): void {
       <h2>${inRepo ? "This section isn't available." : "This page isn't available."}</h2>
       <p>${inRepo ? "The page you requested couldn't be found in this repository. It may be disabled, moved, or never existed." : "GitHub returned 404 for this page. It may be private, moved, or never existed."}</p>
       <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
+      <p>If it's a private repository, <a href="javascript:void(0)" data-oldgh-open-options>add a token in OldGitHub options</a> so it can be read.</p>
       <p><a href="javascript:void(0)" data-oldgh-show-native>Show GitHub's native page instead</a>.</p>
     </div>
   `;

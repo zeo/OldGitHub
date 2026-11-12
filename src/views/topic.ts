@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
+import { AdapterFailure } from "@/adapters";
 import { relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
@@ -55,13 +56,17 @@ export async function mountTopic(pathname: string, search: string): Promise<void
 
   const [meta, repoResult] = await Promise.all([
     fetchTopicMeta(slug).catch(() => null),
-    fetchTopicRepos(slug, sort, order).catch(() => ({ repos: [] as TopicRepo[], totalCount: 0 })),
+    fetchTopicRepos(slug, sort, order).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))),
   ]);
 
   const heroSlot = root.querySelector<HTMLElement>(".oldgh-topic__hero");
   if (heroSlot) heroSlot.innerHTML = renderHero(slug, meta);
   const reposSlot = root.querySelector<HTMLElement>(".oldgh-topic__repos");
-  if (reposSlot) reposSlot.innerHTML = renderRepos(repoResult.repos, repoResult.totalCount);
+  if (reposSlot) {
+    reposSlot.innerHTML = repoResult instanceof Error
+      ? `<p class="oldgh-topic__empty">Couldn't load repositories: ${escapeText(repoResult.message)}</p>`
+      : renderRepos(repoResult.repos, repoResult.totalCount);
+  }
   bindSort(root);
 }
 
@@ -103,7 +108,7 @@ async function fetchTopicRepos(slug: string, sort: string, order: string): Promi
     credentials: "omit",
     headers: { Accept: "application/vnd.github.mercy-preview+json" },
   });
-  if (!resp.ok) return { repos: [], totalCount: 0 };
+  if (!resp.ok) throw new AdapterFailure("getTopicRepos", `topic search responded ${resp.status}`);
   const data = (await resp.json()) as Record<string, unknown>;
   const items = Array.isArray(data["items"]) ? (data["items"] as unknown[]) : [];
   const repos = items.map(parseRepo).filter((r): r is TopicRepo => r !== null);

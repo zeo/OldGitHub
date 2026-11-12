@@ -90,7 +90,8 @@ export async function getRepoPulse(owner: string, repo: string): Promise<PulseVi
 async function apiFetch(path: string): Promise<unknown[] | null> {
   const resp = await fetchApi(`${API}${path}`, { credentials: "omit", headers: { Accept: "application/vnd.github+json" } });
   if (!resp.ok) {
-    if (resp.status === 404 || resp.status === 403) return [];
+    // 409 is an empty repository, 410 a repository with issues turned off
+    if (resp.status === 409 || resp.status === 410) return [];
     throw new AdapterFailure("getRepoPulse", `${path} responded ${resp.status}`);
   }
   const data = (await resp.json()) as unknown;

@@ -41,6 +41,9 @@ export async function getNotifications(search: string): Promise<NotificationsVie
   if (!resp.ok) {
     throw new AdapterFailure("getNotifications", `${sourceUrl} responded ${resp.status}`);
   }
+  if (new URL(resp.url).pathname === "/login") {
+    throw new AdapterFailure("getNotifications", "GitHub asked to sign in again");
+  }
   const html = await resp.text();
   const doc = new DOMParser().parseFromString(html, "text/html");
 
@@ -48,6 +51,9 @@ export async function getNotifications(search: string): Promise<NotificationsVie
     .map(parseNotificationItem)
     .filter((x): x is NotificationItem => x !== null);
   const filters = parseFilters(doc);
+  if (rawItems.length === 0 && filters.length === 0) {
+    throw new AdapterFailure("getNotifications", "notifications page markup not recognized");
+  }
   const groups = groupByRepo(rawItems);
   const totalUnread = rawItems.filter((i) => i.unread).length;
   return {

@@ -44,7 +44,9 @@ export async function getDashboard(): Promise<DashboardView> {
     fetchFragment("/dashboard/changelog"),
   ]);
 
-  const feedHtml = feedRes.status === "fulfilled" ? feedRes.value : "";
+  // the feed is the page; sidebars may fail quietly but an empty feed would read as no activity
+  if (feedRes.status === "rejected") throw feedRes.reason;
+  const feedHtml = feedRes.value;
   const topReposHtml = topRes.status === "fulfilled" ? topRes.value : "";
   const changelogHtml = changeRes.status === "fulfilled" ? changeRes.value : "";
 
