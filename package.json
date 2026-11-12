@@ -18,8 +18,8 @@
     "dev:build": "vite build --watch --mode development",
     "dev:reload": "node scripts/dev-reload.mjs",
     "build": "vite build",
-    "pack": "npm run build && node scripts/pack.mjs",
-    "test": "node scripts/test-routes.mjs && node scripts/test-rate-limit.mjs && node scripts/test-proxy-policy.mjs && node scripts/test-session.mjs",
+    "pack": "npm run typecheck && npm test && npm run build && node scripts/pack.mjs",
+    "test": "node scripts/test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,8 +27,8 @@
     "octicons": "8.5.0"
   },
   "devDependencies": {
-    "@resvg/resvg-js": "^2.6.2",
     "@types/chrome": "^0.0.270",
+    "@types/node": "^22.20.5",
     "sharp": "^0.34.5",
     "typescript": "5.4.5",
     "vite": "8.1.4"

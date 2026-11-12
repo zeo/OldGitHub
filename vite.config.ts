@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import { resolve } from "node:path";
 import { buildManifest } from "./src/manifest.config";
@@ -40,7 +41,7 @@ function extensionManifest(mode: "development" | "production"): Plugin {
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src"),
+      "@": resolve(import.meta.dirname, "src"),
     },
   },
   plugins: [extensionManifest(mode === "development" ? "development" : "production")],

@@ -28,7 +28,7 @@ Pages that are React-only forms (`/new`, `/import`, `/login`, `/signup`, create-
 ## Develop
 
 ```sh
-npm run dev          # vite watch into dist/
+npm run dev          # vite watch into dist/ plus the reload server on localhost:7878
 npm run typecheck    # tsc --noEmit
 npm run pack         # zip dist/ for store upload
 ```
