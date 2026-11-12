@@ -1,4 +1,5 @@
 import { AdapterFailure } from "./index";
+import { takeFirstLoad } from "./_page";
 import { readFollowForms, type FollowForms } from "./social";
 
 export type ProfileKind = "user" | "org";
@@ -70,14 +71,7 @@ export async function getProfile(login: string, query: string = ""): Promise<Pro
   }
   const qs = passthrough.toString();
   const url = `https://github.com/${login}${qs ? `?${qs}` : ""}`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: { Accept: "text/html" },
-  });
-  if (!resp.ok) {
-    throw new AdapterFailure("getProfile", `/${login} responded ${resp.status}`);
-  }
-  const html = await resp.text();
+  const html = takeFirstLoad(url) ?? await fetchProfilePage(login, url);
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   const profileUsername = meta(doc, "profile:username");
@@ -181,6 +175,17 @@ function extractContributionYears(doc: Document, login: string, activeFrom: stri
   }));
 }
 
+
+async function fetchProfilePage(login: string, url: string): Promise<string> {
+  const resp = await fetch(url, {
+    credentials: "include",
+    headers: { Accept: "text/html" },
+  });
+  if (!resp.ok) {
+    throw new AdapterFailure("getProfile", `/${login} responded ${resp.status}`);
+  }
+  return resp.text();
+}
 
 async function fetchContributionFragment(login: string, from?: string | null, to?: string | null): Promise<{ tableHtml: string; heading: string | null } | null> {
   try {

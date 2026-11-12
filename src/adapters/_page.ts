@@ -3,6 +3,26 @@ import { AdapterFailure } from "./index";
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 50;
 const cache = new Map<string, { html: Promise<string>; expires: number }>();
+let firstLoad: { url: string; html: string; expires: number } | null = null;
+
+function normalizedUrl(url: string): string {
+  const u = new URL(url, "https://github.com");
+  u.hash = "";
+  u.searchParams.sort();
+  return u.href.toLowerCase();
+}
+
+// the hard-loaded document already is the html the first adapter would fetch for this url
+export function keepFirstLoad(): void {
+  firstLoad = { url: normalizedUrl(location.href), html: document.documentElement.outerHTML, expires: Date.now() + TTL_MS };
+}
+
+export function takeFirstLoad(url: string): string | null {
+  if (!firstLoad || firstLoad.expires <= Date.now() || firstLoad.url !== normalizedUrl(url)) return null;
+  const { html } = firstLoad;
+  firstLoad = null;
+  return html;
+}
 
 // concurrent callers share one request; a failed request is not kept
 export function fetchRepoPage(owner: string, repo: string): Promise<string> {
@@ -24,7 +44,10 @@ export function forgetRepoPage(owner: string, repo: string): void {
 }
 
 async function loadRepoPage(owner: string, repo: string): Promise<string> {
-  const resp = await fetch(`https://github.com/${owner}/${repo}`, {
+  const url = `https://github.com/${owner}/${repo}`;
+  const kept = takeFirstLoad(url);
+  if (kept) return kept;
+  const resp = await fetch(url, {
     credentials: "include",
     headers: { Accept: "text/html" },
   });

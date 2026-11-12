@@ -1,4 +1,6 @@
 import { killTurbo, mountRouter } from "@/router";
+import { resolveRoute } from "@/router/resolve";
+import { keepFirstLoad } from "@/adapters/_page";
 import { bindShortcuts } from "@/router/shortcuts";
 import { isLoggedIn } from "@/auth/session";
 import { applyTheme, watchThemeChanges } from "@/theme";
@@ -128,6 +130,8 @@ async function run(): Promise<void> {
     document.documentElement.setAttribute("data-oldgh-mounted", "gist-passthrough");
     return;
   }
+  const firstKind = resolveRoute(location.pathname, location.search.slice(1)).kind;
+  if (firstKind === "repo-home" || firstKind === "profile") keepFirstLoad();
   killTurbo();
   bindNativeLinks();
   await applyTheme();
