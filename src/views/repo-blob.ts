@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { getRepoBlob, type RepoBlobView } from "@/adapters/repo-overview";
 import { highlightFile } from "@/highlight";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-blob";
 
@@ -28,10 +29,6 @@ async function hydrateHighlight(root: HTMLElement, view: RepoBlobView): Promise<
   }
   root.classList.add(`oldgh-hljs-${result.language}`);
   root.classList.add("oldgh-hljs");
-}
-
-export function unmountRepoBlob(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: RepoBlobView): string {
@@ -160,12 +157,4 @@ function formatBytes(n: number): string {
 
 function pathSegments(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

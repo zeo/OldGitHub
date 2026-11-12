@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-collections";
 
@@ -61,10 +62,6 @@ export async function mountCollections(pathname: string): Promise<void> {
     const main = root.querySelector<HTMLElement>(".oldgh-collections__detail-slot");
     if (main) main.innerHTML = `<div class="oldgh-collections__empty">Couldn't load collection: ${escapeText(err instanceof Error ? err.message : String(err))}</div>`;
   }
-}
-
-export function unmountCollections(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchCollectionsIndex(): Promise<CollectionSummary[]> {
@@ -273,12 +270,4 @@ function renderRepoRow(r: CollectionRepo): string {
       ${metaItems.length > 0 ? `<ul class="oldgh-collections__repo-meta">${metaItems.join("")}</ul>` : ""}
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

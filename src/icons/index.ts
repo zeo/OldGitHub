@@ -1,4 +1,5 @@
 import { OCTICON_SVGS } from "./generated";
+import { escapeAttr } from "@/util/html";
 
 export type OcticonName = keyof typeof OCTICON_SVGS;
 
@@ -26,8 +27,4 @@ export function octicon(name: string, opts: OcticonOptions = {}): string {
     attrs.push(`aria-hidden="true"`);
   }
   return raw.replace(/^<svg/, `<svg ${attrs.join(" ")}`);
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

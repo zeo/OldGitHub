@@ -6,7 +6,8 @@ import {
   type NotificationRepoGroup,
 } from "@/adapters/notifications";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-notifications";
 
@@ -18,10 +19,6 @@ export async function mountNotifications(search: string): Promise<void> {
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, search);
   adoptBodyRoot(root, undefined, nav);
-}
-
-export function unmountNotifications(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: NotificationsView, search: string): string {
@@ -140,12 +137,4 @@ function iconForKind(kind: NotificationItem["kind"]): string {
 
 function cssId(s: string): string {
   return "oldgh-notif-" + s.replace(/[^\w-]/g, "-");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

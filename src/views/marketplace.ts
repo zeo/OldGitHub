@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-marketplace";
 
@@ -60,10 +61,6 @@ export async function mountMarketplace(_pathname: string, search: string): Promi
     const mainSlot = root.querySelector<HTMLElement>(".oldgh-marketplace__main");
     if (mainSlot) mainSlot.innerHTML = `<div class="oldgh-marketplace__error">Couldn't load Marketplace: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountMarketplace(): void {
-  removeAllBodyRoots();
 }
 
 function mapType(raw: string | null): "all" | "actions" | "apps" {
@@ -331,12 +328,4 @@ function renderRail(v: MarketView, activeCategory: string): string {
       </p>
     </div>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

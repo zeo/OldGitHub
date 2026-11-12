@@ -1,4 +1,5 @@
 import type { DiffFile, DiffHunk, DiffLine } from "@/util/diff";
+import { escapeText } from "@/util/html";
 
 export function renderDiffFile(f: DiffFile): string {
   const statusBadge = f.status === "added"
@@ -95,8 +96,4 @@ function renderLine(l: DiffLine): string {
 function binaryNoteText(note: string | null): string {
   if (!note) return "Binary file changed";
   return note.replace(/(^|\s)[ab]\//g, "$1");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

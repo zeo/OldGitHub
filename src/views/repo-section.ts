@@ -1,5 +1,6 @@
 import { scrapeSection, type ScrapedSection } from "@/adapters/repo-section";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-section";
 
@@ -35,12 +36,4 @@ export async function mountRepoSection(
   if (h1) h1.textContent = view.title;
   const content = root.querySelector<HTMLElement>(".oldgh-section__content");
   if (content) content.innerHTML = view.contentHtml;
-}
-
-export function unmountRepoSection(): void {
-  removeAllBodyRoots();
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

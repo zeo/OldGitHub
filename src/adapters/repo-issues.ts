@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
+import { escapeText } from "@/util/html";
 
 export type IssueState = "OPEN" | "CLOSED";
 
@@ -411,8 +412,4 @@ function extractSort(q: string): { sort: "created" | "updated" | "comments" | nu
   if (v.startsWith("updated")) return { sort: "updated", direction: v.endsWith("asc") ? "asc" : "desc" };
   if (v.startsWith("comments")) return { sort: "comments", direction: v.endsWith("asc") ? "asc" : "desc" };
   return { sort: null, direction: null };
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

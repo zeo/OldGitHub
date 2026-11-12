@@ -18,7 +18,8 @@ import {
 import { relativeTime, absoluteTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-search";
 
@@ -91,10 +92,6 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
     }
     resultsEl.innerHTML = `<div class="oldgh-search__empty"><p>Couldn't load results: ${escapeText(msg)}</p></div>`;
   }
-}
-
-export function unmountSearch(): void {
-  removeAllBodyRoots();
 }
 
 function mapSearchType(raw: string): SearchType {
@@ -408,12 +405,4 @@ function labelTextColor(hex: string): string {
   const b = n & 0xff;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.6 ? "#333" : "#fff";
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { languageColor as languageColorFor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-explore";
 
@@ -61,10 +62,6 @@ export async function mountExplore(): Promise<void> {
 
   if (repoSlot) repoSlot.innerHTML = renderRepos(repos);
   if (devSlot) devSlot.innerHTML = renderDevs(devs);
-}
-
-export function unmountExplore(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(): string {
@@ -294,11 +291,3 @@ function parseCount(s: string): number | null {
 }
 
 import { formatCount } from "@/util/format";
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-}

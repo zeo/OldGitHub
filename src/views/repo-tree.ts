@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { getRepoTree, type RepoTreeView } from "@/adapters/repo-overview";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-tree";
 
@@ -24,10 +25,6 @@ export async function mountRepoTree(
     branch: view.branch,
     basePath: view.path,
   });
-}
-
-export function unmountRepoTree(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: RepoTreeView): string {
@@ -61,12 +58,4 @@ function renderBreadcrumb(v: RepoTreeView): string {
     }
   }
   return `<div class="oldgh-breadcrumb">${pieces.join("")}</div>`;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

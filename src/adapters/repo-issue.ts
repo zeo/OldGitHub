@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
+import { escapeText } from "@/util/html";
 
 export type IssueState = "OPEN" | "CLOSED";
 export type PullState = "OPEN" | "CLOSED" | "MERGED";
@@ -334,7 +335,7 @@ function restToIssue(
     repo,
     number,
     title,
-    titleHtml: escapeHtml(title),
+    titleHtml: escapeText(title),
     state,
     stateReason: stateReason ?? null,
     bodyHtml,
@@ -506,7 +507,7 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
       const sha = readString(n, "sha");
       if (sha) base.commitOid = sha.slice(0, 7);
       const msg = readString(n, "message");
-      if (msg) base.commitMessageHeadline = escapeHtml(msg.split("\n")[0] ?? "");
+      if (msg) base.commitMessageHeadline = escapeText(msg.split("\n")[0] ?? "");
       const author = readObj(n["author"]);
       if (author && !base.actor) {
         const login = readString(author, "name");
@@ -658,8 +659,4 @@ function readNestedString(raw: unknown, path: string[]): string | null {
     cur = (cur as Record<string, unknown>)[k];
   }
   return typeof cur === "string" ? (cur as string) : null;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

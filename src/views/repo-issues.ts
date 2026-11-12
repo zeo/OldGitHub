@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { getIssueList, type IssueListView, type IssueRow } from "@/adapters/repo-issues";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issues";
 
@@ -19,10 +20,6 @@ export async function mountRepoIssues(
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, kind);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
-}
-
-export function unmountRepoIssues(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: IssueListView, kind: "issues" | "pulls"): string {
@@ -120,7 +117,7 @@ function renderRow(v: IssueListView, r: IssueRow, kind: "issues" | "pulls"): str
       <span class="oldgh-issues__state">${stateIcon}</span>
       <div class="oldgh-issues__body">
         <h3 class="oldgh-issues__title">
-          <a href="${escapeAttr(href)}">${emojify(sanitizeTitleHtml(r.titleHtml))}</a>
+          <a href="${escapeAttr(href)}">${emojify(sanitizeHtml(r.titleHtml))}</a>
           ${labels}
         </h3>
         <p class="oldgh-issues__meta">
@@ -187,14 +184,6 @@ function relativeTimeLink(iso: string, href?: string): string {
   return `<span title="${escapeAttr(abs)}">${escapeText(rel)}</span>`;
 }
 
-function sanitizeTitleHtml(html: string): string {
-  // GH's titleHtml may contain <g-emoji> or <code> tags — those are safe to keep
-  // but strip <script>/<style>/event attributes as a precaution
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-}
-
 function labelTextColor(hex: string): string {
   const m = /^#?([\da-f]{6})$/i.exec(hex);
   if (!m || !m[1]) return "#fff";
@@ -204,12 +193,4 @@ function labelTextColor(hex: string): string {
   const b = n & 0xff;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.6 ? "#333" : "#fff";
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

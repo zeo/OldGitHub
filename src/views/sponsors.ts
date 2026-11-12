@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-sponsors";
 
@@ -30,10 +31,6 @@ export async function mountSponsors(_pathname: string, _search: string): Promise
     const msg = err instanceof Error ? err.message : String(err);
     slot.innerHTML = `<div class="oldgh-sponsors__empty">Couldn't load sponsors directory: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountSponsors(): void {
-  removeAllBodyRoots();
 }
 
 async function scrapeSponsors(): Promise<Sponsorable[]> {
@@ -131,12 +128,4 @@ function renderCard(s: Sponsorable): string {
       </div>
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

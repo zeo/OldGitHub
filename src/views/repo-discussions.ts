@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { absoluteTime, relativeTime } from "@/util/time";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-discussions";
 
@@ -51,10 +52,6 @@ export async function mountRepoDiscussions(owner: string, repo: string, subPath:
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-discussions__empty">Couldn't load discussions: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountRepoDiscussions(): void {
-  removeAllBodyRoots();
 }
 
 async function scrapeDiscussions(owner: string, repo: string, subPath: string, query: string): Promise<DiscussionsView> {
@@ -262,12 +259,4 @@ function renderItem(d: DiscussionItem): string {
         : ""}
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

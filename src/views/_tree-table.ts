@@ -2,6 +2,7 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { getTreeCommitInfo, type CommitInfo, type TreeItem } from "@/adapters/repo-overview";
 import { absoluteTime, relativeTime } from "@/util/time";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 export type TreeTableContext = {
   owner: string;
@@ -95,7 +96,7 @@ export async function hydrateTreeTable(root: HTMLElement, ctx: TreeTableContext)
     const msgCell = row.querySelector<HTMLTableCellElement>("[data-msg]");
     const ageCell = row.querySelector<HTMLTableCellElement>("[data-age]");
     // omitted or empty commit-info rows get the same placeholder as a full hydration failure
-    if (msgCell) msgCell.innerHTML = ci?.shortMessageHtmlLink ? sanitizeBodyHtml(ci.shortMessageHtmlLink) : placeholder;
+    if (msgCell) msgCell.innerHTML = ci?.shortMessageHtmlLink ? sanitizeHtml(ci.shortMessageHtmlLink) : placeholder;
     if (ageCell) {
       if (ci?.date) {
         ageCell.textContent = relativeTime(ci.date);
@@ -107,20 +108,6 @@ export async function hydrateTreeTable(root: HTMLElement, ctx: TreeTableContext)
   });
 }
 
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-}
-
 function pathSegments(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

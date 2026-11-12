@@ -5,7 +5,8 @@ import { getProfile, type PinnedRepo, type ProfileView } from "@/adapters/profil
 import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/adapters/profile-repos";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml, safeHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-profile";
 
@@ -252,7 +253,6 @@ function formatGraphDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
-
 
 async function hydrateActivity(root: HTMLElement, login: string): Promise<void> {
   const slot = root.querySelector<HTMLElement>(".oldgh-profile__activity-slot");
@@ -616,10 +616,6 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-export function unmountProfile(): void {
-  removeAllBodyRoots();
-}
-
 function renderShell(v: ProfileView, tab: string): string {
   return `
     <div class="oldgh-page oldgh-profile__page">
@@ -699,7 +695,7 @@ async function hydrateOrgReadme(root: HTMLElement, login: string): Promise<void>
     slot.innerHTML = `
       <section class="oldgh-profile__readme">
         <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${escapeText(login)}/<strong>.github</strong></h3>
-        <article class="oldgh-profile__readme-body markdown-body">${sanitizeBodyHtml(text)}</article>
+        <article class="oldgh-profile__readme-body markdown-body">${sanitizeHtml(text)}</article>
       </section>
     `;
   } catch {
@@ -724,7 +720,7 @@ async function hydrateProfileReadme(root: HTMLElement, login: string): Promise<v
         slot.innerHTML = `
           <section class="oldgh-profile__readme">
             <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${escapeText(login)}/<strong>${escapeText(login)}</strong></h3>
-            <article class="oldgh-profile__readme-body markdown-body">${sanitizeBodyHtml(text)}</article>
+            <article class="oldgh-profile__readme-body markdown-body">${sanitizeHtml(text)}</article>
           </section>
         `;
         return;
@@ -1242,7 +1238,7 @@ function renderSidebar(v: ProfileView): string {
   const details: string[] = [];
   if (v.bio) details.push(`<p class="oldgh-profile__bio">${escapeText(v.bio)}</p>`);
   if (v.location) details.push(`<p class="oldgh-profile__detail">${octicon("location", { size: 14 })}<span>${escapeText(v.location)}</span></p>`);
-  if (v.homepage) details.push(`<p class="oldgh-profile__detail">${octicon("link", { size: 14 })}<a href="${escapeAttr(v.homepage)}" rel="nofollow noopener">${escapeText(stripUrl(v.homepage))}</a></p>`);
+  if (v.homepage) details.push(`<p class="oldgh-profile__detail">${octicon("link", { size: 14 })}<a href="${escapeAttr(safeHref(v.homepage))}" rel="nofollow noopener">${escapeText(stripUrl(v.homepage))}</a></p>`);
 
   const highlights = renderHighlights(v);
 
@@ -1351,7 +1347,7 @@ function renderContributions(v: ProfileView): string {
       ${v.contributionHeading ? `<h3 class="oldgh-profile__section-title">${escapeText(v.contributionHeading)}</h3>` : `<h3 class="oldgh-profile__section-title">Contributions</h3>`}
       <div class="oldgh-profile__contribs-row">
         <div class="oldgh-profile__contribs-main">
-          <div class="oldgh-profile__contribs-graph">${sanitizeBodyHtml(v.contributionGraphHtml)}</div>
+          <div class="oldgh-profile__contribs-graph">${sanitizeHtml(v.contributionGraphHtml)}</div>
           <div class="oldgh-profile__contribs-legend">
             <span>Less</span>
             <span class="oldgh-profile__contribs-legend-cell" data-level="0"></span>
@@ -1370,18 +1366,4 @@ function renderContributions(v: ProfileView): string {
 
 function stripUrl(url: string): string {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

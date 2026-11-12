@@ -1,6 +1,7 @@
 import { AdapterFailure } from "./index";
 import { parseRepoPage } from "./_page";
 import { fetchApi } from "./rate-limit";
+import { sanitizeTree } from "@/util/html";
 
 export type SearchType =
   | "repositories"
@@ -151,14 +152,7 @@ export async function searchCodePage(query: string, sort: string, order: SearchO
     throw new AdapterFailure("search", "code search results were missing");
   }
   const clone = results.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("script, style, iframe, object, embed").forEach((node) => node.remove());
-  clone.querySelectorAll<HTMLElement>("*").forEach((node) => {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name) || attr.name === "srcdoc") node.removeAttribute(attr.name);
-    }
-    const href = node.getAttribute("href");
-    if (href && /^\s*javascript:/i.test(href)) node.removeAttribute("href");
-  });
+  sanitizeTree(clone);
 
   return {
     summary: {

@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
 import { relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-topic";
 
@@ -62,10 +63,6 @@ export async function mountTopic(pathname: string, search: string): Promise<void
   const reposSlot = root.querySelector<HTMLElement>(".oldgh-topic__repos");
   if (reposSlot) reposSlot.innerHTML = renderRepos(repoResult.repos, repoResult.totalCount);
   bindSort(root);
-}
-
-export function unmountTopic(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchTopicMeta(slug: string): Promise<TopicMeta | null> {
@@ -260,14 +257,6 @@ function absoluteFromIso(iso: string): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 function stripMarkup(s: string): string {
   return s.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

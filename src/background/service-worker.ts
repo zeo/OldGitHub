@@ -1,5 +1,5 @@
 import { isFullyCoveredUrl } from "@/router/resolve";
-import { allowedProxyUrl, readProxyText } from "./proxy-policy";
+import { allowedProxyUrl, allowedRedirectTarget, readProxyText } from "./proxy-policy";
 
 const ResourceType = chrome.declarativeNetRequest.ResourceType;
 const RuleActionType = chrome.declarativeNetRequest.RuleActionType;
@@ -314,6 +314,10 @@ async function proxyFetch(url: string, credentials: "include" | "omit"): Promise
   if (!allowedUrl) return { ok: false, status: 400, error: "raw file URL rejected" };
   try {
     const r = await fetch(allowedUrl, { credentials, redirect: "follow" });
+    if (r.redirected && !allowedRedirectTarget(r.url)) {
+      await r.body?.cancel();
+      return { ok: false, status: 400, error: "raw file redirect rejected" };
+    }
     if (!r.ok) return { ok: false, status: r.status };
     const contentType = r.headers.get("content-type") || "";
     const text = await readProxyText(r);

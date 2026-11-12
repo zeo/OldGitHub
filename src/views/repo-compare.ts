@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { getCompare, type CompareView } from "@/adapters/repo-compare";
 import type { DiffFile } from "@/util/diff";
 import { renderDiffFile, renderDiffSummary } from "./_diff-table";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-compare";
 
@@ -14,10 +15,6 @@ export async function mountRepoCompare(owner: string, repo: string, range: strin
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
-}
-
-export function unmountRepoCompare(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: CompareView): string {
@@ -60,12 +57,4 @@ function renderHeader(v: CompareView): string {
       </div>
     </div>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

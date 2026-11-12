@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-account-settings";
 
@@ -119,10 +120,6 @@ export async function mountAccountSettings(pathname: string): Promise<void> {
   }
 }
 
-export function unmountAccountSettings(): void {
-  removeAllBodyRoots();
-}
-
 async function fetchSettingsPage(pathname: string): Promise<string> {
   const url = `https://github.com${pathname}`;
   const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
@@ -148,19 +145,7 @@ function extractMainContent(doc: Document): Element | null {
 }
 
 function cleanScrapedContent(el: Element): void {
-  const remove = [
-    "header.AppHeader",
-    ".AppHeader-globalBar",
-    "header[role='banner']",
-    "footer",
-    "#repository-container-header",
-    ".pagehead",
-    ".js-pjax-loader-bar",
-    "script",
-    "style",
-    "iframe",
-    "object",
-    "embed",
+  cleanScrapedPage(el, [
     "nav-list",
     ".SideNav",
     ".Layout-sidebar",
@@ -170,10 +155,7 @@ function cleanScrapedContent(el: Element): void {
     // per-option ajax save-status badge (loading spinner + success check + error
     // x). github shows one state via css/js we block, so all three leak at once
     ".status-indicator",
-  ];
-  for (const sel of remove) {
-    el.querySelectorAll(sel).forEach((n) => n.remove());
-  }
+  ]);
   // strip elements GitHub keeps in the DOM but hides via JS — without their
   // bundle running, every conditional warning shows at once. avatar upload
   // errors, .js-* hide-until-error stubs, [hidden] attribute holdouts.
@@ -200,17 +182,6 @@ function cleanScrapedContent(el: Element): void {
       if (n.matches("dialog, [role='tabpanel']") || n.querySelector("form, button[type='submit'], input[type='submit']")) return;
       n.remove();
     });
-  }
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("div, section"))) {
-    const text = (node.textContent || "").trim();
-    if (text.startsWith("Uh oh!") && text.includes("error") && node.children.length < 10) {
-      node.remove();
-    }
-  }
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("*"))) {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-    }
   }
 }
 
@@ -282,12 +253,4 @@ function renderShell(activeKey: string): string {
       </div>
     </div>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

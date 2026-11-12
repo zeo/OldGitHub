@@ -35,10 +35,6 @@ export async function getCurrentTheme(): Promise<Theme> {
   return readStoredTheme();
 }
 
-export function getEffectiveTheme(): "light" | "dark" {
-  return document.documentElement.getAttribute("data-oldgh-theme") === "dark" ? "dark" : "light";
-}
-
 async function readStoredTheme(): Promise<Theme> {
   try {
     const result = (await chrome.storage.sync.get(STORAGE_KEY)) as { theme?: Theme };

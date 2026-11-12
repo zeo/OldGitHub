@@ -1,6 +1,7 @@
 import { scrapeTopLevel, type TopLevelView } from "@/adapters/top-level";
 import { AdapterFailure } from "@/adapters";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-top-level";
 
@@ -34,14 +35,6 @@ export async function mountTopLevel(
     </div>
   `;
   adoptBodyRoot(root, undefined, nav);
-}
-
-export function unmountTopLevel(): void {
-  removeAllBodyRoots();
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function hasMeaningfulContent(html: string): boolean {

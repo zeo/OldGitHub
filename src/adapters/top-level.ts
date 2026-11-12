@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { parseRepoPage } from "./_page";
+import { cleanScrapedPage } from "@/util/html";
 
 export type TopLevelView = {
   title: string;
@@ -90,42 +91,9 @@ function pickScrapedTitle(doc: Document): string | null {
 }
 
 function cleanScraped(el: Element): void {
-  const removeSelectors = [
-    "header.AppHeader",
-    ".AppHeader-globalBar",
-    "header[role='banner']",
-    "footer",
-    "#repository-container-header",
-    ".pagehead",
-    ".UnderlineNav.js-repo-nav",
-    ".js-pjax-loader-bar",
-    ".flash",
-    "[aria-label*='error' i][role='alert']",
-    "[data-component='error-boundary']",
-    ".js-error-boundary",
-    "script",
-    "style",
-    "iframe",
-    "object",
-    "embed",
-  ];
-  for (const sel of removeSelectors) {
-    el.querySelectorAll(sel).forEach((n) => n.remove());
-  }
-  // remove "Uh oh!" hydration error panels that lack a specific class
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("div, section"))) {
-    const text = (node.textContent || "").trim();
-    if (text.startsWith("Uh oh!") && text.includes("error") && node.children.length < 10) {
-      node.remove();
-    }
-  }
+  cleanScrapedPage(el, [".flash", "[aria-label*='error' i][role='alert']", "[data-component='error-boundary']", ".js-error-boundary"]);
   for (const h of Array.from(el.querySelectorAll<HTMLElement>("h1"))) {
     const txt = (h.textContent || "").replace(/\s+/g, " ").trim();
     if (/^Search code, repositories/i.test(txt)) h.remove();
-  }
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("*"))) {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-    }
   }
 }

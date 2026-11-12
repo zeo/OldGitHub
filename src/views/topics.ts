@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { formatCount } from "@/util/format";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-topics-index";
 
@@ -34,10 +35,6 @@ export async function mountTopics(_pathname: string, _search: string): Promise<v
     const msg = err instanceof Error ? err.message : String(err);
     slot.innerHTML = `<div class="oldgh-topics-index__empty">Couldn't load topics: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountTopics(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchFeaturedTopics(): Promise<Topic[]> {
@@ -148,12 +145,4 @@ function renderCard(t: Topic): string {
       </a>
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

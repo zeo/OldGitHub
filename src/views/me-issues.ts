@@ -3,7 +3,8 @@ import { getMeIssues, type MeIssueFilter, type MeIssueItem, type MeIssueKind, ty
 import { currentUserLogin } from "@/auth/session";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-me-issues";
 
@@ -25,10 +26,6 @@ export async function mountMeIssues(kind: MeIssueKind, _pathname: string, search
     return;
   }
   root.innerHTML = renderShell(page);
-}
-
-export function unmountMeIssues(): void {
-  removeAllBodyRoots();
 }
 
 function parseFilter(search: string, kind: MeIssueKind): MeIssueFilter {
@@ -203,12 +200,4 @@ function labelTextColor(hex: string): string {
 
 function formatCount(n: number): string {
   return new Intl.NumberFormat().format(n);
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

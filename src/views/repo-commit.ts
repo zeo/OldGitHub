@@ -1,7 +1,8 @@
 import { getCommit, type CommitView, type PersonRef } from "@/adapters/repo-commit";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { renderDiffFile, renderDiffSummary } from "./_diff-table";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-commit";
 
@@ -13,10 +14,6 @@ export async function mountRepoCommit(owner: string, repo: string, sha: string):
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
-}
-
-export function unmountRepoCommit(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(c: CommitView): string {
@@ -64,7 +61,7 @@ function renderHeader(c: CommitView): string {
         <h1 class="oldgh-repo-commit__title">${escapeText(c.shortMessage)}</h1>
         <a class="oldgh-btn oldgh-repo-commit__sha" href="/${escapeAttr(c.owner)}/${escapeAttr(c.repo)}/tree/${escapeAttr(c.oid)}" title="Browse files at ${escapeAttr(c.oid)}"><code>${escapeText(shortOid)}</code></a>
       </div>
-      ${c.bodyMessageHtml ? `<div class="oldgh-repo-commit__body markdown-body">${sanitizeBodyHtml(c.bodyMessageHtml)}</div>` : ""}
+      ${c.bodyMessageHtml ? `<div class="oldgh-repo-commit__body markdown-body">${sanitizeHtml(c.bodyMessageHtml)}</div>` : ""}
       <div class="oldgh-repo-commit__meta">
         ${byline}
       </div>
@@ -76,19 +73,4 @@ function renderHeader(c: CommitView): string {
 function renderAuthor(a: PersonRef | undefined): string {
   if (!a) return "";
   return `<img class="oldgh-repo-commit__avatar" src="${escapeAttr(a.avatarUrl)}" alt="" width="20" height="20" /> <a href="${escapeAttr(a.path)}"><strong>${escapeText(a.displayName)}</strong></a> authored`;
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

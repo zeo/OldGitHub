@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-list";
 
@@ -35,10 +36,6 @@ export async function mountRepoList(owner: string, repo: string, kind: RepoListK
   } catch (err) {
     main.innerHTML = `<div class="oldgh-repo-list__empty">Couldn't load: ${escapeText(err instanceof Error ? err.message : String(err))}</div>`;
   }
-}
-
-export function unmountRepoList(): void {
-  removeAllBodyRoots();
 }
 
 function titleFor(kind: RepoListKind): string {
@@ -311,11 +308,4 @@ function readString(o: Record<string, unknown>, key: string): string | null {
 function readNumber(o: Record<string, unknown>, key: string): number | null {
   const v = o[key];
   return typeof v === "number" ? v : null;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

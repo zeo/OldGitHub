@@ -12,8 +12,3 @@ export function currentUserLogin(): string | null {
   const m = /(?:^|;\s*)dotcom_user=([^;]+)/.exec(document.cookie);
   return m && m[1] ? decodeURIComponent(m[1]) : null;
 }
-
-export function readCsrfToken(doc: Document = document): string | null {
-  const meta = doc.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
-  return meta?.content ?? null;
-}

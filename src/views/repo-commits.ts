@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { getRepoCommits, type CommitEntry, type CommitsView, type PersonRef } from "@/adapters/repo-commits";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-commits";
 
@@ -18,10 +19,6 @@ export async function mountRepoCommits(
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
-}
-
-export function unmountRepoCommits(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: CommitsView): string {
@@ -65,7 +62,7 @@ function renderCommit(v: CommitsView, c: CommitEntry): string {
   const primaryAuthor = c.authors[0];
   const shortOid = c.oid.slice(0, 7);
   const messageHtml = c.shortMessageMarkdownLink
-    ? sanitizeBodyHtml(c.shortMessageMarkdownLink)
+    ? sanitizeHtml(c.shortMessageMarkdownLink)
     : `<a href="${escapeAttr(c.url)}" title="${escapeAttr(c.shortMessage)}">${escapeText(c.shortMessage)}</a>`;
   const browseHref = `/${v.owner}/${v.repo}/tree/${c.oid}${v.path ? "/" + pathSegments(v.path) : ""}`;
   return `
@@ -127,19 +124,4 @@ function renderPagination(v: CommitsView): string {
 
 function pathSegments(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

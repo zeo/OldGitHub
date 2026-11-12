@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { getWiki, type WikiView } from "@/adapters/repo-wiki";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-wiki";
 
@@ -29,10 +30,6 @@ function bindCloneCopy(root: HTMLElement): void {
   });
 }
 
-export function unmountRepoWiki(): void {
-  removeAllBodyRoots();
-}
-
 function renderShell(v: WikiView): string {
   return `
     <div class="oldgh-page oldgh-wiki">
@@ -42,7 +39,7 @@ function renderShell(v: WikiView): string {
       </header>
       <div class="oldgh-wiki__layout">
         <article class="oldgh-wiki__content markdown-body">
-          ${sanitizeBodyHtml(v.bodyHtml)}
+          ${sanitizeHtml(v.bodyHtml)}
         </article>
         <aside class="oldgh-wiki__sidebar">
           <div class="oldgh-wiki__pages">
@@ -65,19 +62,4 @@ function renderShell(v: WikiView): string {
       </div>
     </div>
   `;
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

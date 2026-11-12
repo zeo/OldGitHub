@@ -30,6 +30,14 @@ test("allows only raw GitHub file requests", () => {
   }
 });
 
+test("follows redirects only to github raw hosts", () => {
+  assert.equal(policy.allowedRedirectTarget("https://raw.githubusercontent.com/o/r/main/a.txt?token=x"), true);
+  assert.equal(policy.allowedRedirectTarget("https://github.com/o/r/raw/refs/heads/main/a.txt"), true);
+  for (const url of ["https://evil.example/a.txt", "http://raw.githubusercontent.com/a", "https://raw.githubusercontent.com.evil.example/a", "nope"]) {
+    assert.equal(policy.allowedRedirectTarget(url), false, url);
+  }
+});
+
 test("reads streamed UTF-8 within the size limit", async () => {
   const bytes = new TextEncoder().encode("one π two");
   const response = new Response(new ReadableStream({

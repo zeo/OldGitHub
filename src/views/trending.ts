@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { languageColor } from "@/util/language-color";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-trending";
 
@@ -71,10 +72,6 @@ export async function mountTrending(pathname: string, search: string): Promise<v
     }
     main.innerHTML = `<div class="oldgh-trending__empty">Couldn't load trending: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountTrending(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchTrending(period: TrendingPeriod, language: string): Promise<TrendingRepo[]> {
@@ -340,12 +337,4 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

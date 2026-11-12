@@ -3,6 +3,7 @@ import { getMe, type Me } from "@/adapters/me";
 import { getUnreadCount } from "@/adapters/notifications";
 import { AdapterFailure } from "@/adapters";
 import { getCurrentTheme, setTheme, type Theme } from "@/theme";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -340,14 +341,6 @@ function hideModernHeader(): void {
 
 function restoreModernHeader(): void {
   document.documentElement.removeAttribute("data-oldgh-hide-modern-header");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 function escapeRegExp(s: string): string {

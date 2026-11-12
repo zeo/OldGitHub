@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { getRunPage, type JobDetail, type JobStep, type RunDetail, type RunPage } from "@/adapters/repo-actions-run";
 import type { WorkflowRunStatus } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-actions-run";
 
@@ -14,10 +15,6 @@ export async function mountRepoActionsRun(owner: string, repo: string, runId: st
   root.innerHTML = renderShell(page);
   if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
   attachToggleHandlers(root);
-}
-
-export function unmountRepoActionsRun(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(p: RunPage): string {
@@ -200,12 +197,4 @@ function prettyEvent(e: string): string {
     case "issues": return "issue event";
     default: return e.replace(/_/g, " ");
   }
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

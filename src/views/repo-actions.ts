@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { getActions, type ActionsView, type WorkflowRun } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-actions";
 
@@ -13,10 +14,6 @@ export async function mountRepoActions(owner: string, repo: string, query: strin
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
-}
-
-export function unmountRepoActions(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: ActionsView): string {
@@ -102,12 +99,4 @@ function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, "");
   const idx = trimmed.lastIndexOf("/");
   return idx === -1 ? trimmed : trimmed.slice(idx + 1);
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

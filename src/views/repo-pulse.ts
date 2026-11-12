@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
 import { getRepoPulse, type PulseView, type PulseIssueRef, type PulseCommitRef } from "@/adapters/repo-pulse";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-pulse";
 
@@ -20,10 +21,6 @@ export async function mountRepoPulse(owner: string, repo: string): Promise<void>
   } catch (err) {
     main.innerHTML = `<div class="oldgh-pulse__empty">Couldn't load pulse data: ${escapeText(err instanceof Error ? err.message : String(err))}</div>`;
   }
-}
-
-export function unmountRepoPulse(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(_owner: string, _repo: string): string {
@@ -179,12 +176,4 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

@@ -18,6 +18,17 @@ export function allowedProxyUrl(url: string, credentials: "include" | "omit"): s
   return null;
 }
 
+// github.com raw urls redirect to raw.githubusercontent.com; anything else after a redirect is refused
+export function allowedRedirectTarget(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "https:" && (parsed.hostname === "raw.githubusercontent.com" || parsed.hostname === "github.com");
+}
+
 export async function readProxyText(response: Response): Promise<string> {
   const declaredBytes = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredBytes) && declaredBytes > MAX_PROXY_BYTES) {

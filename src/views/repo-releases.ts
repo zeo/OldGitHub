@@ -2,7 +2,8 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-releases";
 
@@ -104,10 +105,6 @@ function renderPrivateNotice(owner: string, repo: string): string {
       <p class="oldgh-releases__empty-hint">GitHub's REST API requires authentication for private repos. <a href="https://github.com/${escapeAttr(owner)}/${escapeAttr(repo)}/releases" rel="noopener">View releases on github.com</a>.</p>
     </div>
   `;
-}
-
-export function unmountRepoReleases(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchReleases(owner: string, repo: string, page: number): Promise<unknown[]> {
@@ -260,7 +257,7 @@ function renderRelease(owner: string, repo: string, r: Release): string {
           <div class="oldgh-releases__badges">${badges.join("")}</div>
         </header>
         <div class="oldgh-releases__body markdown-body">
-          ${r.bodyHtml ? sanitizeBodyHtml(r.bodyHtml) : (r.body ? `<pre class="oldgh-releases__plain">${escapeText(r.body)}</pre>` : `<p class="oldgh-releases__no-body">No description provided.</p>`)}
+          ${r.bodyHtml ? sanitizeHtml(r.bodyHtml) : (r.body ? `<pre class="oldgh-releases__plain">${escapeText(r.body)}</pre>` : `<p class="oldgh-releases__no-body">No description provided.</p>`)}
         </div>
         ${renderAssets(r)}
       </div>
@@ -311,18 +308,4 @@ function readString(o: Record<string, unknown>, key: string): string | null {
 function readNumber(o: Record<string, unknown>, key: string): number | null {
   const v = o[key];
   return typeof v === "number" ? v : null;
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

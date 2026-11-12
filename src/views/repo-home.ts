@@ -5,7 +5,8 @@ import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-home";
 
@@ -315,10 +316,6 @@ function renderLanguageBar(langs: Array<{ name: string; bytes: number; percent: 
   `;
 }
 
-export function unmountRepoHome(): void {
-  removeAllBodyRoots();
-}
-
 function renderShell(o: RepoOverview): string {
   return `
     <div class="oldgh-page">
@@ -430,7 +427,7 @@ function renderReadme(o: RepoOverview): string {
         ${octicon("book", { size: 16 })}
         <a href="/${o.owner}/${o.repo}/blob/${encodeURIComponent(o.branch)}/${escapeAttr(pathSegments(o.readme.path))}">${escapeText(o.readme.path)}</a>
       </div>
-      <div class="oldgh-repo-home__readme-body">${sanitizeBodyHtml(o.readme.html)}</div>
+      <div class="oldgh-repo-home__readme-body">${sanitizeHtml(o.readme.html)}</div>
     </section>
   `;
 }
@@ -559,19 +556,4 @@ function bindCopyButtons(root: HTMLElement): void {
       }, 1200);
     });
   });
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

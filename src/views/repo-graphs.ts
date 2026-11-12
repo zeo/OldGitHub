@@ -15,8 +15,9 @@ import {
 } from "@/adapters/repo-graphs";
 import { octicon } from "@/icons";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderInsightsNav } from "./repo-pulse";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-graphs";
 
@@ -58,10 +59,6 @@ export async function mountRepoGraphs(owner: string, repo: string, subkind: Grap
       main.innerHTML = `<div class="oldgh-graphs__empty">Couldn't load: ${escapeText(msg)}</div>`;
     }
   }
-}
-
-export function unmountRepoGraphs(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(subkind: GraphsSubkind): string {
@@ -363,12 +360,4 @@ function renderNetworkRow(f: NetworkFork): string {
       </div>
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

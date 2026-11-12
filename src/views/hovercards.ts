@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor } from "@/util/language-color";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const SHOW_DELAY = 350;
 const HIDE_DELAY = 200;
@@ -458,15 +459,11 @@ function renderIssueCard(c: IssueCard): string {
 }
 
 function truncateHtml(html: string, maxChars: number): string {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  const text = tmp.textContent || "";
-  if (text.length <= maxChars) {
-    // strip embedded scripts / interactive elements as a safety
-    return tmp.innerHTML
-      .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  }
+  const clean = sanitizeHtml(html);
+  const tmp = document.createElement("template");
+  tmp.innerHTML = clean;
+  const text = tmp.content.textContent || "";
+  if (text.length <= maxChars) return clean;
   return escapeText(text.slice(0, maxChars).trim() + "…");
 }
 
@@ -497,10 +494,4 @@ function readString(o: Record<string, unknown>, key: string): string | null {
 function readNumber(o: Record<string, unknown>, key: string): number | null {
   const v = o[key];
   return typeof v === "number" ? v : null;
-}
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

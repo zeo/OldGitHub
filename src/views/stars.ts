@@ -1,8 +1,9 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { currentUserLogin } from "@/auth/session";
 import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor } from "@/util/language-color";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-stars";
 
@@ -233,10 +234,6 @@ function bindStarsSort(root: HTMLElement): void {
   });
 }
 
-export function unmountStars(): void {
-  removeAllBodyRoots();
-}
-
 function parseStarred(raw: unknown): StarredRepo | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
@@ -310,12 +307,4 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

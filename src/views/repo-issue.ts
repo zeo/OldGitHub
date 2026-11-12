@@ -18,9 +18,10 @@ import {
 import { AdapterFailure } from "@/adapters";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderHunks } from "./_diff-table";
 import { parsePatch } from "@/util/diff";
+import { escapeAttr, escapeText, sanitizeHtml, safeHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issue";
 
@@ -350,7 +351,7 @@ function renderCheckRow(c: CheckRun): string {
     <li class="oldgh-pr-checks__row ${cls}">
       <span class="oldgh-pr-checks__icon">${icon}</span>
       <div class="oldgh-pr-checks__main">
-        <a class="oldgh-pr-checks__name" href="${escapeAttr(c.htmlUrl || c.detailsUrl)}">${escapeText(c.name)}</a>
+        <a class="oldgh-pr-checks__name" href="${escapeAttr(safeHref(c.htmlUrl || c.detailsUrl))}">${escapeText(c.name)}</a>
         ${c.outputTitle ? `<div class="oldgh-pr-checks__output">${escapeText(c.outputTitle)}</div>` : ""}
       </div>
       <div class="oldgh-pr-checks__meta">
@@ -426,10 +427,6 @@ function formatDateHeading(yyyyMmDd: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function unmountRepoIssue(): void {
-  removeAllBodyRoots();
-}
-
 function renderShell(v: IssueDetail | PullDetail, kind: "issue" | "pull", tab: IssueTab): string {
   const isPull = kind === "pull";
   const pull = isPull ? (v as PullDetail) : null;
@@ -438,7 +435,7 @@ function renderShell(v: IssueDetail | PullDetail, kind: "issue" | "pull", tab: I
     <div class="oldgh-page oldgh-issue">
       <header class="oldgh-issue__header">
         <h1 class="oldgh-issue__title">
-          ${sanitizeTitleHtml(v.titleHtml)}
+          ${sanitizeHtml(v.titleHtml)}
           <span class="oldgh-issue__number">#${v.number}</span>
         </h1>
         <div class="oldgh-issue__meta">
@@ -596,7 +593,7 @@ function renderCommentBlock(c: CommentInputs): string {
           ${association}
         </header>
         <div class="oldgh-issue__body markdown-body">
-          ${sanitizeBodyHtml(c.bodyHtml) || '<p class="oldgh-issue__empty">No description provided.</p>'}
+          ${sanitizeHtml(c.bodyHtml) || '<p class="oldgh-issue__empty">No description provided.</p>'}
         </div>
         ${renderReactionRow(c.reactions)}
       </div>
@@ -666,7 +663,7 @@ function renderEvent(e: Extract<TimelineNode, { kind: "event" }>): string {
     case "PullRequestCommit":
     case "Commit":
       icon = "git-commit";
-      line = `${e.commitOid ? `<code>${escapeText(e.commitOid)}</code>` : ""} ${e.commitMessageHeadline ? sanitizeBodyHtml(e.commitMessageHeadline) : ""} ${when}`;
+      line = `${e.commitOid ? `<code>${escapeText(e.commitOid)}</code>` : ""} ${e.commitMessageHeadline ? sanitizeHtml(e.commitMessageHeadline) : ""} ${when}`;
       break;
     case "HeadRefForcePushedEvent":
     case "BaseRefForcePushedEvent":
@@ -759,21 +756,6 @@ function relativeTimeLink(iso: string): string {
   return `<span title="${escapeAttr(abs)}">${escapeText(rel)}</span>`;
 }
 
-function sanitizeTitleHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-}
-
-function sanitizeBodyHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    // rewrite absolute https://github.com/... links to relative so clicks
-    // stay inside the SPA router instead of triggering a full page reload
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
 function labelTextColor(hex: string): string {
   // expand 3-digit shorthand (ccc) to 6 digits before luminance calc
   const short = /^#?([\da-f]{3})$/i.exec(hex);
@@ -825,12 +807,4 @@ function humanizeEventType(t: string): string {
     .replace(/Event$/, "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .toLowerCase();
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

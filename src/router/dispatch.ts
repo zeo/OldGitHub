@@ -7,6 +7,7 @@ import type { TopLevelKind } from "@/views/top-level";
 import { beginNavigation, isCurrentNavigation, removeAllBodyRoots } from "@/views/_body";
 import { resolveRoute, type Route } from "./resolve";
 import { reportIssueUrl } from "@/native-mode";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const MOUNTED_ATTR = "data-oldgh-mounted";
 
@@ -68,14 +69,6 @@ function insertBodyError(message: string, rateLimited: boolean): void {
   } else {
     insertBeforeFooter(el);
   }
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 function insertBodyPlaceholder(): void {

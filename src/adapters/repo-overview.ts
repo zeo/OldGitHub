@@ -1,6 +1,7 @@
 import { AdapterFailure } from "./index";
 import { extractEmbeddedPayload, fetchRepoPage, parseRepoPage } from "./_page";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
+import { readProxyText } from "@/background/proxy-policy";
 
 export type TreeItem = {
   name: string;
@@ -141,12 +142,11 @@ export async function getRepoBlob(owner: string, repo: string, refAndPath: strin
       try {
         const r = await fetch(rawBlobUrl, { credentials: "omit" });
         if (r.ok) {
-          const text = await r.text();
-          rawLines = splitLines(text);
+          rawLines = splitLines(await readProxyText(r));
           truncated = false;
         }
       } catch {
-        // keep truncated
+        // network failure or a file over 5 MiB keeps the truncated view
       }
     }
   }

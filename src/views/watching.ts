@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
 import { absoluteTime, relativeTime } from "@/util/time";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-watching";
 
@@ -37,10 +38,6 @@ export async function mountWatching(_pathname: string, _search: string): Promise
     const msg = err instanceof Error ? err.message : String(err);
     slot.innerHTML = `<div class="oldgh-watching__empty">Couldn't load watched repositories: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountWatching(): void {
-  removeAllBodyRoots();
 }
 
 async function scrapeWatching(): Promise<WatchedRepo[]> {
@@ -198,12 +195,4 @@ function renderRow(r: WatchedRepo): string {
       </a>
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-projects";
 
@@ -31,10 +32,6 @@ export async function mountRepoProjects(owner: string, repo: string, search: str
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-projects__empty">Couldn't load projects: ${escapeText(msg)}</div>`;
   }
-}
-
-export function unmountRepoProjects(): void {
-  removeAllBodyRoots();
 }
 
 async function scrapeProjects(owner: string, repo: string, search: string): Promise<LinkedProject[]> {
@@ -155,12 +152,4 @@ function renderProjectRow(p: LinkedProject): string {
       </div>
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

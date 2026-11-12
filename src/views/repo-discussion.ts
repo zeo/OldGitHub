@@ -3,7 +3,8 @@ import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { cleanScrapedPage, escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-discussion";
 
@@ -90,30 +91,7 @@ async function fetchScrapedDiscussion(owner: string, repo: string, number: numbe
       doc.querySelector(".application-main") ||
       doc.querySelector("main");
     if (!inner) return null;
-    for (const sel of [
-      "header.AppHeader",
-      "header[role='banner']",
-      "footer",
-      "#repository-container-header",
-      ".pagehead",
-      ".UnderlineNav.js-repo-nav",
-      "[class*='PageLayout-Header-']",
-      "[class*='PageHeader-']",
-      ".tabnav",
-      ".UnderlineNav",
-      "script",
-      "style",
-      "iframe",
-      "object",
-      "embed",
-    ]) {
-      inner.querySelectorAll(sel).forEach((n) => n.remove());
-    }
-    for (const node of Array.from(inner.querySelectorAll<HTMLElement>("*"))) {
-      for (const attr of Array.from(node.attributes)) {
-        if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-      }
-    }
+    cleanScrapedPage(inner, ["[class*='PageLayout-Header-']", "[class*='PageHeader-']", ".tabnav", ".UnderlineNav"]);
     const title = (doc.querySelector("title")?.textContent || "").trim();
     return `
       <div class="oldgh-page oldgh-discussion">
@@ -124,10 +102,6 @@ async function fetchScrapedDiscussion(owner: string, repo: string, number: numbe
   } catch {
     return null;
   }
-}
-
-export function unmountRepoDiscussion(): void {
-  removeAllBodyRoots();
 }
 
 async function fetchDiscussion(owner: string, repo: string, number: number): Promise<DiscussionDetail> {
@@ -475,13 +449,6 @@ function relativeTimeLink(iso: string): string {
   return `<span title="${escapeAttr(absoluteTime(iso))}">${escapeText(relativeTime(iso))}</span>`;
 }
 
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/href=(["'])https?:\/\/github\.com(\/[^"']*)\1/gi, 'href=$1$2$1');
-}
-
 function readObj(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
 }
@@ -492,10 +459,4 @@ function readString(o: Record<string, unknown>, key: string): string | null {
 function readNumber(o: Record<string, unknown>, key: string): number | null {
   const v = o[key];
   return typeof v === "number" ? v : null;
-}
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

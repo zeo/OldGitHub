@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { getRepoSummary, formatCount, type RepoSummary } from "@/adapters/repo";
 import { isCurrentNavigation, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const PRIMARY_NAV = [
   { key: "code", label: "Code", path: "", icon: "code" },
@@ -379,12 +380,4 @@ function currentNavKey(owner: string, repo: string, pathname: string): NavKey | 
   if (rest.startsWith("/network")) return "network";
   if (rest.startsWith("/settings")) return "settings";
   return null;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

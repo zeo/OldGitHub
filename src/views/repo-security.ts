@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-security";
 
@@ -157,10 +158,6 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function unmountRepoSecurity(): void {
-  removeAllBodyRoots();
-}
-
 async function fetchSecurityView(owner: string, repo: string): Promise<SecurityView> {
   // Pull community profile to learn if there's a security policy file.
   const community = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/community/profile`, {
@@ -304,12 +301,4 @@ function renderFeature(f: SecurityCard): string {
       ${f.action ? `<a class="oldgh-btn oldgh-security__feature-action" href="${escapeAttr(f.action.href)}">${escapeText(f.action.label)}</a>` : ""}
     </li>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

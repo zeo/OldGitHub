@@ -21,10 +21,6 @@ export async function fetchRepoPage(owner: string, repo: string): Promise<string
   return html;
 }
 
-export function invalidateRepoPage(owner: string, repo: string): void {
-  cache.delete(`${owner.toLowerCase()}/${repo.toLowerCase()}`);
-}
-
 export function parseRepoPage(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
 }

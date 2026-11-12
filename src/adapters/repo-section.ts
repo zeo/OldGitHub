@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { parseRepoPage } from "./_page";
+import { cleanScrapedPage } from "@/util/html";
 
 export type ScrapedSection = {
   owner: string;
@@ -106,35 +107,7 @@ function stripDuplicateHeading(el: Element, title: string): void {
 }
 
 function cleanScrapedContent(el: Element): void {
-  const removeSelectors = [
-    "header.AppHeader",
-    ".AppHeader-globalBar",
-    "header[role='banner']",
-    "footer",
-    "#repository-container-header",
-    ".pagehead",
-    ".UnderlineNav.js-repo-nav",
-    ".js-pjax-loader-bar",
-    ".flash",
-    "[aria-label*='error' i][role='alert']",
-    "[data-component='error-boundary']",
-    ".js-error-boundary",
-    "script",
-    "style",
-    "iframe",
-    "object",
-    "embed",
-  ];
-  for (const sel of removeSelectors) {
-    el.querySelectorAll(sel).forEach((n) => n.remove());
-  }
-  // Remove "Uh oh!" hydration error panels that lack a specific class.
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("div, section"))) {
-    const text = (node.textContent || "").trim();
-    if (text.startsWith("Uh oh!") && text.includes("error") && node.children.length < 10) {
-      node.remove();
-    }
-  }
+  cleanScrapedPage(el, [".flash", "[aria-label*='error' i][role='alert']", "[data-component='error-boundary']", ".js-error-boundary"]);
   // Strip the "Welcome to Projects" marketing card. Only remove the small
   // promotional card itself, identified by short text + a 'Learn more' link.
   // Walk from the innermost matching heading up to the smallest containing
@@ -151,11 +124,5 @@ function cleanScrapedContent(el: Element): void {
       card = next;
     }
     if (card && card !== el) card.remove();
-  }
-  // Strip on* event handlers as a precaution.
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("*"))) {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-    }
   }
 }

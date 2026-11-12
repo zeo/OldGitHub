@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-settings";
 
@@ -199,7 +200,7 @@ async function confirmVisibilityChange(owner: string, repo: string, target: stri
   const csrf = (form.querySelector<HTMLInputElement>('input[name="authenticity_token"]')?.value) || "";
   const ok = await openConfirmDialog({
     title: `Change visibility to ${target}`,
-    body: `Are you sure you want to make <strong>${owner}/${repo}</strong> ${target}?`,
+    body: `Are you sure you want to make <strong>${escapeText(`${owner}/${repo}`)}</strong> ${escapeText(target)}?`,
     confirmLabel: `I want to make this repository ${target}`,
     danger: true,
     verifyText: `${owner}/${repo}`,
@@ -219,8 +220,8 @@ async function confirmArchive(owner: string, repo: string, main: HTMLElement, un
   const ok = await openConfirmDialog({
     title: unarchive ? "Unarchive repository" : "Archive repository",
     body: unarchive
-      ? `Unarchiving <strong>${owner}/${repo}</strong> will allow new issues, pull requests, and pushes again.`
-      : `Archiving <strong>${owner}/${repo}</strong> will make it read-only. Type the repository name to confirm.`,
+      ? `Unarchiving <strong>${escapeText(`${owner}/${repo}`)}</strong> will allow new issues, pull requests, and pushes again.`
+      : `Archiving <strong>${escapeText(`${owner}/${repo}`)}</strong> will make it read-only. Type the repository name to confirm.`,
     confirmLabel: unarchive ? "Unarchive this repository" : "I understand, archive this repository",
     danger: true,
     verifyText: `${owner}/${repo}`,
@@ -238,7 +239,7 @@ async function confirmDelete(owner: string, repo: string, main: HTMLElement): Pr
   const csrf = (form.querySelector<HTMLInputElement>('input[name="authenticity_token"]')?.value) || "";
   const ok = await openConfirmDialog({
     title: "Delete repository",
-    body: `This will permanently delete <strong>${owner}/${repo}</strong>, all its branches, issues, pull requests, releases, and discussions. <strong>This action cannot be undone.</strong> Type the full repository name to confirm.`,
+    body: `This will permanently delete <strong>${escapeText(`${owner}/${repo}`)}</strong>, all its branches, issues, pull requests, releases, and discussions. <strong>This action cannot be undone.</strong> Type the full repository name to confirm.`,
     confirmLabel: "I understand the consequences, delete this repository",
     danger: true,
     verifyText: `${owner}/${repo}`,
@@ -252,6 +253,8 @@ async function confirmDelete(owner: string, repo: string, main: HTMLElement): Pr
 // is added to the document so Chrome accepts the submit; we remove it on
 // any abort but in practice the page navigates before that matters.
 function submitFormDirect(action: string, fields: Record<string, string>): void {
+  // the action comes from scraped markup; never post the csrf token anywhere but github
+  if (new URL(action, location.href).origin !== "https://github.com") throw new Error(`refusing to post to ${action}`);
   const form = document.createElement("form");
   form.method = "post";
   form.action = action;
@@ -326,10 +329,6 @@ function openConfirmDialog(opts: ConfirmOpts): Promise<boolean> {
   });
 }
 
-export function unmountRepoSettings(): void {
-  removeAllBodyRoots();
-}
-
 async function fetchSettingsPage(owner: string, repo: string, subPath: string): Promise<string> {
   const url = `https://github.com/${owner}/${repo}${subPath}`;
   const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
@@ -354,20 +353,7 @@ function extractMainContent(doc: Document): Element | null {
 }
 
 function cleanScrapedContent(el: Element): void {
-  const remove = [
-    "header.AppHeader",
-    ".AppHeader-globalBar",
-    "header[role='banner']",
-    "footer",
-    "#repository-container-header",
-    ".pagehead",
-    ".UnderlineNav.js-repo-nav",
-    ".js-pjax-loader-bar",
-    "script",
-    "style",
-    "iframe",
-    "object",
-    "embed",
+  cleanScrapedPage(el, [
     "nav-list",
     // native sidebars / nav we replace with our own
     ".js-repo-settings-sidebar",
@@ -380,10 +366,7 @@ function cleanScrapedContent(el: Element): void {
     // per-option ajax save-status badge (loading spinner + success check + error
     // x). github shows one state via css/js we block, so all three leak at once
     ".status-indicator",
-  ];
-  for (const sel of remove) {
-    el.querySelectorAll(sel).forEach((n) => n.remove());
-  }
+  ]);
   // strip elements GitHub keeps in the DOM but hides via JS — without their
   // bundle running, every conditional warning shows at once. avatar /
   // social-preview upload errors, .js-* hide-until-error stubs, [hidden] holdouts
@@ -409,18 +392,6 @@ function cleanScrapedContent(el: Element): void {
       if (n.matches("dialog, [role='tabpanel']") || n.querySelector("form, button[type='submit'], input[type='submit']")) return;
       n.remove();
     });
-  }
-  // strip 'Uh oh!' hydration error blocks
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("div, section"))) {
-    const text = (node.textContent || "").trim();
-    if (text.startsWith("Uh oh!") && text.includes("error") && node.children.length < 10) {
-      node.remove();
-    }
-  }
-  for (const node of Array.from(el.querySelectorAll<HTMLElement>("*"))) {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-    }
   }
 }
 
@@ -450,12 +421,4 @@ function renderShell(owner: string, repo: string, activeKey: string): string {
       </div>
     </div>
   `;
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }

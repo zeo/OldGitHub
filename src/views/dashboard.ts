@@ -9,7 +9,8 @@ import {
 } from "@/adapters/dashboard";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { adoptBodyRoot, navigationToken } from "./_body";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-dashboard";
 
@@ -35,10 +36,6 @@ function bindRepoFilter(root: HTMLElement): void {
       row.hidden = q !== "" && !name.includes(q);
     }
   });
-}
-
-export function unmountDashboard(): void {
-  removeAllBodyRoots();
 }
 
 function renderShell(v: DashboardView): string {
@@ -286,14 +283,6 @@ function iconForCard(cardType: string): string {
     case "BRANCH_CREATED": return "git-branch";
     default: return "rss";
   }
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 function escapeRegex(s: string): string {
