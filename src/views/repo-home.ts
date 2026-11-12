@@ -37,8 +37,8 @@ export async function mountRepoHome(owner: string, repo: string): Promise<void> 
 
   void hydrateLanguagesBar(root, owner, repo);
   void hydrateLatestCommit(root, { owner, repo, branch: overview.branch });
-  void hydrateRepoNumbers(root, owner, repo);
-  void hydrateLatestRelease(root, owner, repo);
+  void hydrateRepoNumbers(root, owner, repo, overview.tagCount);
+  if (overview.releaseCount !== 0) void hydrateLatestRelease(root, owner, repo);
 }
 
 type ReleaseAsset = { name: string; url: string; size: number };
@@ -169,11 +169,11 @@ function renderEmptyShell(o: RepoOverview): string {
 
 // 2013's numbers strip used commits, branches, tags, and contributors
 // counts come from the REST API's last page or the returned array length
-async function hydrateRepoNumbers(root: HTMLElement, owner: string, repo: string): Promise<void> {
+async function hydrateRepoNumbers(root: HTMLElement, owner: string, repo: string, tagCount: number | null): Promise<void> {
   const base = `https://api.github.com/repos/${owner}/${repo}`;
   const [branches, tags, contributors] = await Promise.all([
     fetchCount(`${base}/branches?per_page=1`),
-    fetchCount(`${base}/tags?per_page=1`),
+    tagCount ?? fetchCount(`${base}/tags?per_page=1`),
     fetchCount(`${base}/contributors?per_page=1&anon=1`),
   ]);
   setNumber(root, "branches", branches, "branch", "branches");

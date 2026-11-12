@@ -57,10 +57,12 @@ async function leaveNativeMode(): Promise<void> {
 
 export function bindNativeLinks(): void {
   document.addEventListener("click", (e) => {
-    if (!(e.target as Element | null)?.closest?.("[data-oldgh-show-native]")) return;
+    const target = (e.target as Element | null)?.closest?.("[data-oldgh-show-native], [data-oldgh-open-options]");
+    if (!target) return;
     e.preventDefault();
     e.stopPropagation();
-    void showNativePage();
+    if (target.hasAttribute("data-oldgh-open-options")) void chrome.runtime.sendMessage({ type: "oldgh:open-options" }).catch(() => undefined);
+    else void showNativePage();
   }, true);
 }
 

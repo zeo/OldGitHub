@@ -50,9 +50,9 @@ function insertBodyError(message: string, rateLimited: boolean): void {
     ? `
       <div class="oldgh-page oldgh-body-error__page">
         <h2>GitHub rate-limited this request.</h2>
-        <p>OldGitHub talks to the public GitHub API without authentication, which caps you at 60 requests per hour. You've hit that ceiling.</p>
+        <p>GitHub allows 60 API requests an hour without a token and 5,000 with one. This browser has used its share for now.</p>
         <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
-        <p>Wait an hour, or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>.</p>
+        <p><a href="javascript:void(0)" data-oldgh-open-options>Add a token in OldGitHub options</a>, wait for the limit to reset, or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>.</p>
       </div>
     `
     : `

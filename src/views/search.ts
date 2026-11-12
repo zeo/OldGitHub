@@ -84,7 +84,7 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
       resultsEl.innerHTML = `
         <div class="oldgh-search__empty">
           ${octicon("clock", { size: 36 })}
-          <p>You've hit GitHub's anonymous API rate limit. It resets in a few minutes.</p>
+          <p>You've hit GitHub's API rate limit. It resets within the hour, or <a href="javascript:void(0)" data-oldgh-open-options>add a token in options</a> for a higher limit.</p>
           <p><a href="https://github.com/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(fallbackType)}">Open this search on modern GitHub</a></p>
         </div>
       `;

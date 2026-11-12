@@ -5,6 +5,7 @@ import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const SHOW_DELAY = 350;
 const HIDE_DELAY = 200;
+const FAILURE_TTL = 5 * 60 * 1000;
 const MAX_CACHE = 200;
 
 type UserCard = {
@@ -268,9 +269,7 @@ async function fetchUser(login: string): Promise<UserCard | null> {
       return null;
     }
   })();
-  trim(userCache);
-  userCache.set(login, p);
-  return p;
+  return remember(userCache, login, p);
 }
 
 async function fetchRepo(owner: string, repo: string): Promise<RepoCard | null> {
@@ -305,9 +304,7 @@ async function fetchRepo(owner: string, repo: string): Promise<RepoCard | null> 
       return null;
     }
   })();
-  trim(repoCache);
-  repoCache.set(key, p);
-  return p;
+  return remember(repoCache, key, p);
 }
 
 async function fetchIssue(owner: string, repo: string, number: number): Promise<IssueCard | null> {
@@ -350,15 +347,17 @@ async function fetchIssue(owner: string, repo: string, number: number): Promise<
       return null;
     }
   })();
-  trim(issueCache);
-  issueCache.set(key, p);
-  return p;
+  return remember(issueCache, key, p);
 }
 
-function trim(cache: Map<string, unknown>): void {
-  if (cache.size <= MAX_CACHE) return;
-  const firstKey = cache.keys().next().value;
-  if (firstKey !== undefined) cache.delete(firstKey);
+// a failed lookup (rate limit, network) is retried after a while instead of never
+function remember<T>(cache: Map<string, Promise<T | null>>, key: string, p: Promise<T | null>): Promise<T | null> {
+  if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value!);
+  cache.set(key, p);
+  void p.then((card) => {
+    if (card === null) window.setTimeout(() => cache.get(key) === p && cache.delete(key), FAILURE_TTL);
+  });
+  return p;
 }
 
 function renderUserCard(c: UserCard): string {

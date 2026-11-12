@@ -4,6 +4,30 @@ const CACHE_TTL_MS = 30_000;
 const MAX_CACHE_ENTRIES = 100;
 const responseCache = new Map<string, { response: Response; expires: number }>();
 const inflight = new Map<string, Promise<Response>>();
+const API_ORIGIN = "https://api.github.com/";
+let savedToken: Promise<string> | null = null;
+
+function hasStorage(): boolean {
+  return typeof chrome !== "undefined" && !!chrome.storage?.local;
+}
+
+function readToken(): Promise<string> {
+  if (!hasStorage()) return Promise.resolve("");
+  savedToken ??= chrome.storage.local.get(["apiToken", "apiTokenInvalid"]).then(
+    (s) => (typeof s.apiToken === "string" && !s.apiTokenInvalid ? s.apiToken : ""),
+    () => "",
+  );
+  return savedToken;
+}
+
+if (hasStorage()) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !("apiToken" in changes || "apiTokenInvalid" in changes)) return;
+    savedToken = null;
+    responseCache.clear();
+    clearRateLimit();
+  });
+}
 
 export function noteApiRateLimited(until = Date.now() + RATE_LIMIT_PAUSE_MS): void {
   blockedUntil = Math.max(blockedUntil, until);
@@ -40,9 +64,9 @@ export async function fetchApi(url: string, init?: RequestInit): Promise<Respons
     });
   }
 
-  const request = fetch(url, init).then((response) => {
+  const request = send(url, init).then((response) => {
     trackRateLimit(response);
-    if (key && response.ok) {
+    if (key && response.status === 200) {
       responseCache.set(key, { response: response.clone(), expires: Date.now() + CACHE_TTL_MS });
       trimCache();
     }
@@ -53,6 +77,19 @@ export async function fetchApi(url: string, init?: RequestInit): Promise<Respons
     void request.then(() => inflight.delete(key), () => inflight.delete(key));
   }
   return (await request).clone();
+}
+
+async function send(url: string, init: RequestInit | undefined): Promise<Response> {
+  const token = url.startsWith(API_ORIGIN) ? await readToken() : "";
+  if (!token) return fetch(url, init);
+  const headers = new Headers(init?.headers);
+  headers.set("authorization", `Bearer ${token}`);
+  const response = await fetch(url, { ...init, headers });
+  if (response.status !== 401) return response;
+  // a revoked or expired token must not break browsing; options shows the notice
+  await chrome.storage.local.set({ apiTokenInvalid: true });
+  savedToken = Promise.resolve("");
+  return fetch(url, init);
 }
 
 function cacheKey(url: string, init: RequestInit | undefined): string {

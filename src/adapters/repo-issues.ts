@@ -85,6 +85,12 @@ export async function getIssueList(
   let rows: IssueRow[];
   let hasNext: boolean;
   let hasPrev: boolean;
+  let listTotal: number | null = null;
+
+  // counts follow the active filters like github's own tabs; a search list already carries its own state's total
+  const countOf = (s: "open" | "closed") => searchTotal(buildSearchQuery(owner, repo, kind, s, qStr));
+  const pendingOpen = needsSearch && state === "open" ? null : countOf("open");
+  const pendingClosed = needsSearch && state !== "closed" ? null : countOf("closed");
 
   if (needsSearch) {
     const searchQ = buildSearchQuery(owner, repo, kind, state, qStr);
@@ -99,7 +105,8 @@ export async function getIssueList(
       // 429 — rate-limited
       return scrapeIssueList(owner, repo, rawQuery, kind, qStr, state, page);
     }
-    const data = (await resp.json()) as { items?: unknown[] };
+    const data = (await resp.json()) as { items?: unknown[]; total_count?: unknown };
+    if (typeof data.total_count === "number") listTotal = data.total_count;
     rows = [];
     for (const raw of data.items ?? []) {
       const parsed = parseRow(raw, kind);
@@ -140,7 +147,9 @@ export async function getIssueList(
     hasPrev = /<[^>]+>;\s*rel="prev"/i.test(linkHeader);
   }
 
-  const counts = await getCounts(owner, repo, kind);
+  const open = pendingOpen ? await pendingOpen : listTotal;
+  const closed = pendingClosed ? await pendingClosed : state === "all" ? (open === null || listTotal === null ? null : listTotal - open) : listTotal;
+  const counts = { open, closed };
 
   const totalCount = state === "closed"
     ? (counts.closed ?? rows.length)
@@ -258,29 +267,14 @@ function parseNumber(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function getCounts(owner: string, repo: string, kind: "issues" | "pulls"): Promise<{ open: number | null; closed: number | null }> {
-  const typeClause = kind === "pulls" ? "type:pr" : "type:issue";
-  const repoClause = `repo:${owner}/${repo}`;
-  const [openRes, closedRes] = await Promise.allSettled([
-    fetchApi(`${API}/search/issues?q=${encodeURIComponent(`${typeClause} ${repoClause} is:open`)}&per_page=1`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    }),
-    fetchApi(`${API}/search/issues?q=${encodeURIComponent(`${typeClause} ${repoClause} is:closed`)}&per_page=1`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    }),
-  ]);
-  return {
-    open: await readTotal(openRes),
-    closed: await readTotal(closedRes),
-  };
-}
-
-async function readTotal(r: PromiseSettledResult<Response>): Promise<number | null> {
-  if (r.status !== "fulfilled" || !r.value.ok) return null;
+async function searchTotal(q: string): Promise<number | null> {
   try {
-    const j = (await r.value.json()) as { total_count?: number };
+    const resp = await fetchApi(`${API}/search/issues?q=${encodeURIComponent(q)}&per_page=1`, {
+      credentials: "omit",
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!resp.ok) return null;
+    const j = (await resp.json()) as { total_count?: unknown };
     return typeof j.total_count === "number" ? j.total_count : null;
   } catch {
     return null;

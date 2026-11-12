@@ -282,13 +282,24 @@ async function startNotificationPolling(root: HTMLElement): Promise<void> {
   const link = root.querySelector<HTMLAnchorElement>(".oldgh-header__notifications");
   if (!dot || !link) return;
 
-  let consecutiveFailures = 0;
-  let intervalId: number | null = null;
+  let failures = 0;
+  let lastPoll = 0;
+  let running = false;
+  let timer: number | null = null;
+
+  // one chain at a time; hidden tabs stop polling and failures back off to 16 minutes
+  const schedule = (delay: number): void => {
+    if (document.hidden || running || timer != null) return;
+    timer = window.setTimeout(() => void update(), delay);
+  };
 
   const update = async (): Promise<void> => {
+    timer = null;
+    running = true;
+    lastPoll = Date.now();
     try {
       const count = await getUnreadCount();
-      consecutiveFailures = 0;
+      failures = 0;
       if (count > 0) {
         dot.classList.add("is-unread");
         link.setAttribute("aria-label", `${count > 99 ? "99+" : count} unread notifications`);
@@ -299,25 +310,23 @@ async function startNotificationPolling(root: HTMLElement): Promise<void> {
         link.title = "Notifications";
       }
     } catch (err) {
-      consecutiveFailures++;
-      const reason = err instanceof AdapterFailure ? err.name + ": " + err.message : String(err);
-      // log the first failure at debug, then stay quiet — the badge isn't
-      // worth a console entry per minute when the endpoint is unreachable
-      if (consecutiveFailures === 1) {
-        console.debug("[oldgh] notifications poll skipped:", reason);
+      failures++;
+      if (failures === 1) {
+        console.debug("[oldgh] notifications poll skipped:", err instanceof AdapterFailure ? `${err.name}: ${err.message}` : String(err));
       }
-      if (consecutiveFailures >= 3 && intervalId != null) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-        console.debug("[oldgh] notifications poll halted after 3 consecutive failures");
-      }
+    } finally {
+      running = false;
     }
+    schedule(POLL_INTERVAL_MS * 2 ** Math.min(failures, 4));
   };
 
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) return schedule(Math.max(0, lastPoll + POLL_INTERVAL_MS - Date.now()));
+    if (timer != null) window.clearTimeout(timer);
+    timer = null;
+  });
+
   await update();
-  intervalId = window.setInterval(() => {
-    void update();
-  }, POLL_INTERVAL_MS);
 }
 
 export function updateTopNavActive(pathname: string): void {

@@ -59,6 +59,25 @@
 
       <section class="card">
         <header class="card__head">
+          <h2>GitHub API token</h2>
+          <p class="card__sub">Optional. Without one GitHub allows 60 API requests an hour from your IP address; with one, 5,000.</p>
+        </header>
+        <div class="card__body">
+          <p>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">fine-grained token</a> with "Public repositories" access and no extra permissions. To see your private repositories' Actions, compares and issue lists, pick those repositories and grant read-only Actions, Contents, Issues, Metadata and Pull requests.</p>
+          <form class="token-form" data-token-form>
+            <label class="sr-only" for="token">Token</label>
+            <input id="token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_..." />
+            <button type="submit">Save</button>
+            <button type="button" data-token-test>Test</button>
+            <button type="button" data-token-clear>Clear</button>
+          </form>
+          <p class="token-status" data-token-status hidden></p>
+          <p class="card__sub">The token stays in this browser's extension storage and is sent only to api.github.com.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <header class="card__head">
           <h2>How it works</h2>
         </header>
         <div class="card__body">
@@ -75,7 +94,7 @@
         </header>
         <div class="card__body">
           <p>OldGitHub reads the current GitHub page, URL, username, and signed-in state to rebuild the interface in this browser. Page data is not logged or sent to the developer, advertisers, or any service outside GitHub.</p>
-          <p>Your theme choice is stored with Chrome Sync when it is enabled. The on/off switch and a few page-load hints (theme, signed-in state, native tabs) stay in this browser only.</p>
+          <p>Your theme choice is stored with Chrome Sync when it is enabled. The on/off switch, the optional API token and a few page-load hints (theme, signed-in state, native tabs) stay in this browser only.</p>
           <p><a href="https://github.com/zeo/OldGitHub/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Read the privacy policy</a></p>
         </div>
       </section>

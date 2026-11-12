@@ -273,3 +273,47 @@ body {
 .page-footer a:hover {
   text-decoration: underline;
 }
+
+.token-form {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 10px;
+}
+.token-form input {
+  flex: 1;
+  min-width: 0;
+  font: 12px/1.4 Consolas, "Liberation Mono", Menlo, monospace;
+  padding: 5px 8px;
+  color: var(--fg);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.token-form button {
+  font: inherit;
+  font-weight: bold;
+  padding: 4px 12px;
+  color: var(--fg);
+  background: linear-gradient(var(--header-bg-from), var(--header-bg-to));
+  border: 1px solid var(--header-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.token-form button:hover {
+  border-color: var(--link);
+}
+.token-status {
+  font-size: 12px;
+}
+.token-status[data-tone="bad"] {
+  color: #cb2431;
+}
+.token-status[data-tone="good"] {
+  color: #2ea44f;
+}
+.hint[hidden] {
+  display: none;
+}
+.card__body a {
+  color: var(--link);
+}

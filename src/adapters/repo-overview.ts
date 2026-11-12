@@ -26,6 +26,8 @@ export type RepoOverview = {
   repo: string;
   branch: string;
   commitCount: string | null;
+  tagCount: number | null;
+  releaseCount: number | null;
   tree: TreeItem[];
   readme: ReadmeFile | null;
   clone: CloneUrls;
@@ -341,8 +343,11 @@ export async function getRepoOverview(owner: string, repo: string): Promise<Repo
   const commitCount = typeof commitCountRaw === "string" ? commitCountRaw : null;
   const clone = readClone(overview);
   const readme = readReadme(overview);
+  const releases = read<{ releaseCount?: unknown; tagCount?: unknown }>(read(read(overview, "sidebarAboutData"), "sections"), "releases");
+  const tagCount = typeof releases?.tagCount === "number" ? releases.tagCount : null;
+  const releaseCount = typeof releases?.releaseCount === "number" ? releases.releaseCount : null;
 
-  return { owner, repo, branch, commitCount, tree, readme, clone };
+  return { owner, repo, branch, commitCount, tagCount, releaseCount, tree, readme, clone };
 }
 
 // the commits API returns 409 "Git Repository is empty" for a repo with no
@@ -380,6 +385,8 @@ function emptyOverview(owner: string, repo: string, branch: string): RepoOvervie
     repo,
     branch,
     commitCount: null,
+    tagCount: 0,
+    releaseCount: 0,
     tree: [],
     readme: null,
     clone: {

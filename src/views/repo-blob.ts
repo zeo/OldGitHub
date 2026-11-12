@@ -5,6 +5,8 @@ import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-blob";
+const MAX_HIGHLIGHT_CHARS = 1_000_000;
+const MAX_HIGHLIGHT_LINES = 20_000;
 
 export async function mountRepoBlob(owner: string, repo: string, refAndPath: string): Promise<void> {
   const nav = navigationToken();
@@ -21,7 +23,10 @@ export async function mountRepoBlob(owner: string, repo: string, refAndPath: str
 }
 
 async function hydrateHighlight(root: HTMLElement, view: RepoBlobView): Promise<void> {
-  const result = await highlightFile(view.rawLines.join("\n"), view.language);
+  const text = view.rawLines.join("\n");
+  // highlight.js runs on the main thread; past this size plain text beats a frozen tab
+  if (text.length > MAX_HIGHLIGHT_CHARS || view.rawLines.length > MAX_HIGHLIGHT_LINES) return;
+  const result = await highlightFile(text, view.language);
   if (!result) return;
   const codeCells = root.querySelectorAll<HTMLTableCellElement>("td.oldgh-repo-blob__code");
   for (let i = 0; i < codeCells.length && i < result.lines.length; i++) {
