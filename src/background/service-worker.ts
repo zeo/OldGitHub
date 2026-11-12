@@ -10,8 +10,55 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
+type BlockState = { enabled: boolean; signedOut: boolean; nativeTabs: number[] };
+
+const stateReady: Promise<BlockState> = Promise.all([
+  chrome.storage.local.get("enabled"),
+  chrome.storage.session.get(["oldgh:signed-out", "oldgh:native-tabs"]),
+]).then(([local, session]) => ({
+  enabled: local["enabled"] !== false,
+  signedOut: session["oldgh:signed-out"] === true,
+  nativeTabs: Array.isArray(session["oldgh:native-tabs"]) ? (session["oldgh:native-tabs"] as number[]) : [],
+}));
+
+async function saveState(patch: Partial<BlockState>): Promise<BlockState> {
+  const state = Object.assign(await stateReady, patch);
+  if ("enabled" in patch) await chrome.storage.local.set({ enabled: state.enabled });
+  if ("signedOut" in patch || "nativeTabs" in patch) {
+    await chrome.storage.session.set({ "oldgh:signed-out": state.signedOut, "oldgh:native-tabs": state.nativeTabs });
+  }
+  return state;
+}
+
+async function mayBlock(tabId: number): Promise<boolean> {
+  const state = await stateReady;
+  return state.enabled && !state.signedOut && !state.nativeTabs.includes(tabId);
+}
+
+function showBadge(enabled: boolean): void {
+  void chrome.action.setBadgeText({ text: enabled ? "" : "off" });
+  void chrome.action.setBadgeBackgroundColor({ color: "#777" });
+  void chrome.action.setTitle({ title: enabled ? "OldGitHub is on. Click to turn it off." : "OldGitHub is off. Click to turn it on." });
+}
+
+void stateReady.then((s) => showBadge(s.enabled));
+chrome.runtime.onStartup.addListener(() => undefined);
+
 chrome.action.onClicked.addListener(() => {
-  void chrome.runtime.openOptionsPage();
+  void (async () => {
+    const state = await saveState({ enabled: !(await stateReady).enabled });
+    showBadge(state.enabled);
+    if (!state.enabled) {
+      const rules = await chrome.declarativeNetRequest.getSessionRules();
+      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: rules.map((r) => r.id) });
+    }
+    const tabs = await chrome.tabs.query({ url: ["https://github.com/*", "https://gist.github.com/*"] });
+    for (const tab of tabs) {
+      if (tab.id === undefined) continue;
+      await chrome.tabs.sendMessage(tab.id, { type: "oldgh:set-enabled", enabled: state.enabled }).catch(() => undefined);
+      void chrome.tabs.reload(tab.id);
+    }
+  })();
 });
 
 type RuleSpec = {
@@ -45,6 +92,7 @@ function ruleIdsFor(tabId: number): number[] {
 }
 
 async function enableForTab(tabId: number): Promise<void> {
+  if (!(await mayBlock(tabId))) return disableForTab(tabId);
   const ids = ruleIdsFor(tabId);
   if (ids.length === 0) return;
   const addRules: chrome.declarativeNetRequest.Rule[] = BLOCK_SPECS.map((spec, i) => ({
@@ -112,7 +160,33 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   void disableForTab(tabId);
+  void stateReady.then((s) => {
+    if (s.nativeTabs.includes(tabId)) void saveState({ nativeTabs: s.nativeTabs.filter((id) => id !== tabId) });
+  });
 });
+
+async function tabWasBlocked(tabId: number): Promise<boolean> {
+  const ids = new Set(ruleIdsFor(tabId));
+  const rules = await chrome.declarativeNetRequest.getSessionRules();
+  return rules.some((r) => ids.has(r.id));
+}
+
+type PageMode = "on" | "native" | "signed-out" | "off";
+
+// returns true when the page loaded under the wrong blocking state and needs one reload
+async function notePageMode(tabId: number, mode: PageMode): Promise<boolean> {
+  const state = await stateReady;
+  if (mode === "on") {
+    const wasUnblocked = state.signedOut || state.nativeTabs.includes(tabId);
+    await saveState({ signedOut: false, nativeTabs: state.nativeTabs.filter((id) => id !== tabId) });
+    return wasUnblocked;
+  }
+  const blocked = await tabWasBlocked(tabId);
+  if (mode === "signed-out") await saveState({ signedOut: true });
+  if (mode === "native" && !state.nativeTabs.includes(tabId)) await saveState({ nativeTabs: [...state.nativeTabs, tabId] });
+  await disableForTab(tabId);
+  return blocked;
+}
 
 // dev auto-reload: poll the dev server build-stamp; reload extension when it changes.
 // tree-shaken out of production builds — never runs against the user's machine.
@@ -200,6 +274,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } else {
       void disableForTab(tabId);
     }
+    return undefined;
+  }
+
+  if (m.type === "oldgh:page-mode") {
+    const mode = (m as { mode?: unknown }).mode;
+    if (mode !== "on" && mode !== "native" && mode !== "signed-out" && mode !== "off") return undefined;
+    notePageMode(tabId, mode).then((reload) => sendResponse({ reload }), () => sendResponse({ reload: false }));
+    return true;
+  }
+
+  if (m.type === "oldgh:open-options") {
+    void chrome.runtime.openOptionsPage();
     return undefined;
   }
 

@@ -5,8 +5,39 @@ import { applyTheme, watchThemeChanges } from "@/theme";
 import { mountHeader } from "@/views/header";
 import { mountFooter } from "@/views/footer";
 import { mountHovercards } from "@/views/hovercards";
+import { bindNativeLinks, isNativeTab, mountNativePill, reloadOnce, reportPageMode, type PageMode } from "@/native-mode";
 
 const IS_GIST = window.location.hostname === "gist.github.com";
+const DISABLED_CACHE_KEY = "oldgh:disabled-cache";
+const SIGNED_OUT_CACHE_KEY = "oldgh:signed-out-cache";
+
+let colorModeObserver: MutationObserver | null = null;
+const originalColorAttrs = new Map<string, string | null>();
+
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
+  } catch {
+    // localStorage unavailable; the next load decides from storage instead
+  }
+}
+
+// synchronous guess at document_start; boot() confirms once storage and the dom are ready
+function eagerMode(): PageMode {
+  if (readLocal(DISABLED_CACHE_KEY)) return "off";
+  if (isNativeTab()) return "native";
+  if (readLocal(SIGNED_OUT_CACHE_KEY) && !isLoggedIn()) return "signed-out";
+  return "on";
+}
 
 function eagerStyle(): void {
   document.documentElement.setAttribute("data-oldgh", "active");
@@ -41,28 +72,54 @@ function resolveInitial(cached: string | null): "light" | "dark" {
   return "light";
 }
 
-async function boot(): Promise<void> {
-  eagerStyle();
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => void run(), { once: true });
-  } else {
-    await run();
+function undoEagerStyle(): void {
+  const html = document.documentElement;
+  for (const attr of ["data-oldgh", "data-oldgh-host", "data-oldgh-mounted", "data-oldgh-theme"]) html.removeAttribute(attr);
+  colorModeObserver?.disconnect();
+  colorModeObserver = null;
+  for (const [attr, value] of originalColorAttrs) {
+    if (value === null) html.removeAttribute(attr);
+    else html.setAttribute(attr, value);
   }
+  document.querySelectorAll("link[data-oldgh-stylesheet]").forEach((n) => n.remove());
+}
+
+async function boot(): Promise<void> {
+  const early = eagerMode();
+  if (early === "on") eagerStyle();
+  chrome.runtime.onMessage.addListener((msg: { type?: unknown; enabled?: unknown }, _sender, sendResponse) => {
+    if (msg?.type !== "oldgh:set-enabled") return undefined;
+    writeLocal(DISABLED_CACHE_KEY, msg.enabled === false);
+    sendResponse({ ok: true });
+    return undefined;
+  });
+  const stored = await chrome.storage.local.get("enabled").catch(() => ({} as Record<string, unknown>));
+  const enabled = stored["enabled"] !== false;
+  writeLocal(DISABLED_CACHE_KEY, !enabled);
+  if (document.readyState === "loading") {
+    await new Promise((r) => document.addEventListener("DOMContentLoaded", r, { once: true }));
+  }
+
+  const mode: PageMode = !enabled ? "off" : isNativeTab() ? "native" : isLoggedIn() ? "on" : "signed-out";
+  writeLocal(SIGNED_OUT_CACHE_KEY, mode === "signed-out");
+  if (mode !== "on") {
+    undoEagerStyle();
+    if (await reportPageMode(mode) && reloadOnce()) return;
+    if (mode === "native") mountNativePill();
+    return;
+  }
+  // an early "off" or "signed-out" guess let github's own assets load, so this page needs one clean reload
+  if (early !== "on") {
+    await reportPageMode("on");
+    if (reloadOnce()) return;
+    eagerStyle();
+  } else {
+    void reportPageMode("on").then((reload) => reload && reloadOnce());
+  }
+  await run();
 }
 
 async function run(): Promise<void> {
-  const loggedIn = isLoggedIn();
-  console.debug("[oldgh] boot", {
-    url: window.location.href,
-    loggedIn,
-    host: IS_GIST ? "gist" : "github",
-    hasUserLoginMeta: !!document.querySelector('meta[name="user-login"]'),
-  });
-  if (!loggedIn) {
-    document.documentElement.removeAttribute("data-oldgh");
-    document.documentElement.removeAttribute("data-oldgh-mounted");
-    return;
-  }
   if (IS_GIST) {
     // gist.github.com: keep the native body, just put our themed header on top
     await applyTheme();
@@ -72,6 +129,7 @@ async function run(): Promise<void> {
     return;
   }
   killTurbo();
+  bindNativeLinks();
   await applyTheme();
   watchThemeChanges();
   console.debug("[oldgh] mounting header + router");
@@ -89,6 +147,7 @@ function forceGitHubColorModeNeutral(): void {
   // theme, and so native pass-through pages (create forms, settings) have
   // readable labels.
   const html = document.documentElement;
+  for (const attr of ["data-color-mode", "data-light-theme", "data-dark-theme"]) originalColorAttrs.set(attr, html.getAttribute(attr));
   const sync = (): void => {
     const ourTheme = html.getAttribute("data-oldgh-theme") === "dark" ? "dark" : "light";
     if (html.getAttribute("data-color-mode") !== ourTheme) {
@@ -98,8 +157,8 @@ function forceGitHubColorModeNeutral(): void {
     if (html.getAttribute("data-dark-theme") !== "dark") html.setAttribute("data-dark-theme", "dark");
   };
   sync();
-  const obs = new MutationObserver(() => sync());
-  obs.observe(html, { attributes: true, attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme", "data-oldgh-theme"] });
+  colorModeObserver = new MutationObserver(() => sync());
+  colorModeObserver.observe(html, { attributes: true, attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme", "data-oldgh-theme"] });
 }
 
 function injectThemeStylesheet(): void {

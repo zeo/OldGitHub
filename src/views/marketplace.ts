@@ -48,17 +48,6 @@ export async function mountMarketplace(_pathname: string, search: string): Promi
   root.innerHTML = renderShell(type, category);
   adoptBodyRoot(root);
 
-  // the un-scrapeable empty-state offers a "show native" escape hatch; wire it
-  // up the same way dispatch.ts does for its own fallback bodies
-  root.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest("[data-oldgh-show-native]")) {
-      e.preventDefault();
-      document.documentElement.removeAttribute("data-oldgh-mounted");
-      document.querySelectorAll(".oldgh-body-root").forEach((n) => n.remove());
-    }
-  });
-
   try {
     const view = await scrapeMarketplace(type, category);
     const mainSlot = root.querySelector<HTMLElement>(".oldgh-marketplace__main");

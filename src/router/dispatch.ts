@@ -5,6 +5,7 @@ import type { RepoListKind } from "@/views/repo-lists";
 import type { TopLevelKind } from "@/views/top-level";
 import { removeAllBodyRoots } from "@/views/_body";
 import { resolveRoute, type Route } from "./resolve";
+import { reportIssueUrl } from "@/native-mode";
 
 const MOUNTED_ATTR = "data-oldgh-mounted";
 
@@ -58,18 +59,9 @@ function insertBodyError(message: string): void {
         <h2>Couldn't render this page natively.</h2>
         <p>The OldGitHub adapter for this URL didn't return data we could use, so the original GitHub UI is hidden to avoid showing two skins at once.</p>
         <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
-        <p><a href="${escapeAttr(window.location.href)}">Reload</a> or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>.</p>
+        <p><a href="${escapeAttr(window.location.href)}">Reload</a> or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>. If it keeps happening, <a href="${escapeAttr(reportIssueUrl(message))}" target="_blank" rel="noopener noreferrer">report it</a>.</p>
       </div>
     `;
-  el.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (!target) return;
-    if (target.matches("[data-oldgh-show-native]")) {
-      e.preventDefault();
-      document.documentElement.removeAttribute("data-oldgh-mounted");
-      document.querySelectorAll(".oldgh-body-root").forEach((n) => n.remove());
-    }
-  });
   const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
   if (after && after.parentNode) {
     after.after(el);
@@ -299,15 +291,6 @@ function insertBodyNotFound(message: string): void {
       <p><a href="javascript:void(0)" data-oldgh-show-native>Show GitHub's native page instead</a>.</p>
     </div>
   `;
-  el.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (!target) return;
-    if (target.matches("[data-oldgh-show-native]")) {
-      e.preventDefault();
-      document.documentElement.removeAttribute("data-oldgh-mounted");
-      document.querySelectorAll(".oldgh-body-root").forEach((n) => n.remove());
-    }
-  });
   const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
   if (after && after.parentNode) {
     after.after(el);
