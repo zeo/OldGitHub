@@ -41,18 +41,22 @@ export function renderDiffSummary(files: DiffFile[]): string {
   `;
 }
 
-export function renderHunks(hunks: DiffHunk[]): string {
+export function renderHunks(hunks: DiffHunk[], afterLine?: (l: DiffLine) => string): string {
   if (hunks.length === 0) return "";
   return `
     <div class="oldgh-diff-scroll">
       <table class="oldgh-diff">
-        ${hunks.map((h) => renderHunk(h)).join("")}
+        ${hunks.map((h) => renderHunk(h, afterLine)).join("")}
       </table>
     </div>
   `;
 }
 
-function renderHunk(h: DiffHunk): string {
+export function renderDiffLines(lines: DiffLine[]): string {
+  return `<div class="oldgh-diff-scroll"><table class="oldgh-diff">${lines.map((l) => renderLine(l)).join("")}</table></div>`;
+}
+
+function renderHunk(h: DiffHunk, afterLine?: (l: DiffLine) => string): string {
   const headerRow = `
     <tr class="oldgh-diff__hunk-header">
       <td class="oldgh-diff__num"></td>
@@ -60,7 +64,7 @@ function renderHunk(h: DiffHunk): string {
       <td class="oldgh-diff__code">@@ -${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@ ${escapeText(h.header)}</td>
     </tr>
   `;
-  return headerRow + h.lines.map((l) => renderLine(l)).join("");
+  return headerRow + h.lines.map((l) => renderLine(l) + (afterLine?.(l) ?? "")).join("");
 }
 
 function renderLine(l: DiffLine): string {

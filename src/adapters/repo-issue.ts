@@ -36,6 +36,7 @@ export type CommentNode = {
   authorAssociation: string | null;
   reactions: ReactionCount[];
   isAuthor: boolean;
+  reviewId?: number;
 };
 
 export type EventNode = {
@@ -52,6 +53,7 @@ export type EventNode = {
   ref?: string;
   commitOid?: string;
   commitMessageHeadline?: string;
+  reviewId?: number;
 };
 
 export type TimelineNode = CommentNode | EventNode;
@@ -89,6 +91,25 @@ export type PullDetail = Omit<IssueDetail, "state"> & {
   merged: boolean;
   mergedAt: string | null;
   mergedBy: Actor | null;
+  reviewThreads: ReviewThread[];
+};
+
+export type ReviewComment = {
+  id: number;
+  author: Actor | null;
+  bodyHtml: string;
+  createdAt: string;
+};
+
+export type ReviewThread = {
+  id: number;
+  reviewId: number | null;
+  path: string;
+  line: number | null;
+  side: "LEFT" | "RIGHT";
+  diffHunk: string;
+  outdated: boolean;
+  comments: ReviewComment[];
 };
 
 const API = "https://api.github.com";
@@ -138,6 +159,39 @@ export type CheckRun = {
 export async function getPullFiles(owner: string, repo: string, number: number): Promise<PullFile[]> {
   const pages = await apiFetchAll(`/repos/${owner}/${repo}/pulls/${number}/files`);
   return pages.map((r) => parsePullFile(r)).filter((f): f is PullFile => f !== null);
+}
+
+// replies point at the thread's first comment, so grouping by that id rebuilds each conversation
+export async function getReviewThreads(owner: string, repo: string, number: number): Promise<ReviewThread[]> {
+  const threads = new Map<number, ReviewThread>();
+  for (const raw of await apiFetchAll(`/repos/${owner}/${repo}/pulls/${number}/comments`)) {
+    const r = readObj(raw);
+    const id = r && readNumber(r, "id");
+    if (!r || id == null) continue;
+    const comment: ReviewComment = {
+      id,
+      author: restActor(r["user"]),
+      bodyHtml: readString(r, "body_html") ?? "",
+      createdAt: readString(r, "created_at") ?? "",
+    };
+    const parent = threads.get(readNumber(r, "in_reply_to_id") ?? -1);
+    if (parent) {
+      parent.comments.push(comment);
+      continue;
+    }
+    const line = readNumber(r, "line");
+    threads.set(id, {
+      id,
+      reviewId: readNumber(r, "pull_request_review_id"),
+      path: readString(r, "path") ?? "",
+      line,
+      side: readString(r, "side") === "LEFT" ? "LEFT" : "RIGHT",
+      diffHunk: readString(r, "diff_hunk") ?? "",
+      outdated: line == null,
+      comments: [comment],
+    });
+  }
+  return Array.from(threads.values());
 }
 
 export async function getPullCommits(owner: string, repo: string, number: number): Promise<PullCommit[]> {
@@ -261,16 +315,17 @@ export async function getIssue(owner: string, repo: string, number: number): Pro
 }
 
 export async function getPull(owner: string, repo: string, number: number): Promise<PullDetail> {
-  const [prRaw, issueRaw, timelineRaw] = await Promise.all([
+  const [prRaw, issueRaw, timelineRaw, reviewThreads] = await Promise.all([
     apiFetch(`/repos/${owner}/${repo}/pulls/${number}`),
     apiFetch(`/repos/${owner}/${repo}/issues/${number}`),
     apiFetchAll(`/repos/${owner}/${repo}/issues/${number}/timeline`),
+    getReviewThreads(owner, repo, number),
   ]);
   if (!prRaw || typeof prRaw !== "object" || !issueRaw || typeof issueRaw !== "object") {
     throw new AdapterFailure("getPull", `pull ${owner}/${repo}#${number} not parseable`);
   }
   const base = restToIssue(owner, repo, number, issueRaw as Record<string, unknown>, timelineRaw);
-  return restToPull(base, prRaw as Record<string, unknown>);
+  return { ...restToPull(base, prRaw as Record<string, unknown>), reviewThreads };
 }
 
 async function apiFetch(path: string): Promise<unknown | null> {
@@ -351,7 +406,7 @@ function restToIssue(
   };
 }
 
-function restToPull(base: IssueDetail, pr: Record<string, unknown>): PullDetail {
+function restToPull(base: IssueDetail, pr: Record<string, unknown>): Omit<PullDetail, "reviewThreads"> {
   const merged = pr["merged"] === true;
   const state: PullState = merged
     ? "MERGED"
@@ -416,6 +471,7 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
   if (ev === "reviewed") {
     const state = (readString(n, "state") ?? "").toUpperCase();
     const body = readString(n, "body_html") ?? "";
+    const reviewId = readNumber(n, "id") ?? undefined;
     if (body) {
       return {
         kind: "comment",
@@ -426,6 +482,7 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
         authorAssociation: readString(n, "author_association"),
         reactions: [],
         isAuthor: false,
+        ...(reviewId != null && { reviewId }),
       };
     }
     return {
@@ -434,10 +491,12 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
       actor: restActor(n["user"]) ?? restActor(n["actor"]),
       createdAt: readString(n, "submitted_at") ?? readString(n, "created_at") ?? "",
       toState: state.toLowerCase(),
+      ...(reviewId != null && { reviewId }),
     };
   }
 
-  if (ev === "subscribed" || ev === "unsubscribed" || ev === "mentioned") return null;
+  // line comments arrive through getReviewThreads instead
+  if (ev === "subscribed" || ev === "unsubscribed" || ev === "mentioned" || ev === "line-commented") return null;
 
   const base: EventNode = {
     kind: "event",

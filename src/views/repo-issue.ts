@@ -14,13 +14,14 @@ import {
   type PullFile,
   type PullCommit,
   type CheckRun,
+  type ReviewThread,
 } from "@/adapters/repo-issue";
 import { AdapterFailure } from "@/adapters";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { renderHunks } from "./_diff-table";
-import { parsePatch } from "@/util/diff";
+import { renderDiffLines, renderHunks } from "./_diff-table";
+import { parsePatch, type DiffLine } from "@/util/diff";
 import { escapeAttr, escapeText, sanitizeHtml, safeHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issue";
@@ -61,7 +62,7 @@ export async function mountRepoIssue(
   if (!view) {
     void hydrateScrapedBody(root, owner, repo, number, kind, tab);
   } else if (kind === "pull" && tab !== "conversation") {
-    void hydrateSubTab(root, owner, repo, number, tab);
+    void hydrateSubTab(root, owner, repo, number, tab, (view as PullDetail).reviewThreads);
   }
 }
 
@@ -203,13 +204,14 @@ async function hydrateSubTab(
   repo: string,
   number: number,
   tab: IssueTab,
+  threads: ReviewThread[],
 ): Promise<void> {
   const container = root.querySelector<HTMLElement>(".oldgh-issue__subtab");
   if (!container) return;
   try {
     if (tab === "files") {
       const files = await getPullFiles(owner, repo, number);
-      container.innerHTML = renderPullFiles(files);
+      container.innerHTML = renderPullFiles(files, threads, `/${owner}/${repo}/pull/${number}`);
       return;
     }
     if (tab === "commits") {
@@ -227,7 +229,7 @@ async function hydrateSubTab(
   }
 }
 
-function renderPullFiles(files: PullFile[]): string {
+function renderPullFiles(files: PullFile[], threads: ReviewThread[], pullPath: string): string {
   if (files.length === 0) {
     return `<p class="oldgh-issue__subtab-empty">No file changes.</p>`;
   }
@@ -240,17 +242,26 @@ function renderPullFiles(files: PullFile[]): string {
       and <strong class="oldgh-pr-files__del">${totalDel}</strong> deletions
     </div>
   `;
-  const blocks = files.map((f) => renderPullFile(f)).join("");
+  const blocks = files.map((f) => renderPullFile(f, threads.filter((t) => t.path === f.filename), pullPath)).join("");
   return `<div class="oldgh-pr-files">${summary}${blocks}</div>`;
 }
 
-function renderPullFile(f: PullFile): string {
+function renderPullFile(f: PullFile, threads: ReviewThread[], pullPath: string): string {
+  const placed = new Set<ReviewThread>();
+  const threadsAfter = (l: DiffLine): string => {
+    const here = threads.filter((t) => !t.outdated && !placed.has(t) && (t.side === "LEFT"
+      ? l.kind !== "add" && l.kind !== "no-newline" && l.old === t.line
+      : l.kind !== "del" && l.kind !== "no-newline" && l.new === t.line));
+    here.forEach((t) => placed.add(t));
+    return here.length ? `<tr class="oldgh-diff__threads"><td colspan="3">${here.map((t) => renderReviewThread(t, pullPath, false)).join("")}</td></tr>` : "";
+  };
   const statusLabel = f.status === "renamed" && f.previousFilename
     ? `${escapeText(f.previousFilename)} → ${escapeText(f.filename)}`
     : escapeText(f.filename);
   const hunk = f.patch
-    ? renderHunks(parsePatch(f.patch))
+    ? renderHunks(parsePatch(f.patch), threadsAfter)
     : `<div class="oldgh-pr-file__nopatch">Binary or large file — view on <a href="${escapeAttr(f.blobUrl)}">GitHub</a>.</div>`;
+  const unplaced = threads.filter((t) => !placed.has(t));
   return `
     <div class="oldgh-pr-file" data-status="${escapeAttr(f.status)}">
       <div class="oldgh-pr-file__header">
@@ -260,7 +271,34 @@ function renderPullFile(f: PullFile): string {
           <span class="oldgh-pr-file__del">−${f.deletions}</span>
         </span>
       </div>
+      ${unplaced.length ? `<div class="oldgh-pr-file__threads">${unplaced.map((t) => renderReviewThread(t, pullPath, true)).join("")}</div>` : ""}
       <div class="oldgh-pr-file__diff">${hunk}</div>
+    </div>
+  `;
+}
+
+function renderReviewThread(t: ReviewThread, pullPath: string, withContext: boolean): string {
+  const context = withContext ? parsePatch(t.diffHunk).at(-1)?.lines.slice(-4) ?? [] : [];
+  return `
+    <div class="oldgh-review-thread">
+      ${withContext ? `
+        <div class="oldgh-review-thread__file">
+          ${octicon("file", { size: 14 })}<span>${escapeText(t.path)}</span>
+          ${t.outdated ? `<span class="oldgh-review-thread__outdated">Outdated</span>` : ""}
+        </div>
+        ${context.length ? renderDiffLines(context) : ""}` : ""}
+      ${t.comments.map((c) => {
+        const login = c.author?.login || "ghost";
+        return `
+          <div class="oldgh-review-thread__comment" id="discussion_r${c.id}">
+            <img src="${escapeAttr(c.author?.avatarUrl || `https://github.com/${login}.png?size=40`)}" alt="" width="20" height="20" />
+            <div class="oldgh-review-thread__main">
+              <div class="oldgh-review-thread__head"><a href="/${escapeAttr(login)}">${escapeText(login)}</a> ${relativeTimeLink(c.createdAt)}</div>
+              <div class="markdown-body">${sanitizeHtml(c.bodyHtml)}</div>
+            </div>
+          </div>`;
+      }).join("")}
+      <div class="oldgh-review-thread__reply"><a href="${escapeAttr(`${pullPath}#discussion_r${t.id}`)}" data-oldgh-show-native>Reply on GitHub</a></div>
     </div>
   `;
 }
@@ -535,8 +573,19 @@ function renderPullRefs(p: PullDetail): string {
 
 function renderTimelineGroup(v: IssueDetail | PullDetail): string {
   const opener = renderOpenerComment(v);
-  const items = v.timeline.map((node) => renderTimelineItem(node)).join("");
-  return `<div class="oldgh-issue__timeline">${opener}${items}</div>`;
+  const threads = "reviewThreads" in v ? v.reviewThreads : [];
+  const pullPath = `/${v.owner}/${v.repo}/pull/${v.number}`;
+  const shown = new Set<ReviewThread>();
+  const threadsFor = (node: TimelineNode): string => {
+    const mine = node.reviewId == null ? [] : threads.filter((t) => t.reviewId === node.reviewId);
+    mine.forEach((t) => shown.add(t));
+    return mine.length ? `<div class="oldgh-review-threads">${mine.map((t) => renderReviewThread(t, pullPath, true)).join("")}</div>` : "";
+  };
+  const items = v.timeline.map((node) => renderTimelineItem(node) + threadsFor(node)).join("");
+  // a thread whose review fell outside the fetched timeline still belongs on the page
+  const rest = threads.filter((t) => !shown.has(t));
+  const tail = rest.length ? `<div class="oldgh-review-threads">${rest.map((t) => renderReviewThread(t, pullPath, true)).join("")}</div>` : "";
+  return `<div class="oldgh-issue__timeline">${opener}${items}${tail}</div>`;
 }
 
 function renderOpenerComment(v: IssueDetail | PullDetail): string {

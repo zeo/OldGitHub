@@ -5695,6 +5695,87 @@ html[data-oldgh-theme="dark"] .oldgh-pr-files__del { color: #ff7b72; }
 .oldgh-pr-file__diff {
   overflow-x: auto;
 }
+.oldgh-review-threads {
+  margin: 0 0 16px 54px;
+}
+.oldgh-pr-file__threads {
+  padding: 10px;
+  border-bottom: 1px solid var(--gh-border);
+  background: var(--gh-bg-stripe);
+}
+.oldgh-diff__threads > td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--gh-border);
+  border-bottom: 1px solid var(--gh-border);
+  background: var(--gh-bg-stripe);
+  font-family: var(--gh-font-sans);
+  line-height: 1.5;
+  white-space: normal;
+}
+.oldgh-review-thread {
+  max-width: 820px;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  overflow: hidden;
+}
+.oldgh-review-thread + .oldgh-review-thread {
+  margin-top: 10px;
+}
+.oldgh-review-thread__file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--gh-bg-stripe);
+  border-bottom: 1px solid var(--gh-border);
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-sm);
+}
+.oldgh-review-thread__outdated {
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid var(--gh-border);
+  border-radius: 3px;
+  color: var(--gh-fg-muted);
+  font-family: var(--gh-font-sans);
+  font-size: 11px;
+}
+.oldgh-review-thread .oldgh-diff-scroll {
+  overflow-x: auto;
+  border-bottom: 1px solid var(--gh-border);
+}
+.oldgh-review-thread__comment {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.oldgh-review-thread__comment + .oldgh-review-thread__comment {
+  border-top: 1px solid var(--gh-border);
+}
+.oldgh-review-thread__comment > img {
+  flex: none;
+  border-radius: 3px;
+}
+.oldgh-review-thread__main {
+  min-width: 0;
+  flex: 1;
+}
+.oldgh-review-thread__head {
+  margin-bottom: 4px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-review-thread__head a:first-child {
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+.oldgh-review-thread__reply {
+  padding: 6px 10px;
+  border-top: 1px solid var(--gh-border);
+  background: var(--gh-bg-stripe);
+  font-size: var(--gh-size-sm);
+}
 .oldgh-pr-file__header {
   display: flex;
   align-items: center;

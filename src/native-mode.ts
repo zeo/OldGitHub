@@ -43,9 +43,11 @@ export function reloadOnce(): boolean {
   return true;
 }
 
-export async function showNativePage(): Promise<void> {
+export async function showNativePage(path?: string): Promise<void> {
   setSessionFlag(NATIVE_KEY, "1");
   await reportPageMode("native");
+  // swapping the url first lets a link land natively on a specific page or anchor
+  if (path) history.replaceState(null, "", path);
   location.reload();
 }
 
@@ -62,7 +64,10 @@ export function bindNativeLinks(): void {
     e.preventDefault();
     e.stopPropagation();
     if (target.hasAttribute("data-oldgh-open-options")) void chrome.runtime.sendMessage({ type: "oldgh:open-options" }).catch(() => undefined);
-    else void showNativePage();
+    else {
+      const href = target.getAttribute("href");
+      void showNativePage(href?.startsWith("/") && !href.startsWith("//") ? href : undefined);
+    }
   }, true);
 }
 
