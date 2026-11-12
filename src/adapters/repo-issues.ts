@@ -57,15 +57,11 @@ export async function getIssueList(
   kind: "issues" | "pulls",
 ): Promise<IssueListView> {
   const params = new URLSearchParams(rawQuery);
-  const qStr = params.get("q") || "";
+  const qStr = withParamFilters(params.get("q") || "", params);
   const wantsClosed = /\bis:closed\b/i.test(qStr) || params.get("state") === "closed";
   const wantsAll = /\bis:all\b/i.test(qStr) || params.get("state") === "all";
   const state: "open" | "closed" | "all" = wantsAll ? "all" : (wantsClosed ? "closed" : "open");
   const page = Math.max(1, parseInt(params.get("page") || "1", 10) || 1);
-  const labels = extractLabels(qStr) ?? params.get("labels") ?? undefined;
-  const author = extractKey(qStr, "author") ?? undefined;
-  const assignee = extractKey(qStr, "assignee") ?? params.get("assignee") ?? undefined;
-  const milestone = extractKey(qStr, "milestone") ?? params.get("milestone") ?? undefined;
   const sortClause = extractSort(qStr);
   const sort = sortClause.sort ?? "updated";
   const direction = sortClause.direction ?? "desc";
@@ -75,8 +71,8 @@ export async function getIssueList(
   // page. Default to the search API for issues so the filter happens server-side.
   const needsSearch =
     kind === "issues" ||
-    (kind === "pulls" && !!author) ||
-    /\b(involves|mentions|review|review-requested|reviewed-by|commenter|head|base):/i.test(qStr);
+    // the rest pulls endpoint can't filter by any of these
+    /\b(author|label|assignee|milestone|involves|mentions|review|review-requested|reviewed-by|commenter|head|base):/i.test(qStr);
 
   if (isApiRateLimited()) {
     return scrapeIssueList(owner, repo, rawQuery, kind, qStr, state, page);
@@ -116,17 +112,13 @@ export async function getIssueList(
     hasNext = /<[^>]+>;\s*rel="next"/i.test(linkHeader);
     hasPrev = /<[^>]+>;\s*rel="prev"/i.test(linkHeader);
   } else {
-    // needsSearch implies kind === "issues" OR has special filters, so reaching
-    // this branch means kind === "pulls" without an author filter
+    // reaching this branch means an unfiltered pull request list
     const apiUrl = new URL(`${API}/repos/${owner}/${repo}/pulls`);
     apiUrl.searchParams.set("state", state);
     apiUrl.searchParams.set("per_page", "30");
     apiUrl.searchParams.set("page", String(page));
     apiUrl.searchParams.set("sort", sort);
     apiUrl.searchParams.set("direction", direction);
-    if (labels) apiUrl.searchParams.set("labels", labels);
-    if (assignee) apiUrl.searchParams.set("assignee", assignee);
-    if (milestone) apiUrl.searchParams.set("milestone", milestone);
 
     const resp = await fetchApi(apiUrl.toString(), {
       credentials: "omit",
@@ -387,6 +379,16 @@ function buildSearchQuery(owner: string, repo: string, kind: "issues" | "pulls",
     .trim();
   if (cleaned) parts.push(cleaned);
   return parts.join(" ");
+}
+
+// older links carry ?labels=, ?assignee= and ?milestone=; search only reads q
+function withParamFilters(q: string, params: URLSearchParams): string {
+  const extra = extractLabels(q) ? [] : (params.get("labels") ?? "").split(",").filter(Boolean).map((l) => `label:"${l}"`);
+  for (const key of ["assignee", "milestone"]) {
+    const value = params.get(key);
+    if (value && !extractKey(q, key)) extra.push(`${key}:"${value}"`);
+  }
+  return [q, ...extra].filter(Boolean).join(" ");
 }
 
 function extractLabels(q: string): string | null {

@@ -44,14 +44,15 @@ export async function mountMarketplace(_pathname: string, search: string): Promi
   const params = new URLSearchParams(search);
   const type = mapType(params.get("type"));
   const category = params.get("category") || "";
+  const query = params.get("query") || "";
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
-  root.innerHTML = renderShell(type, category);
+  root.innerHTML = renderShell(type, category, query);
   if (!adoptBodyRoot(root, undefined, nav)) return;
 
   try {
-    const view = await scrapeMarketplace(type, category);
+    const view = await scrapeMarketplace(type, category, query);
     const mainSlot = root.querySelector<HTMLElement>(".oldgh-marketplace__main");
     if (mainSlot) mainSlot.innerHTML = renderMain(view);
     const railSlot = root.querySelector<HTMLElement>(".oldgh-marketplace__rail");
@@ -69,10 +70,11 @@ function mapType(raw: string | null): "all" | "actions" | "apps" {
   return "all";
 }
 
-async function scrapeMarketplace(type: "all" | "actions" | "apps", category: string): Promise<MarketView> {
+async function scrapeMarketplace(type: "all" | "actions" | "apps", category: string, query: string): Promise<MarketView> {
   const params = new URLSearchParams();
   if (type !== "all") params.set("type", type);
   if (category) params.set("category", category);
+  if (query) params.set("query", query);
   const url = `https://github.com/marketplace${params.toString() ? "?" + params.toString() : ""}`;
   const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
   if (!resp.ok) throw new Error(`marketplace responded ${resp.status}`);
@@ -218,7 +220,7 @@ function extractCategories(doc: Document): MarketCategory[] {
   return out;
 }
 
-function renderShell(type: "all" | "actions" | "apps", category: string): string {
+function renderShell(type: "all" | "actions" | "apps", category: string, query: string): string {
   const subnav: Array<{ key: typeof type; label: string; icon: string }> = [
     { key: "all", label: "All", icon: "package" },
     { key: "actions", label: "Actions", icon: "zap" },
@@ -232,7 +234,7 @@ function renderShell(type: "all" | "actions" | "apps", category: string): string
         <form class="oldgh-marketplace__search" action="/marketplace" method="get">
           ${type !== "all" ? `<input type="hidden" name="type" value="${escapeAttr(type)}" />` : ""}
           ${category ? `<input type="hidden" name="category" value="${escapeAttr(category)}" />` : ""}
-          <input name="query" type="search" placeholder="Search Marketplace…" autocomplete="off" />
+          <input name="query" type="search" placeholder="Search Marketplace…" autocomplete="off" value="${escapeAttr(query)}" />
           <button type="submit" class="oldgh-btn oldgh-btn--primary">${octicon("search", { size: 14 })}<span>Search</span></button>
         </form>
         <nav class="oldgh-marketplace__subnav">

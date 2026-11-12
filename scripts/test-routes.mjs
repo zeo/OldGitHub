@@ -78,3 +78,10 @@ test("preserves route details used by views", () => {
   assert.equal(resolveRoute("/octocat/Hello-World/pull/42/changes", "").tab, "files");
   assert.equal(resolveRoute("/octocat/Hello-World/actions/workflows/ci.yml", "page=2").workflowPath, "ci.yml");
 });
+
+test("decodes wiki page titles once", () => {
+  assert.equal(resolveRoute("/octocat/Hello-World/wiki/Caf%C3%A9-notes", "").page, "Café-notes");
+  assert.equal(resolveRoute("/octocat/Hello-World/wiki/Docs/Setup", "").page, "Docs/Setup");
+  assert.equal(resolveRoute("/octocat/Hello-World/wiki/100%", "").page, "100%");
+  assert.equal(resolveRoute("/octocat/Hello-World/wiki", "").page, "Home");
+});

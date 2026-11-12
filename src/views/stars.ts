@@ -172,6 +172,11 @@ function renderLayout(items: StarredRepo[], ctx: StarsCtx): string {
   const sortedLangs = Array.from(langCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 12);
+  const filterHref = (language: string | null) => {
+    const params = new URLSearchParams({ sort: ctx.sort, direction: ctx.direction });
+    if (language) params.set("language", language);
+    return `/stars/${encodeURIComponent(ctx.login)}?${params}`;
+  };
 
   return `
     <aside class="oldgh-stars__sidebar">
@@ -186,10 +191,10 @@ function renderLayout(items: StarredRepo[], ctx: StarsCtx): string {
         <div class="oldgh-stars__sidebox">
           <h3>${octicon("code", { size: 14 })} Languages</h3>
           <ul class="oldgh-stars__lang-list">
-            ${ctx.languageFilter ? `<li><a href="/${escapeAttr(ctx.login)}?tab=stars">${octicon("x", { size: 12 })} Clear filter</a></li>` : ""}
+            ${ctx.languageFilter ? `<li><a href="${escapeAttr(filterHref(null))}">${octicon("x", { size: 12 })} Clear filter</a></li>` : ""}
             ${sortedLangs.map(([lang, count]) => `
               <li class="${ctx.languageFilter.toLowerCase() === lang.toLowerCase() ? "is-active" : ""}">
-                <a href="/${escapeAttr(ctx.login)}?tab=stars&language=${encodeURIComponent(lang)}">
+                <a href="${escapeAttr(filterHref(lang))}">
                   ${lang !== "Unknown" ? `<span class="oldgh-search__lang-dot" style="background:${languageColor(lang)}"></span>` : ""}
                   ${escapeText(lang)}
                   <span class="oldgh-stars__lang-count">${count}</span>

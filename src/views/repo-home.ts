@@ -524,7 +524,8 @@ async function loadBranches(list: HTMLUListElement | null, ctx: { owner: string;
       branchCache.set(key, names);
     } catch (err) {
       console.debug("[oldgh] branch list fetch failed:", err);
-      list.innerHTML = `<li class="oldgh-branch-picker__status">Couldn't load branches.</li>`;
+      list.innerHTML = `<li class="oldgh-branch-picker__status">Couldn't load branches. Close and reopen to retry.</li>`;
+      list.dataset["loading"] = "pending";
       return;
     }
   }

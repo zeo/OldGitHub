@@ -252,7 +252,7 @@ export function resolveRoute(pathname: string, search: string): Route {
     // underscore paths (_edit, _new, _history, _compare) are native GitHub forms/views
     if (wikiSegs.some((s) => s.startsWith("_"))) return { kind: "out-of-scope" };
     const page = wikiSegs.join("/") || "Home";
-    return { kind: "repo-wiki", owner, repo, page };
+    return { kind: "repo-wiki", owner, repo, page: decodePathSegment(page) };
   }
 
   if (segs[2] === "actions") {
@@ -408,5 +408,14 @@ function parseProfileTab(search: string): ProfileTab {
       return t;
     default:
       return "overview";
+  }
+}
+
+// a stray "%" in a hand-typed url is not valid percent-encoding, so keep it as typed
+function decodePathSegment(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
   }
 }

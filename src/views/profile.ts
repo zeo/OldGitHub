@@ -789,7 +789,9 @@ function renderReposLoading(): string {
 async function hydrateScrapedTab(root: HTMLElement, login: string, tab: string, query: string): Promise<void> {
   const container = root.querySelector<HTMLElement>(".oldgh-profile__scraped");
   if (!container) return;
-  const url = `https://github.com/${encodeURIComponent(login)}?tab=${encodeURIComponent(tab)}${query && !/^tab=/.test(query) ? "&" + query.replace(/^tab=[^&]*&?/, "") : ""}`;
+  const params = new URLSearchParams(query);
+  params.set("tab", tab);
+  const url = `https://github.com/${encodeURIComponent(login)}?${params}`;
   try {
     const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
     if (!resp.ok) throw new Error(`status ${resp.status}`);
@@ -806,7 +808,7 @@ async function hydrateScrapedTab(root: HTMLElement, login: string, tab: string, 
       return;
     }
     if (tab === "followers" || tab === "following" || tab === "people") {
-      container.innerHTML = renderPeopleFromFrame(frame);
+      container.innerHTML = renderPeopleFromFrame(frame) + renderPagination(framePagination(frame));
       return;
     }
     if (tab === "packages") {
@@ -1210,7 +1212,7 @@ function renderRepos(d: ProfileReposView): string {
     <ul class="oldgh-repo-list">
       ${d.items.map((r) => renderRepoRow(r)).join("")}
     </ul>
-    ${renderRepoPagination(d)}
+    ${renderPagination(d.pagination)}
   `;
 }
 
@@ -1247,13 +1249,23 @@ function renderRepoRow(r: RepoListItem): string {
   `;
 }
 
-function renderRepoPagination(d: ProfileReposView): string {
-  if (!d.pagination.prevHref && !d.pagination.nextHref) return "";
-  const prev = d.pagination.prevHref
-    ? `<a class="oldgh-btn" href="${escapeAttr(d.pagination.prevHref)}">${octicon("triangle-left", { size: 14 })}<span>Previous</span></a>`
+function framePagination(frame: Element): ProfileReposView["pagination"] {
+  const link = (label: string) => {
+    const href = Array.from(frame.querySelectorAll(".paginate-container a[href]")).find((a) => a.textContent?.trim() === label)?.getAttribute("href");
+    if (!href) return null;
+    const url = new URL(href, "https://github.com");
+    return url.origin === "https://github.com" ? url.pathname + url.search : null;
+  };
+  return { prevHref: link("Previous"), nextHref: link("Next") };
+}
+
+function renderPagination(p: ProfileReposView["pagination"]): string {
+  if (!p.prevHref && !p.nextHref) return "";
+  const prev = p.prevHref
+    ? `<a class="oldgh-btn" href="${escapeAttr(p.prevHref)}">${octicon("triangle-left", { size: 14 })}<span>Previous</span></a>`
     : `<button class="oldgh-btn" type="button" disabled>${octicon("triangle-left", { size: 14 })}<span>Previous</span></button>`;
-  const next = d.pagination.nextHref
-    ? `<a class="oldgh-btn" href="${escapeAttr(d.pagination.nextHref)}"><span>Next</span>${octicon("triangle-right", { size: 14 })}</a>`
+  const next = p.nextHref
+    ? `<a class="oldgh-btn" href="${escapeAttr(p.nextHref)}"><span>Next</span>${octicon("triangle-right", { size: 14 })}</a>`
     : `<button class="oldgh-btn" type="button" disabled><span>Next</span>${octicon("triangle-right", { size: 14 })}</button>`;
   return `<div class="oldgh-repo-list__pagination">${prev}${next}</div>`;
 }

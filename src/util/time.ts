@@ -32,7 +32,10 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
       return n === 7 ? { n: 1, unit: "week" } : { n, unit: "day" };
     }
     if (abs < MONTH) return { n: Math.round(abs / WEEK), unit: "week" };
-    if (abs < YEAR) return { n: Math.round(abs / MONTH), unit: "month" };
+    if (abs < YEAR) {
+      const n = Math.round(abs / MONTH);
+      return n === 12 ? { n: 1, unit: "year" } : { n, unit: "month" };
+    }
     return { n: Math.round(abs / YEAR), unit: "year" };
   };
 

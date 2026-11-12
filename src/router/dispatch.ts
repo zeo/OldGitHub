@@ -510,7 +510,7 @@ async function mountBody(target: BodyState, nav: number): Promise<void> {
     } else if (target.subkind === "pulls") {
       await (await load(nav, import("@/views/me-issues"))).mountMeIssues("pull", target.pathname, target.search);
     } else if (target.subkind === "settings") {
-      await (await load(nav, import("@/views/account-settings"))).mountAccountSettings(target.pathname);
+      await (await load(nav, import("@/views/account-settings"))).mountAccountSettings(target.pathname, target.search);
     } else {
       await (await load(nav, import("@/views/top-level"))).mountTopLevel(target.subkind, target.pathname, target.search, target.title);
     }

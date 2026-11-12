@@ -9,6 +9,7 @@ let mqlListener: ((e: MediaQueryListEvent) => void) | null = null;
 export async function applyTheme(): Promise<void> {
   const theme = await readStoredTheme();
   setEffectiveTheme(resolve(theme));
+  cacheTheme(theme);
 }
 
 export function watchThemeChanges(): void {
@@ -18,6 +19,7 @@ export function watchThemeChanges(): void {
     if (!changes[STORAGE_KEY]) return;
     const next = (changes[STORAGE_KEY].newValue as Theme | undefined) ?? "auto";
     setEffectiveTheme(resolve(next));
+    cacheTheme(next);
     rewireMediaListener(next);
   });
 
@@ -28,6 +30,7 @@ export function watchThemeChanges(): void {
 export async function setTheme(theme: Theme): Promise<void> {
   await chrome.storage.sync.set({ [STORAGE_KEY]: theme });
   setEffectiveTheme(resolve(theme));
+  cacheTheme(theme);
   rewireMediaListener(theme);
 }
 
@@ -54,10 +57,12 @@ function resolve(theme: Theme): "light" | "dark" {
 
 function setEffectiveTheme(effective: "light" | "dark"): void {
   document.documentElement.setAttribute("data-oldgh-theme", effective);
-  // Cache the resolved theme so the next page-load can use it synchronously
-  // during eagerStyle, before chrome.storage.sync resolves.
+}
+
+// eagerStyle reads this synchronously before chrome.storage resolves; "auto" is cached as-is so the next load follows the os
+function cacheTheme(theme: Theme): void {
   try {
-    localStorage.setItem("oldgh:theme-cache", effective);
+    localStorage.setItem("oldgh:theme-cache", theme);
   } catch {
     // localStorage may be unavailable (e.g. third-party context)
   }

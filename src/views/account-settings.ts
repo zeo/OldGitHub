@@ -92,7 +92,7 @@ function activeKeyFor(subPath: string): string {
   }
 }
 
-export async function mountAccountSettings(pathname: string): Promise<void> {
+export async function mountAccountSettings(pathname: string, search: string): Promise<void> {
   const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
@@ -104,7 +104,7 @@ export async function mountAccountSettings(pathname: string): Promise<void> {
   if (!main) return;
 
   try {
-    const html = await fetchSettingsPage(pathname);
+    const html = await fetchSettingsPage(pathname + search);
     const doc = new DOMParser().parseFromString(html, "text/html");
     const native = extractMainContent(doc);
     if (!native) {
@@ -120,8 +120,8 @@ export async function mountAccountSettings(pathname: string): Promise<void> {
   }
 }
 
-async function fetchSettingsPage(pathname: string): Promise<string> {
-  const url = `https://github.com${pathname}`;
+async function fetchSettingsPage(path: string): Promise<string> {
+  const url = `https://github.com${path}`;
   const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
   if (!resp.ok) {
     throw new Error(`${url} responded ${resp.status}`);
