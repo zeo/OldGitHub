@@ -236,6 +236,7 @@ const PRO_TIPS: string[] = [
   `Use <kbd>g</kbd> then <kbd>n</kbd> to jump to your Notifications.`,
   `Use <kbd>g</kbd> then <kbd>b</kbd> on any repository to jump to its Branches.`,
   `Use <kbd>s</kbd> or <kbd>/</kbd> from anywhere to focus the search bar.`,
+  `Press <kbd>t</kbd> on any repository to find a file by name.`,
   `Hold <kbd>shift</kbd> while clicking a link to open it in a new tab.`,
   `Star a repository to keep it close — your stars live at <a href="/stars">your stars</a>.`,
   `Subscribe to the <a href="https://github.blog" rel="noopener">GitHub Blog</a> for engineering deep-dives.`,

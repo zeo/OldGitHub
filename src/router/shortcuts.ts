@@ -1,9 +1,11 @@
 import { dispatchRoute } from "./dispatch";
-import { resolveRoute } from "./resolve";
+import { resolveRoute, type Route } from "./resolve";
+import { openFileFinder } from "@/views/file-finder";
 
 // 2013 keyboard shortcuts the dashboard ProTips advertise: "/" or "s" focuses
-// the search bar, and "g" followed by a key navigates (g d/h dashboard, g n
-// notifications, and on a repo g c/i/p/w/b for code/issues/pulls/wiki/branches).
+// the search bar, "t" on a repo opens the file finder, and "g" followed by a key
+// navigates (g d/h dashboard, g n notifications, and on a repo g c/i/p/w/b for
+// code/issues/pulls/wiki/branches).
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -17,12 +19,12 @@ function go(path: string): void {
   void dispatchRoute(new URL(path, window.location.origin), { scrollTop: true });
 }
 
+function currentRoute(): Route {
+  return resolveRoute(window.location.pathname, window.location.search.slice(1));
+}
+
 // the /:owner/:repo prefix of the current page, or null when not on a repo
-function currentRepo(): string | null {
-  const search = window.location.search.startsWith("?")
-    ? window.location.search.slice(1)
-    : window.location.search;
-  const route = resolveRoute(window.location.pathname, search);
+function currentRepo(route: Route = currentRoute()): string | null {
   if (route.kind.startsWith("repo-") && "owner" in route && "repo" in route) {
     return `/${route.owner}/${route.repo}`;
   }
@@ -50,6 +52,16 @@ export function bindShortcuts(): void {
       pendingG = true;
       window.clearTimeout(gTimer);
       gTimer = window.setTimeout(() => { pendingG = false; }, 1500);
+      return;
+    }
+
+    if (e.key === "t" && !pendingG) {
+      const route = currentRoute();
+      if (route.kind.startsWith("repo-") && "owner" in route && "repo" in route) {
+        e.preventDefault();
+        const codePath = route.kind === "repo-tree" || route.kind === "repo-blob" ? window.location.pathname : null;
+        openFileFinder(route.owner, route.repo, codePath, go);
+      }
       return;
     }
 
