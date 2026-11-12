@@ -111,6 +111,7 @@ export async function mountRepoSettings(owner: string, repo: string, subPath: st
     // Delete don't fire when injected via innerHTML — wire up native handlers
     // that submit the underlying forms with our own confirmation dialog.
     rewireDialogActions(owner, repo, main);
+    disableAutosaveToggles(main);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-settings__empty">Couldn't load settings: ${escapeText(msg)}</div>`;
@@ -162,6 +163,23 @@ function rewireDialogActions(owner: string, repo: string, main: HTMLElement): vo
       void confirmDelete(owner, repo, main);
     }, { capture: true });
   }
+}
+
+// these forms save on change through github's own js, which never runs here, so a toggle would silently do nothing
+function disableAutosaveToggles(main: HTMLElement): void {
+  let disabled = 0;
+  for (const form of Array.from(main.querySelectorAll<HTMLFormElement>("form[data-autosubmit]"))) {
+    if (form.querySelector("button[type='submit'], input[type='submit'], button:not([type])")) continue;
+    for (const control of Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[type='checkbox'], input[type='radio'], select"))) {
+      control.disabled = true;
+      disabled++;
+    }
+  }
+  if (disabled === 0) return;
+  const note = document.createElement("div");
+  note.className = "flash";
+  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="javascript:void(0)" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
+  main.querySelector(".oldgh-settings__native")?.prepend(note);
 }
 
 function findVisibilityTrigger(dialog: HTMLElement): HTMLButtonElement | null {

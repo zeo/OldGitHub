@@ -19,6 +19,10 @@ export function fetchRepoPage(owner: string, repo: string): Promise<string> {
   return html;
 }
 
+export function forgetRepoPage(owner: string, repo: string): void {
+  cache.delete(`${owner.toLowerCase()}/${repo.toLowerCase()}`);
+}
+
 async function loadRepoPage(owner: string, repo: string): Promise<string> {
   const resp = await fetch(`https://github.com/${owner}/${repo}`, {
     credentials: "include",

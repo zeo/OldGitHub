@@ -1,4 +1,5 @@
 import { AdapterFailure } from "./index";
+import { readFollowForms, type FollowForms } from "./social";
 
 export type ProfileKind = "user" | "org";
 
@@ -55,6 +56,7 @@ export type ProfileView = {
   achievements: AchievementBadge[];
   highlights: ProfileHighlights;
   isViewer: boolean;
+  follow: FollowForms | null;
 };
 
 export async function getProfile(login: string, query: string = ""): Promise<ProfileView> {
@@ -140,6 +142,7 @@ export async function getProfile(login: string, query: string = ""): Promise<Pro
     achievements: readAchievements(doc, profileUsername),
     highlights: readHighlights(doc),
     isViewer: !!doc.querySelector('a[href$="/account"]'),
+    follow: readFollowForms(doc),
   };
 }
 

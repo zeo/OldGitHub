@@ -205,6 +205,7 @@ function rewireAccountDialogs(main: HTMLElement): void {
     section.className = "oldgh-account-settings__exposed-dialog";
     while (dialog.firstChild) section.appendChild(dialog.firstChild);
     dialog.replaceWith(section);
+    requireSecondClick(section);
     // React dialogs carry overlay/backdrop scaffolding and a close-X that,
     // once surfaced inline, render as a stray fixed panel or a dead pill.
     section.querySelectorAll(
@@ -224,6 +225,36 @@ function rewireAccountDialogs(main: HTMLElement): void {
   for (const helper of Array.from(main.querySelectorAll<HTMLElement>("dialog-helper"))) {
     while (helper.firstChild) helper.parentElement!.insertBefore(helper.firstChild, helper);
     helper.remove();
+  }
+}
+
+const DESTRUCTIVE = /\b(delete|remove|revoke|disable|reset|regenerate|leave|unlink|transfer|sign out)\b/i;
+
+// a surfaced dialog lost the modal that made the user stop and read, so the first click on a destructive submit only arms it
+function requireSecondClick(section: HTMLElement): void {
+  for (const button of Array.from(section.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]'))) {
+    const text = (button instanceof HTMLInputElement ? button.value : button.textContent || "").replace(/\s+/g, " ").trim();
+    if (!button.classList.contains("btn-danger") && !DESTRUCTIVE.test(text)) continue;
+    const original = button instanceof HTMLInputElement ? button.value : button.innerHTML;
+    const confirmText = `Yes, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    let timer = 0;
+    const disarm = () => {
+      delete button.dataset["oldghArmed"];
+      button.classList.remove("oldgh-btn--danger");
+      if (button instanceof HTMLInputElement) button.value = original;
+      else button.innerHTML = original;
+    };
+    button.addEventListener("click", (e) => {
+      if (button.dataset["oldghArmed"]) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      button.dataset["oldghArmed"] = "1";
+      button.classList.add("oldgh-btn--danger");
+      if (button instanceof HTMLInputElement) button.value = confirmText;
+      else button.textContent = confirmText;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(disarm, 5000);
+    }, { capture: true });
   }
 }
 

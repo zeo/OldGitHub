@@ -2,6 +2,8 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { getProfile, type PinnedRepo, type ProfileView } from "@/adapters/profile";
+import { setFollowing, type FollowForms } from "@/adapters/social";
+import { isLoggedIn } from "@/auth/session";
 import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/adapters/profile-repos";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
@@ -67,6 +69,42 @@ export async function mountProfile(login: string, tab: string, query: string): P
   setTimeout(() => decorateContributionCells(root), 500);
   renderContributionStreaks(root);
   bindContributionTooltips(root);
+  if (view.follow) bindFollow(root, view.follow);
+}
+
+function bindFollow(root: HTMLElement, forms: FollowForms): void {
+  const button = root.querySelector<HTMLButtonElement>("[data-oldgh-follow]");
+  const countEl = root.querySelector<HTMLElement>('[data-oldgh-stat="followers"] strong');
+  if (!button) return;
+  const paint = () => {
+    button.innerHTML = `${octicon("person", { size: 14 })}<span>${forms.following ? "Unfollow" : "Follow"}</span>`;
+  };
+  const apply = (following: boolean) => {
+    // only exact counts can move by one; "1.2k" stays as github rendered it
+    if (countEl && following !== forms.following && /^\d+$/.test(countEl.textContent || "")) {
+      countEl.textContent = String(Number(countEl.textContent) + (following ? 1 : -1));
+    }
+    forms.following = following;
+    paint();
+  };
+  paint();
+  button.addEventListener("click", async () => {
+    const next = !forms.following;
+    apply(next);
+    button.disabled = true;
+    try {
+      await setFollowing(forms, next);
+      button.removeAttribute("data-error");
+      button.title = "";
+    } catch (err) {
+      apply(!next);
+      const message = `Couldn't ${next ? "follow" : "unfollow"}: ${err instanceof Error ? err.message : String(err)}`;
+      button.setAttribute("data-error", message);
+      button.title = message;
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 function bindContributionTooltips(root: HTMLElement): void {
@@ -1228,10 +1266,14 @@ function renderSidebar(v: ProfileView): string {
   `;
   const action = v.isViewer
     ? `<a class="oldgh-btn oldgh-profile__edit" href="/settings/profile">Edit profile</a>`
-    : `<button type="button" class="oldgh-btn oldgh-profile__follow">${octicon("person", { size: 14 })}<span>Follow</span></button>`;
+    : v.follow
+      ? `<button type="button" class="oldgh-btn oldgh-profile__follow" data-oldgh-follow>${octicon("person", { size: 14 })}<span>Follow</span></button>`
+      : isLoggedIn()
+        ? ""
+        : `<a class="oldgh-btn oldgh-profile__follow" href="/login?return_to=${encodeURIComponent(`/${v.login}`)}">${octicon("person", { size: 14 })}<span>Follow</span></a>`;
 
   const stats: string[] = [];
-  if (v.followersCount) stats.push(statItem(v.followersCount, "followers", `/${v.login}?tab=followers`));
+  if (v.followersCount) stats.push(statItem(v.followersCount, "followers", `/${v.login}?tab=followers`, "followers"));
   if (v.followingCount) stats.push(statItem(v.followingCount, "following", `/${v.login}?tab=following`));
   if (v.repoCountHint != null) stats.push(statItem(String(v.repoCountHint), "repos", `/${v.login}?tab=repositories`));
 
@@ -1290,8 +1332,8 @@ function renderHighlights(v: ProfileView): string {
   `;
 }
 
-function statItem(value: string, label: string, href: string): string {
-  return `<li><a href="${escapeAttr(href)}"><strong>${escapeText(value)}</strong> <span>${escapeText(label)}</span></a></li>`;
+function statItem(value: string, label: string, href: string, stat?: string): string {
+  return `<li${stat ? ` data-oldgh-stat="${stat}"` : ""}><a href="${escapeAttr(href)}"><strong>${escapeText(value)}</strong> <span>${escapeText(label)}</span></a></li>`;
 }
 
 function renderPinned(v: ProfileView): string {

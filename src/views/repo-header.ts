@@ -2,6 +2,8 @@ import { octicon } from "@/icons";
 import { getRepoSummary, formatCount, type RepoSummary } from "@/adapters/repo";
 import { isCurrentNavigation, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
+import { isLoggedIn } from "@/auth/session";
+import { getRepoSocial, setStarred, setWatchMode, type RepoSocial, type WatchMode } from "@/adapters/social";
 
 const PRIMARY_NAV = [
   { key: "code", label: "Code", path: "", icon: "code" },
@@ -61,6 +63,7 @@ export async function mountRepoHeader(owner: string, repo: string, prefetched?: 
   } else {
     document.body.prepend(header);
   }
+  if (isLoggedIn()) void hydrateSocial(header, owner, repo, summary?.stars ?? null);
 }
 
 export function prefetchRepoSummary(owner: string, repo: string): Promise<RepoSummary | null> {
@@ -167,6 +170,7 @@ function renderRepoHeaderHtml(s: RepoSummary, active: NavKey | null): string {
     label: "Watch",
     listHref: `/${s.owner}/${s.repo}/watchers`,
     count: watchersText,
+    social: "watch",
   });
   const star = renderActionButton({
     href: `/${s.owner}/${s.repo}/stargazers`,
@@ -174,6 +178,7 @@ function renderRepoHeaderHtml(s: RepoSummary, active: NavKey | null): string {
     label: "Stars",
     listHref: `/${s.owner}/${s.repo}/stargazers`,
     count: starsText,
+    social: "star",
   });
   const fork = renderActionButton({
     href: `/${s.owner}/${s.repo}/fork`,
@@ -219,6 +224,7 @@ type ActionButton = {
   label: string;
   listHref: string;
   count: string;
+  social?: "star" | "watch";
 };
 
 function renderActionButton(b: ActionButton): string {
@@ -227,13 +233,116 @@ function renderActionButton(b: ActionButton): string {
     ? `<a class="oldgh-repo-header__action-count" href="${escapeAttr(b.listHref)}">${escapeText(b.count)}</a>`
     : "";
   return `
-    <span class="oldgh-repo-header__action">
+    <span class="oldgh-repo-header__action"${b.social ? ` data-oldgh-social="${b.social}"` : ""}>
       <a class="oldgh-btn oldgh-repo-header__action-btn" href="${escapeAttr(b.href)}">
         ${icon}<span>${b.label}</span>
       </a>
       ${count}
     </span>
   `;
+}
+
+const WATCH_OPTIONS: { mode: WatchMode; title: string; detail: string }[] = [
+  { mode: "participating", title: "Not watching", detail: "Be notified when participating or @mentioned." },
+  { mode: "watching", title: "Watching", detail: "Be notified of all conversations." },
+  { mode: "ignoring", title: "Ignoring", detail: "Never be notified." },
+];
+const WATCH_LABEL: Record<WatchMode, string> = { participating: "Watch", watching: "Unwatch", ignoring: "Stop ignoring" };
+
+async function hydrateSocial(header: HTMLElement, owner: string, repo: string, stars: number | null): Promise<void> {
+  const social = await getRepoSocial(owner, repo).catch(() => null);
+  if (!social || !header.isConnected) return;
+  const starSlot = header.querySelector<HTMLElement>('[data-oldgh-social="star"]');
+  const watchSlot = header.querySelector<HTMLElement>('[data-oldgh-social="watch"]');
+  if (starSlot && social.canStar) bindStar(starSlot, owner, repo, social, stars);
+  if (watchSlot && social.canWatch) bindWatch(watchSlot, owner, repo, social);
+}
+
+function showActionError(el: HTMLElement, message: string | null): void {
+  if (message) el.setAttribute("data-error", message);
+  else el.removeAttribute("data-error");
+  el.title = message ?? "";
+}
+
+function bindStar(slot: HTMLElement, owner: string, repo: string, social: RepoSocial, stars: number | null): void {
+  let count = stars;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "oldgh-btn oldgh-repo-header__action-btn";
+  const paint = () => {
+    button.innerHTML = `${octicon("star", { size: 14 })}<span>${social.starred ? "Unstar" : "Star"}</span>`;
+    const countEl = slot.querySelector(".oldgh-repo-header__action-count");
+    if (countEl && count != null) countEl.textContent = formatCount(count);
+  };
+  slot.querySelector(".oldgh-repo-header__action-btn")?.replaceWith(button);
+  paint();
+  button.addEventListener("click", async () => {
+    const next = !social.starred;
+    const apply = (starred: boolean) => {
+      if (count != null && starred !== social.starred) count += starred ? 1 : -1;
+      social.starred = starred;
+      paint();
+    };
+    apply(next);
+    button.disabled = true;
+    try {
+      await setStarred(owner, repo, next, social.nonce);
+      showActionError(button, null);
+    } catch (err) {
+      apply(!next);
+      showActionError(button, `Couldn't ${next ? "star" : "unstar"} this repository: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+function bindWatch(slot: HTMLElement, owner: string, repo: string, social: RepoSocial): void {
+  installWatchMenuOutsideClick();
+  const menu = document.createElement("details");
+  menu.className = "oldgh-watch-menu";
+  const paint = (error: string | null = null) => {
+    const options = WATCH_OPTIONS.map((o) => `
+      <button type="button" class="oldgh-watch-menu__item" role="menuitemradio" aria-checked="${o.mode === social.watch}" data-watch-mode="${o.mode}">
+        ${o.mode === social.watch ? octicon("check", { size: 14 }) : `<span class="oldgh-watch-menu__spacer"></span>`}
+        <span><strong>${o.title}</strong><small>${o.detail}</small></span>
+      </button>`).join("");
+    menu.innerHTML = `
+      <summary class="oldgh-btn oldgh-repo-header__action-btn" aria-haspopup="menu">
+        ${octicon("eye", { size: 14 })}<span>${WATCH_LABEL[social.watch]}</span>${octicon("triangle-down", { className: "oldgh-chevron" })}
+      </summary>
+      <div class="oldgh-watch-menu__panel" role="menu">${options}</div>`;
+    showActionError(menu.querySelector("summary")!, error);
+  };
+  slot.querySelector(".oldgh-repo-header__action-btn")?.replaceWith(menu);
+  paint();
+  menu.addEventListener("click", async (event) => {
+    const mode = (event.target as Element).closest<HTMLElement>("[data-watch-mode]")?.dataset["watchMode"] as WatchMode | undefined;
+    if (!mode) return;
+    menu.open = false;
+    const previous = social.watch;
+    if (mode === previous) return;
+    social.watch = mode;
+    paint();
+    try {
+      await setWatchMode(owner, repo, social, mode);
+    } catch (err) {
+      social.watch = previous;
+      paint(`Couldn't change watching: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+}
+
+let watchMenuOutsideClickInstalled = false;
+
+function installWatchMenuOutsideClick(): void {
+  if (watchMenuOutsideClickInstalled) return;
+  watchMenuOutsideClickInstalled = true;
+  document.addEventListener("click", (e) => {
+    document.querySelectorAll<HTMLDetailsElement>(".oldgh-watch-menu[open]").forEach((d) => {
+      if (!d.contains(e.target as Node)) d.open = false;
+    });
+  });
 }
 
 function isNavItemAvailable(s: RepoSummary, key: NavKey): boolean {

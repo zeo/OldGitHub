@@ -931,6 +931,80 @@ html[data-oldgh-repo-nav="compact"] .oldgh-repo-header__topics {
 .oldgh-repo-header__action:not(:has(.oldgh-repo-header__action-count)) .oldgh-repo-header__action-btn {
   border-radius: var(--gh-radius);
 }
+.oldgh-btn[data-error] {
+  color: #bd2c00;
+  border-color: #bd2c00;
+}
+.oldgh-watch-menu {
+  position: relative;
+  display: flex;
+}
+.oldgh-watch-menu > summary {
+  list-style: none;
+  user-select: none;
+}
+.oldgh-watch-menu > summary::-webkit-details-marker { display: none; }
+.oldgh-watch-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+}
+html[data-oldgh-theme="dark"] .oldgh-watch-menu__panel {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+.oldgh-watch-menu__panel::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--gh-bg-elev);
+  border-top: 1px solid var(--gh-border);
+  border-left: 1px solid var(--gh-border);
+  transform: rotate(45deg);
+}
+.oldgh-watch-menu__item {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--gh-fg);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--gh-border-faint);
+  cursor: pointer;
+}
+.oldgh-watch-menu__item:last-child {
+  border-bottom: 0;
+}
+.oldgh-watch-menu__item:hover,
+.oldgh-watch-menu__item:focus-visible {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-watch-menu__item .octicon,
+.oldgh-watch-menu__spacer {
+  flex: 0 0 14px;
+  width: 14px;
+  margin-top: 2px;
+}
+.oldgh-watch-menu__item strong {
+  display: block;
+  font-size: var(--gh-size-md);
+}
+.oldgh-watch-menu__item small {
+  display: block;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
 
 /* repository next right rail */
 .oldgh-repo-tabs {
