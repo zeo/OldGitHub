@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-releases";
 
@@ -35,10 +35,11 @@ type Release = {
 };
 
 export async function mountRepoReleases(owner: string, repo: string, search: string, tag?: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(tag ? `Release ${tag}` : "Releases");
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-releases__main");
   if (!main) return;

@@ -78,7 +78,7 @@ function interceptClicks(): void {
 
       e.preventDefault();
       history.pushState({}, "", url.toString());
-      void dispatchRoute(url);
+      void dispatchRoute(url, { scrollTop: true });
     },
     true,
   );

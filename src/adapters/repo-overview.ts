@@ -402,7 +402,7 @@ export async function getTreeCommitInfo(
     { credentials: "include", headers: { Accept: "application/json" } },
   );
   if (!resp.ok) {
-    throw new AdapterFailure("getTreeCommitInfo", `${resp.status}`);
+    throw new AdapterFailure("getTreeCommitInfo", `tree-commit-info responded ${resp.status}`);
   }
   const data = (await resp.json()) as unknown;
   if (!data || typeof data !== "object") {

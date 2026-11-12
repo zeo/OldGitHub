@@ -1,17 +1,18 @@
 import { getCommit, type CommitView, type PersonRef } from "@/adapters/repo-commit";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { renderDiffFile, renderDiffSummary } from "./_diff-table";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-commit";
 
 export async function mountRepoCommit(owner: string, repo: string, sha: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getCommit(owner, repo, sha);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
 export function unmountRepoCommit(): void {

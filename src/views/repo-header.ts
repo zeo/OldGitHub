@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
 import { getRepoSummary, formatCount, type RepoSummary } from "@/adapters/repo";
+import { isCurrentNavigation, navigationToken } from "./_body";
 
 const PRIMARY_NAV = [
   { key: "code", label: "Code", path: "", icon: "code" },
@@ -31,12 +32,14 @@ type NavKey = NavItem["key"];
 const ROOT_CLASS = "oldgh-repo-header";
 
 export async function mountRepoHeader(owner: string, repo: string, prefetched?: Promise<RepoSummary | null> | RepoSummary | null): Promise<void> {
+  const nav = navigationToken();
   let summary: RepoSummary | null = null;
   try {
     summary = prefetched !== undefined ? await prefetched : await getRepoSummary(owner, repo);
   } catch (err) {
     console.debug("[oldgh] getRepoSummary failed, rendering minimal header:", err);
   }
+  if (!isCurrentNavigation(nav)) return;
 
   const header = document.createElement("div");
   header.className = ROOT_CLASS;

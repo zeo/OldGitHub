@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { getRepoTree, type RepoTreeView } from "@/adapters/repo-overview";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-tree";
 
@@ -10,12 +10,13 @@ export async function mountRepoTree(
   repo: string,
   refAndPath: string,
 ): Promise<void> {
+  const nav = navigationToken();
   const view = await getRepoTree(owner, repo, refAndPath);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   void hydrateTreeTable(root, {
     owner: view.owner,

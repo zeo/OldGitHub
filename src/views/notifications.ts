@@ -6,17 +6,18 @@ import {
   type NotificationRepoGroup,
 } from "@/adapters/notifications";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-notifications";
 
 export async function mountNotifications(search: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getNotifications(search);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, search);
-  adoptBodyRoot(root);
+  adoptBodyRoot(root, undefined, nav);
 }
 
 export function unmountNotifications(): void {

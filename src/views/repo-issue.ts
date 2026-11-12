@@ -18,7 +18,7 @@ import {
 import { AdapterFailure } from "@/adapters";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-issue";
 
@@ -31,6 +31,7 @@ export async function mountRepoIssue(
   kind: "issue" | "pull",
   tab: IssueTab = "conversation",
 ): Promise<void> {
+  const nav = navigationToken();
   let view: IssueDetail | PullDetail | null = null;
   try {
     view = kind === "pull"
@@ -52,7 +53,7 @@ export async function mountRepoIssue(
   } else {
     root.innerHTML = renderScrapedShell(owner, repo, number, kind, tab);
   }
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   if (!view) {
     void hydrateScrapedBody(root, owner, repo, number, kind, tab);

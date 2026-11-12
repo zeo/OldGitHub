@@ -1,17 +1,18 @@
 import { octicon } from "@/icons";
 import { getRepoBlob, type RepoBlobView } from "@/adapters/repo-overview";
 import { highlightFile } from "@/highlight";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-blob";
 
 export async function mountRepoBlob(owner: string, repo: string, refAndPath: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getRepoBlob(owner, repo, refAndPath);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   if (!view.isBinary && view.rawLines.length > 0) {
     void hydrateHighlight(root, view);

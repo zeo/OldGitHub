@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-settings";
 
@@ -86,11 +86,12 @@ function activeKeyFor(subPath: string): string {
 }
 
 export async function mountRepoSettings(owner: string, repo: string, subPath: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   const activeKey = activeKeyFor(subPath);
   root.innerHTML = renderShell(owner, repo, activeKey);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-settings__main");
   if (!main) return;

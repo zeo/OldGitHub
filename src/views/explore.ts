@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { languageColor as languageColorFor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-explore";
 
@@ -45,10 +45,11 @@ const CURATED_COLLECTIONS: { slug: string; label: string; tagline: string }[] = 
 ];
 
 export async function mountExplore(): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell();
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const repoSlot = root.querySelector<HTMLElement>(".oldgh-explore__trending-repos");
   const devSlot = root.querySelector<HTMLElement>(".oldgh-explore__trending-devs");

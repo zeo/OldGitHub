@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-projects";
 
@@ -15,10 +15,11 @@ type LinkedProject = {
 };
 
 export async function mountRepoProjects(owner: string, repo: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(owner, repo);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-projects__main");
   if (!main) return;

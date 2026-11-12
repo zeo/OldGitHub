@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-sponsors";
 
@@ -14,10 +14,11 @@ type Sponsorable = {
 };
 
 export async function mountSponsors(_pathname: string, _search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell();
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const slot = root.querySelector<HTMLElement>(".oldgh-sponsors__grid-slot");
   if (!slot) return;

@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 import { currentUserLogin } from "@/auth/session";
 import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor } from "@/util/language-color";
@@ -27,6 +27,7 @@ type StarredRepo = {
 };
 
 export async function mountStars(pathname: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
 
@@ -39,7 +40,7 @@ export async function mountStars(pathname: string, search: string): Promise<void
         <p class="oldgh-stars__empty">Sign in to view your starred repositories.</p>
       </div>
     `;
-    adoptBodyRoot(root);
+    adoptBodyRoot(root, undefined, nav);
     return;
   }
 
@@ -57,7 +58,7 @@ export async function mountStars(pathname: string, search: string): Promise<void
       <div class="oldgh-stars__loading">Loading stars…</div>
     </div>
   `;
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   try {
     const resp = await fetchApi(`https://api.github.com/users/${encodeURIComponent(login)}/starred?per_page=100&sort=${encodeURIComponent(sort)}&direction=${encodeURIComponent(direction)}`, {

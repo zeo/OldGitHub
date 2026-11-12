@@ -1,6 +1,6 @@
 import { scrapeTopLevel, type TopLevelView } from "@/adapters/top-level";
 import { AdapterFailure } from "@/adapters";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-top-level";
 
@@ -12,6 +12,7 @@ export async function mountTopLevel(
   search: string,
   titleFallback: string,
 ): Promise<void> {
+  const nav = navigationToken();
   const view = await scrapeTopLevel(pathname, search, titleFallback);
 
   // after cleaning, a failed react island can leave only whitespace/markup with no
@@ -32,7 +33,7 @@ export async function mountTopLevel(
       </div>
     </div>
   `;
-  adoptBodyRoot(root);
+  adoptBodyRoot(root, undefined, nav);
 }
 
 export function unmountTopLevel(): void {

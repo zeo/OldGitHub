@@ -14,7 +14,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 function go(path: string): void {
   history.pushState({}, "", path);
-  void dispatchRoute(new URL(path, window.location.origin));
+  void dispatchRoute(new URL(path, window.location.origin), { scrollTop: true });
 }
 
 // the /:owner/:repo prefix of the current page, or null when not on a repo

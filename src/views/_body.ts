@@ -1,13 +1,29 @@
 const BODY_ROOT_CLASS = "oldgh-body-root";
 
-export function adoptBodyRoot(root: HTMLElement, afterSelector?: string): void {
+let navigation = 0;
+
+export function beginNavigation(): number {
+  return ++navigation;
+}
+
+export function navigationToken(): number {
+  return navigation;
+}
+
+export function isCurrentNavigation(nav: number): boolean {
+  return nav === navigation;
+}
+
+// a view that awaited across a newer navigation gets false and must not touch the page
+export function adoptBodyRoot(root: HTMLElement, afterSelector?: string, nav?: number): boolean {
+  if (nav !== undefined && !isCurrentNavigation(nav)) return false;
   root.classList.add(BODY_ROOT_CLASS);
   removeAllBodyRoots();
   if (afterSelector) {
     const after = document.querySelector(afterSelector);
     if (after && after.parentNode) {
       after.after(root);
-      return;
+      return true;
     }
   }
   // Insert before the footer so the page reads header → content → footer.
@@ -19,6 +35,7 @@ export function adoptBodyRoot(root: HTMLElement, afterSelector?: string): void {
   } else {
     document.body.append(root);
   }
+  return true;
 }
 
 export function removeAllBodyRoots(): void {

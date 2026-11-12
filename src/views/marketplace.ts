@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-marketplace";
 
@@ -39,6 +39,7 @@ type MarketView = {
 };
 
 export async function mountMarketplace(_pathname: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const params = new URLSearchParams(search);
   const type = mapType(params.get("type"));
   const category = params.get("category") || "";
@@ -46,7 +47,7 @@ export async function mountMarketplace(_pathname: string, search: string): Promi
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(type, category);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   try {
     const view = await scrapeMarketplace(type, category);

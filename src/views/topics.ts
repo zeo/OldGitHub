@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { formatCount } from "@/util/format";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-topics-index";
 
@@ -15,10 +15,11 @@ type Topic = {
 };
 
 export async function mountTopics(_pathname: string, _search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell();
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const slot = root.querySelector<HTMLElement>(".oldgh-topics-index__slot");
   if (!slot) return;

@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { getRepoCommits, type CommitEntry, type CommitsView, type PersonRef } from "@/adapters/repo-commits";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-commits";
 
@@ -11,12 +11,13 @@ export async function mountRepoCommits(
   refAndPath: string,
   query: string,
 ): Promise<void> {
+  const nav = navigationToken();
   const view = await getRepoCommits(owner, repo, refAndPath, query);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
 export function unmountRepoCommits(): void {

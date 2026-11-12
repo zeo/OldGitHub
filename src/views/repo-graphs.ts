@@ -15,7 +15,7 @@ import {
 } from "@/adapters/repo-graphs";
 import { octicon } from "@/icons";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 import { renderInsightsNav } from "./repo-pulse";
 
 const ROOT_CLASS = "oldgh-repo-graphs";
@@ -23,10 +23,11 @@ const ROOT_CLASS = "oldgh-repo-graphs";
 export type GraphsSubkind = "contributors" | "commit-activity" | "code-frequency" | "traffic" | "community" | "network";
 
 export async function mountRepoGraphs(owner: string, repo: string, subkind: GraphsSubkind): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = `${ROOT_CLASS} ${ROOT_CLASS}--${subkind}`;
   root.innerHTML = renderShell(subkind);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-graphs__main");
   if (!main) return;

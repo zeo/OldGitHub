@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getIssueList, type IssueListView, type IssueRow } from "@/adapters/repo-issues";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-issues";
 
@@ -12,12 +12,13 @@ export async function mountRepoIssues(
   rawQuery: string,
   kind: "issues" | "pulls",
 ): Promise<void> {
+  const nav = navigationToken();
   const view = await getIssueList(owner, repo, rawQuery, kind);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, kind);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
 export function unmountRepoIssues(): void {

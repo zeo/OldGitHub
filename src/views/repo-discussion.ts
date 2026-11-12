@@ -3,7 +3,7 @@ import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-discussion";
 
@@ -48,10 +48,11 @@ type DiscussionComment = {
 };
 
 export async function mountRepoDiscussion(owner: string, repo: string, number: number): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(number);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   try {
     const [detail, comments] = await Promise.all([

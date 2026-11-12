@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 import { absoluteTime, relativeTime } from "@/util/time";
 
 const ROOT_CLASS = "oldgh-watching";
@@ -21,10 +21,11 @@ type WatchedRepo = {
 };
 
 export async function mountWatching(_pathname: string, _search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell();
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const slot = root.querySelector<HTMLElement>(".oldgh-watching__list-slot");
   if (!slot) return;

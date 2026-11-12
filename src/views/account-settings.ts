@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-account-settings";
 
@@ -92,11 +92,12 @@ function activeKeyFor(subPath: string): string {
 }
 
 export async function mountAccountSettings(pathname: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   const activeKey = activeKeyFor(pathname);
   root.innerHTML = renderShell(activeKey);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-account-settings__main");
   if (!main) return;

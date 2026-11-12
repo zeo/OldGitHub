@@ -1,15 +1,16 @@
 import { octicon } from "@/icons";
 import { getRepoPulse, type PulseView, type PulseIssueRef, type PulseCommitRef } from "@/adapters/repo-pulse";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-pulse";
 
 export async function mountRepoPulse(owner: string, repo: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(owner, repo);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-pulse__main");
   if (!main) return;

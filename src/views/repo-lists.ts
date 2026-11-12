@@ -2,17 +2,18 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-list";
 
 export type RepoListKind = "tags" | "branches" | "forks" | "stargazers" | "watchers" | "labels" | "milestones";
 
 export async function mountRepoList(owner: string, repo: string, kind: RepoListKind, search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = `${ROOT_CLASS} ${ROOT_CLASS}--${kind}`;
   root.innerHTML = renderShell(kind);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-repo-list__main");
   if (!main) return;

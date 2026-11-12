@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 import { languageColor } from "@/util/language-color";
 
 const ROOT_CLASS = "oldgh-trending";
@@ -30,6 +30,7 @@ type TrendingDev = {
 };
 
 export async function mountTrending(pathname: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
 
@@ -43,7 +44,7 @@ export async function mountTrending(pathname: string, search: string): Promise<v
   const language = params.get("language") ?? pathLanguage;
 
   root.innerHTML = renderShell(period, language, isDevelopers);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-trending__list-wrap");
   if (!main) return;

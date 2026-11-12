@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-security";
 
@@ -22,10 +22,11 @@ type SecurityView = {
 };
 
 export async function mountRepoSecurity(owner: string, repo: string, subkind: "overview" | "advisories"): Promise<void> {
+  const nav = navigationToken();
   const root = document.createElement("div");
   root.className = `${ROOT_CLASS} ${ROOT_CLASS}--${subkind}`;
   root.innerHTML = renderShell(owner, repo, subkind);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   const main = root.querySelector<HTMLElement>(".oldgh-security__main");
   if (!main) return;

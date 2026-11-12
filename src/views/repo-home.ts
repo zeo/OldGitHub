@@ -5,17 +5,18 @@ import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-home";
 
 export async function mountRepoHome(owner: string, repo: string): Promise<void> {
+  const nav = navigationToken();
   const overview = await getRepoOverview(owner, repo);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = overview.isEmpty ? renderEmptyShell(overview) : renderShell(overview);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
   bindCloneTabs(root);
   bindCopyButtons(root);

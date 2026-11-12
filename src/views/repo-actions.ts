@@ -1,17 +1,18 @@
 import { octicon } from "@/icons";
 import { getActions, type ActionsView, type WorkflowRun } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-actions";
 
 export async function mountRepoActions(owner: string, repo: string, query: string, workflowPath: string | null = null): Promise<void> {
+  const nav = navigationToken();
   const view = await getActions(owner, repo, query, workflowPath);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
 export function unmountRepoActions(): void {

@@ -9,16 +9,17 @@ import {
 } from "@/adapters/dashboard";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-dashboard";
 
 export async function mountDashboard(): Promise<void> {
+  const nav = navigationToken();
   const view = await getDashboard();
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
   bindRepoFilter(root);
 }
 

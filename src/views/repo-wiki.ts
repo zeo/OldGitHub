@@ -1,16 +1,17 @@
 import { octicon } from "@/icons";
 import { getWiki, type WikiView } from "@/adapters/repo-wiki";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-wiki";
 
 export async function mountRepoWiki(owner: string, repo: string, page: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getWiki(owner, repo, page);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
   bindCloneCopy(root);
 }
 

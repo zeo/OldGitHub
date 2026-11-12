@@ -1,9 +1,10 @@
 import { AdapterFailure } from "@/adapters";
+import { isApiRateLimited } from "@/adapters/rate-limit";
 import { mountRepoHeader, unmountRepoHeader, updateActiveTab, prefetchRepoSummary } from "@/views/repo-header";
 import { updateTopNavActive, syncHeaderRepositoryContext, syncSearchInput } from "@/views/header";
 import type { RepoListKind } from "@/views/repo-lists";
 import type { TopLevelKind } from "@/views/top-level";
-import { removeAllBodyRoots } from "@/views/_body";
+import { beginNavigation, isCurrentNavigation, removeAllBodyRoots } from "@/views/_body";
 import { resolveRoute, type Route } from "./resolve";
 import { reportIssueUrl } from "@/native-mode";
 
@@ -40,11 +41,10 @@ let bodyState: BodyState = { kind: "none" };
 let progressBarEl: HTMLElement | null = null;
 let progressTimer: number | null = null;
 
-function insertBodyError(message: string): void {
+function insertBodyError(message: string, rateLimited: boolean): void {
   document.querySelectorAll(".oldgh-body-placeholder, .oldgh-body-error").forEach((n) => n.remove());
   const el = document.createElement("div");
   el.className = "oldgh-body-root oldgh-body-error";
-  const rateLimited = /responded 403\b/.test(message) || /responded 429\b/.test(message) || /rate-limited/i.test(message);
   el.innerHTML = rateLimited
     ? `
       <div class="oldgh-page oldgh-body-error__page">
@@ -115,7 +115,8 @@ function hideProgress(): void {
   }, 300);
 }
 
-export async function dispatchRoute(loc: Location | URL): Promise<void> {
+export async function dispatchRoute(loc: Location | URL, options: { scrollTop?: boolean } = {}): Promise<void> {
+  const nav = beginNavigation();
   const pathname = currentPath(loc);
   const search = currentSearch(loc);
   const route = resolveRoute(pathname, search);
@@ -160,7 +161,7 @@ export async function dispatchRoute(loc: Location | URL): Promise<void> {
       // native page never works. Drop our themed body and let the native page
       // render below our themed header. POST-only endpoints (logout/session)
       // never render a body, so this is also a no-op there.
-      await applyBodyState({ kind: "none" });
+      await applyBodyState({ kind: "none" }, nav);
       teardownRepoHeader();
       clearMounted();
       return;
@@ -195,14 +196,16 @@ export async function dispatchRoute(loc: Location | URL): Promise<void> {
       if (sameRepo) {
         // header is already correct; tab swap is synchronous
         updateActiveTab(route.owner, route.repo, pathname);
-        await applyBodyState(target);
+        await applyBodyState(target, nav);
         return;
       }
       // cross-repo or cross-kind: pre-fetch summary in parallel with body so
       // the two swaps happen back-to-back rather than serially.
       const summaryPromise = prefetchRepoSummary(route.owner, route.repo);
-      await applyBodyState(target);
+      await applyBodyState(target, nav);
+      if (!isCurrentNavigation(nav)) return;
       await mountRepoHeader(route.owner, route.repo, summaryPromise);
+      if (!isCurrentNavigation(nav)) return;
       mountedRepo = { owner: route.owner, repo: route.repo };
       return;
     }
@@ -214,8 +217,8 @@ export async function dispatchRoute(loc: Location | URL): Promise<void> {
       }
       // body first — old shell (incl. repo header if leaving a repo) stays
       // visible until the new profile body is in place, then header tears down.
-      await applyBodyState(target);
-      teardownRepoHeader();
+      await applyBodyState(target, nav);
+      if (isCurrentNavigation(nav)) teardownRepoHeader();
       return;
     }
 
@@ -224,43 +227,44 @@ export async function dispatchRoute(loc: Location | URL): Promise<void> {
       if (!sameBody(bodyState, target)) {
         bodyState = { kind: "none" };
       }
-      await applyBodyState(target);
-      teardownRepoHeader();
+      await applyBodyState(target, nav);
+      if (isCurrentNavigation(nav)) teardownRepoHeader();
       return;
     }
 
-    await applyBodyState({ kind: "none" });
+    await applyBodyState({ kind: "none" }, nav);
     teardownRepoHeader();
     clearMounted();
   } catch (err) {
-    if (err instanceof AdapterFailure) {
-      console.debug("[oldgh] dispatch adapter failure:", err.name, err.message);
-      bodyState = { kind: "none" };
-      removeAllBodyRoots();
-      if (/responded 404\b/.test(err.message)) {
-        // If the repo header successfully mounted, it's a sub-section 404 (e.g.
-        // discussions disabled). Keep the header and show a friendly message.
-        if (mountedRepo) {
-          insertBodyNotFound(err.message);
-          return;
-        }
-        document.documentElement.removeAttribute(MOUNTED_ATTR);
-        teardownRepoHeader();
-        return;
-      }
-      insertBodyError(err.message);
+    if (!isCurrentNavigation(nav)) return;
+    bodyState = { kind: "none" };
+    removeAllBodyRoots();
+    if (!(err instanceof AdapterFailure)) {
+      console.error("[oldgh] dispatch failed:", err);
+      insertBodyError(err instanceof Error ? err.message : String(err), false);
       return;
     }
-    throw err;
+    console.debug("[oldgh] dispatch adapter failure:", err.name, err.message);
+    if (err.status === 404) {
+      // a 404 from another repo must not sit under the previous repo's header
+      const inMountedRepo = "owner" in route && "repo" in route && mountedRepo?.owner === route.owner && mountedRepo.repo === route.repo;
+      if (!inMountedRepo) teardownRepoHeader();
+      insertBodyNotFound(err.message, inMountedRepo);
+      return;
+    }
+    const rateLimited = err.status === 429 || (err.status === 403 && isApiRateLimited()) || /rate-limited/i.test(err.message);
+    insertBodyError(err.message, rateLimited);
   } finally {
-    hideProgress();
-    scrollToHashIfPresent(loc);
+    if (isCurrentNavigation(nav)) {
+      hideProgress();
+      if (!scrollToHashIfPresent(loc) && options.scrollTop) window.scrollTo(0, 0);
+    }
   }
 }
 
-function scrollToHashIfPresent(loc: Location | URL): void {
-  const hash = (loc instanceof URL ? loc.hash : loc.hash) || "";
-  if (!hash || hash === "#") return;
+function scrollToHashIfPresent(loc: Location | URL): boolean {
+  const hash = loc.hash || "";
+  if (!hash || hash === "#") return false;
   const id = hash.replace(/^#/, "");
   // Try immediately and again after a short delay to handle async content
   // (highlight loaders, hydrated tabs, scraped frames) that paint after dispatch returns.
@@ -275,18 +279,19 @@ function scrollToHashIfPresent(loc: Location | URL): void {
     el.scrollIntoView({ block: "start" });
     return true;
   };
-  if (tryScroll()) return;
+  if (tryScroll()) return true;
   window.setTimeout(() => { if (!tryScroll()) window.setTimeout(tryScroll, 400); }, 80);
+  return true;
 }
 
-function insertBodyNotFound(message: string): void {
+function insertBodyNotFound(message: string, inRepo: boolean): void {
   document.querySelectorAll(".oldgh-body-placeholder, .oldgh-body-error").forEach((n) => n.remove());
   const el = document.createElement("div");
   el.className = "oldgh-body-root oldgh-body-error";
   el.innerHTML = `
     <div class="oldgh-page oldgh-body-error__page">
-      <h2>This section isn't available.</h2>
-      <p>The page you requested couldn't be found in this repository. It may be disabled, moved, or never existed.</p>
+      <h2>${inRepo ? "This section isn't available." : "This page isn't available."}</h2>
+      <p>${inRepo ? "The page you requested couldn't be found in this repository. It may be disabled, moved, or never existed." : "GitHub returned 404 for this page. It may be private, moved, or never existed."}</p>
       <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
       <p><a href="javascript:void(0)" data-oldgh-show-native>Show GitHub's native page instead</a>.</p>
     </div>
@@ -355,7 +360,7 @@ function teardownRepoHeader(): void {
   }
 }
 
-async function applyBodyState(target: BodyState): Promise<void> {
+async function applyBodyState(target: BodyState, nav: number): Promise<void> {
   if (sameBody(bodyState, target)) return;
   if (target.kind === "none") {
     unmountBody();
@@ -366,168 +371,155 @@ async function applyBodyState(target: BodyState): Promise<void> {
   // when ready, swapping atomically. on failure, the catch in dispatchRoute
   // calls removeAllBodyRoots so we don't end up with stale content.
   bodyState = { kind: "none" };
+  await mountBody(target, nav);
+  if (isCurrentNavigation(nav)) bodyState = target;
+}
+
+// a view module that finishes loading after a newer navigation must not mount
+async function load<T>(nav: number, module: Promise<T>): Promise<T> {
+  const loaded = await module;
+  if (!isCurrentNavigation(nav)) throw new Error("superseded by a newer navigation");
+  return loaded;
+}
+
+async function mountBody(target: BodyState, nav: number): Promise<void> {
   if (target.kind === "home") {
-    await (await import("@/views/repo-home")).mountRepoHome(target.owner, target.repo);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-home"))).mountRepoHome(target.owner, target.repo);
     return;
   }
   if (target.kind === "tree") {
-    await (await import("@/views/repo-tree")).mountRepoTree(target.owner, target.repo, target.refAndPath);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-tree"))).mountRepoTree(target.owner, target.repo, target.refAndPath);
     return;
   }
   if (target.kind === "blob") {
-    await (await import("@/views/repo-blob")).mountRepoBlob(target.owner, target.repo, target.refAndPath);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-blob"))).mountRepoBlob(target.owner, target.repo, target.refAndPath);
     return;
   }
   if (target.kind === "commits") {
-    await (await import("@/views/repo-commits")).mountRepoCommits(target.owner, target.repo, target.refAndPath, target.query);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-commits"))).mountRepoCommits(target.owner, target.repo, target.refAndPath, target.query);
     return;
   }
   if (target.kind === "commit") {
-    await (await import("@/views/repo-commit")).mountRepoCommit(target.owner, target.repo, target.sha);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-commit"))).mountRepoCommit(target.owner, target.repo, target.sha);
     return;
   }
   if (target.kind === "compare") {
-    await (await import("@/views/repo-compare")).mountRepoCompare(target.owner, target.repo, target.range);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-compare"))).mountRepoCompare(target.owner, target.repo, target.range);
     return;
   }
   if (target.kind === "issues") {
-    await (await import("@/views/repo-issues")).mountRepoIssues(target.owner, target.repo, target.query, target.subkind);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-issues"))).mountRepoIssues(target.owner, target.repo, target.query, target.subkind);
     return;
   }
   if (target.kind === "issue") {
-    await (await import("@/views/repo-issue")).mountRepoIssue(target.owner, target.repo, target.number, target.subkind, target.tab);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-issue"))).mountRepoIssue(target.owner, target.repo, target.number, target.subkind, target.tab);
     return;
   }
   if (target.kind === "wiki") {
-    await (await import("@/views/repo-wiki")).mountRepoWiki(target.owner, target.repo, target.page);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-wiki"))).mountRepoWiki(target.owner, target.repo, target.page);
     return;
   }
   if (target.kind === "actions") {
-    await (await import("@/views/repo-actions")).mountRepoActions(target.owner, target.repo, target.query, target.workflowPath);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-actions"))).mountRepoActions(target.owner, target.repo, target.query, target.workflowPath);
     return;
   }
   if (target.kind === "actions-run") {
-    await (await import("@/views/repo-actions-run")).mountRepoActionsRun(target.owner, target.repo, target.runId);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-actions-run"))).mountRepoActionsRun(target.owner, target.repo, target.runId);
     return;
   }
   if (target.kind === "pulse") {
-    await (await import("@/views/repo-pulse")).mountRepoPulse(target.owner, target.repo);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-pulse"))).mountRepoPulse(target.owner, target.repo);
     return;
   }
   if (target.kind === "graphs") {
-    await (await import("@/views/repo-graphs")).mountRepoGraphs(target.owner, target.repo, target.subkind);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-graphs"))).mountRepoGraphs(target.owner, target.repo, target.subkind);
     return;
   }
   if (target.kind === "projects") {
-    await (await import("@/views/repo-projects")).mountRepoProjects(target.owner, target.repo, target.query);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-projects"))).mountRepoProjects(target.owner, target.repo, target.query);
     return;
   }
   if (target.kind === "security") {
-    await (await import("@/views/repo-security")).mountRepoSecurity(target.owner, target.repo, target.subkind === "advisories" ? "advisories" : "overview");
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-security"))).mountRepoSecurity(target.owner, target.repo, target.subkind === "advisories" ? "advisories" : "overview");
     return;
   }
   if (target.kind === "discussions") {
-    await (await import("@/views/repo-discussions")).mountRepoDiscussions(target.owner, target.repo, target.subPath, target.query);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-discussions"))).mountRepoDiscussions(target.owner, target.repo, target.subPath, target.query);
     return;
   }
   if (target.kind === "discussion") {
-    await (await import("@/views/repo-discussion")).mountRepoDiscussion(target.owner, target.repo, target.number);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-discussion"))).mountRepoDiscussion(target.owner, target.repo, target.number);
     return;
   }
   if (target.kind === "settings") {
-    await (await import("@/views/repo-settings")).mountRepoSettings(target.owner, target.repo, target.subPath);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-settings"))).mountRepoSettings(target.owner, target.repo, target.subPath);
     return;
   }
   if (target.kind === "repo-other") {
     const prefix = `/${target.owner}/${target.repo}`;
     const subPath = target.pathname.startsWith(prefix) ? target.pathname.slice(prefix.length) : target.pathname;
     if (subPath === "/releases" || subPath.startsWith("/releases?") || subPath === "/releases/") {
-      await (await import("@/views/repo-releases")).mountRepoReleases(target.owner, target.repo, target.search);
-      bodyState = target;
+      await (await load(nav, import("@/views/repo-releases"))).mountRepoReleases(target.owner, target.repo, target.search);
       return;
     }
     if (subPath.startsWith("/releases/latest")) {
-      await (await import("@/views/repo-releases")).mountRepoReleases(target.owner, target.repo, "");
-      bodyState = target;
+      await (await load(nav, import("@/views/repo-releases"))).mountRepoReleases(target.owner, target.repo, "");
       return;
     }
     if (subPath.startsWith("/releases/tag/")) {
       const tag = decodeURIComponent(subPath.slice("/releases/tag/".length).split("/")[0] ?? "");
       if (tag) {
-        await (await import("@/views/repo-releases")).mountRepoReleases(target.owner, target.repo, "", tag);
-        bodyState = target;
+        await (await load(nav, import("@/views/repo-releases"))).mountRepoReleases(target.owner, target.repo, "", tag);
         return;
       }
     }
     const listMatch = matchRepoList(subPath);
     if (listMatch) {
-      await (await import("@/views/repo-lists")).mountRepoList(target.owner, target.repo, listMatch, target.search);
-      bodyState = target;
+      await (await load(nav, import("@/views/repo-lists"))).mountRepoList(target.owner, target.repo, listMatch, target.search);
       return;
     }
     const full = subPath + (target.search ? "?" + target.search : "");
-    await (await import("@/views/repo-section")).mountRepoSection(target.owner, target.repo, "other", full || "/", target.title);
-    bodyState = target;
+    await (await load(nav, import("@/views/repo-section"))).mountRepoSection(target.owner, target.repo, "other", full || "/", target.title);
     return;
   }
   if (target.kind === "profile") {
-    await (await import("@/views/profile")).mountProfile(target.login, target.tab, target.query);
-    bodyState = target;
+    await (await load(nav, import("@/views/profile"))).mountProfile(target.login, target.tab, target.query);
     return;
   }
   if (target.kind === "top-level") {
     if (target.subkind === "dashboard") {
-      await (await import("@/views/dashboard")).mountDashboard();
+      await (await load(nav, import("@/views/dashboard"))).mountDashboard();
     } else if (target.subkind === "notifications") {
-      await (await import("@/views/notifications")).mountNotifications(target.search);
+      await (await load(nav, import("@/views/notifications"))).mountNotifications(target.search);
     } else if (target.subkind === "search") {
-      await (await import("@/views/search")).mountSearch(target.pathname, target.search);
+      await (await load(nav, import("@/views/search"))).mountSearch(target.pathname, target.search);
     } else if (target.subkind === "stars") {
-      await (await import("@/views/stars")).mountStars(target.pathname, target.search);
+      await (await load(nav, import("@/views/stars"))).mountStars(target.pathname, target.search);
     } else if (target.subkind === "trending") {
-      await (await import("@/views/trending")).mountTrending(target.pathname, target.search);
+      await (await load(nav, import("@/views/trending"))).mountTrending(target.pathname, target.search);
     } else if (target.subkind === "explore") {
-      await (await import("@/views/explore")).mountExplore();
+      await (await load(nav, import("@/views/explore"))).mountExplore();
     } else if (target.subkind === "topic") {
-      await (await import("@/views/topic")).mountTopic(target.pathname, target.search);
+      await (await load(nav, import("@/views/topic"))).mountTopic(target.pathname, target.search);
     } else if (target.subkind === "marketplace") {
-      await (await import("@/views/marketplace")).mountMarketplace(target.pathname, target.search);
+      await (await load(nav, import("@/views/marketplace"))).mountMarketplace(target.pathname, target.search);
     } else if (target.subkind === "collections") {
-      await (await import("@/views/collections")).mountCollections(target.pathname);
+      await (await load(nav, import("@/views/collections"))).mountCollections(target.pathname);
     } else if (target.subkind === "sponsors") {
-      await (await import("@/views/sponsors")).mountSponsors(target.pathname, target.search);
+      await (await load(nav, import("@/views/sponsors"))).mountSponsors(target.pathname, target.search);
     } else if (target.subkind === "watching") {
-      await (await import("@/views/watching")).mountWatching(target.pathname, target.search);
+      await (await load(nav, import("@/views/watching"))).mountWatching(target.pathname, target.search);
     } else if (target.subkind === "topics") {
-      await (await import("@/views/topics")).mountTopics(target.pathname, target.search);
+      await (await load(nav, import("@/views/topics"))).mountTopics(target.pathname, target.search);
     } else if (target.subkind === "issues") {
-      await (await import("@/views/me-issues")).mountMeIssues("issue", target.pathname, target.search);
+      await (await load(nav, import("@/views/me-issues"))).mountMeIssues("issue", target.pathname, target.search);
     } else if (target.subkind === "pulls") {
-      await (await import("@/views/me-issues")).mountMeIssues("pull", target.pathname, target.search);
+      await (await load(nav, import("@/views/me-issues"))).mountMeIssues("pull", target.pathname, target.search);
     } else if (target.subkind === "settings") {
-      await (await import("@/views/account-settings")).mountAccountSettings(target.pathname);
+      await (await load(nav, import("@/views/account-settings"))).mountAccountSettings(target.pathname);
     } else {
-      await (await import("@/views/top-level")).mountTopLevel(target.subkind, target.pathname, target.search, target.title);
+      await (await load(nav, import("@/views/top-level"))).mountTopLevel(target.subkind, target.pathname, target.search, target.title);
     }
-    bodyState = target;
     return;
   }
 }

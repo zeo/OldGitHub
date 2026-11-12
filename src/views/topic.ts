@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
 import { relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-topic";
 
@@ -32,20 +32,21 @@ type TopicRepo = {
 };
 
 export async function mountTopic(pathname: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const segs = pathname.split("/").filter(Boolean);
   const slug = segs[1] || "";
   if (!slug) {
     const root = document.createElement("div");
     root.className = ROOT_CLASS;
     root.innerHTML = `<div class="oldgh-page"><p class="oldgh-topic__empty">No topic selected.</p></div>`;
-    adoptBodyRoot(root);
+    adoptBodyRoot(root, undefined, nav);
     return;
   }
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(slug);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const params = new URLSearchParams(search);
   const sort = params.get("s") ?? params.get("sort") ?? "stars";

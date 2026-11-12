@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
 
@@ -7,7 +8,7 @@ export async function resolve(specifier, context, next) {
   let target = specifier;
   if (target.startsWith("@/")) target = new URL(target.slice(2), srcRoot).href;
   else if (target.startsWith(".") && context.parentURL?.endsWith(".ts")) target = new URL(target, context.parentURL).href;
-  if (target.startsWith("file:") && !/\.[a-z]+$/i.test(target)) target += ".ts";
+  if (target.startsWith("file:") && !/\.[a-z]+$/i.test(target)) target += existsSync(new URL(`${target}.ts`)) ? ".ts" : "/index.ts";
   return next(target, context);
 }
 

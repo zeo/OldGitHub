@@ -18,7 +18,7 @@ import {
 import { relativeTime, absoluteTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-search";
 
@@ -33,6 +33,7 @@ const SEARCH_TABS: Array<{ key: SearchType; label: string; icon: string }> = [
 ];
 
 export async function mountSearch(_pathname: string, search: string): Promise<void> {
+  const nav = navigationToken();
   const params = new URLSearchParams(search);
   const query = params.get("q") ?? "";
   const typeRaw = params.get("type") ?? "repositories";
@@ -43,7 +44,7 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(query, type);
-  adoptBodyRoot(root);
+  if (!adoptBodyRoot(root, undefined, nav)) return;
 
   const resultsEl = root.querySelector<HTMLElement>(".oldgh-search__results");
   if (!resultsEl) return;

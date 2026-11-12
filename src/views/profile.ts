@@ -5,7 +5,7 @@ import { getProfile, type PinnedRepo, type ProfileView } from "@/adapters/profil
 import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/adapters/profile-repos";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-profile";
 
@@ -34,12 +34,13 @@ function isViewingPastYear(query: string): boolean {
 }
 
 export async function mountProfile(login: string, tab: string, query: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getProfile(login, query);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, tab);
-  adoptBodyRoot(root, ".oldgh-header");
+  if (!adoptBodyRoot(root, ".oldgh-header", nav)) return;
 
   if (tab === "repositories") {
     void hydrateRepos(root, login, query);

@@ -2,16 +2,17 @@ import { octicon } from "@/icons";
 import { getRunPage, type JobDetail, type JobStep, type RunDetail, type RunPage } from "@/adapters/repo-actions-run";
 import type { WorkflowRunStatus } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-actions-run";
 
 export async function mountRepoActionsRun(owner: string, repo: string, runId: string): Promise<void> {
+  const nav = navigationToken();
   const page = await getRunPage(owner, repo, runId);
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(page);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
   attachToggleHandlers(root);
 }
 

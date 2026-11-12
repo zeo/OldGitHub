@@ -2,17 +2,18 @@ import { octicon } from "@/icons";
 import { getCompare, type CompareView } from "@/adapters/repo-compare";
 import type { DiffFile } from "@/util/diff";
 import { renderDiffFile, renderDiffSummary } from "./_diff-table";
-import { adoptBodyRoot, removeAllBodyRoots } from "./_body";
+import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
 
 const ROOT_CLASS = "oldgh-repo-compare";
 
 export async function mountRepoCompare(owner: string, repo: string, range: string): Promise<void> {
+  const nav = navigationToken();
   const view = await getCompare(owner, repo, range);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view);
-  adoptBodyRoot(root, ".oldgh-repo-header");
+  adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
 export function unmountRepoCompare(): void {
