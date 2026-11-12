@@ -1,6 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
-import { parseUnifiedDiff, type DiffFile } from "@/util/diff";
+import { parsePatch, type DiffFile } from "@/util/diff";
 
 export type CompareView = {
   owner: string;
@@ -28,25 +28,22 @@ export async function getCompare(owner: string, repo: string, range: string): Pr
     if (!f || typeof f !== "object") continue;
     const obj = f as Record<string, unknown>;
     const filename = typeof obj["filename"] === "string" ? (obj["filename"] as string) : "";
-    const patch = typeof obj["patch"] === "string" ? (obj["patch"] as string) : "";
     if (!filename) continue;
-    if (!patch) {
-      const status = typeof obj["status"] === "string" ? (obj["status"] as string) : "modified";
-      const placeholder = `diff --git a/${filename} b/${filename}\n${status === "added" ? "new file mode 100644" : status === "removed" ? "deleted file mode 100644" : "index 0..0"}\n--- a/${filename}\n+++ b/${filename}\n`;
-      const parsed = parseUnifiedDiff(placeholder);
-      if (parsed.length > 0) {
-        const entry = parsed[0]!;
-        // github omits patch for large files; carry rest counts so the head shows +/-
-        // and the empty hunks let the view render a large-diff placeholder body
-        entry.additions = typeof obj["additions"] === "number" ? (obj["additions"] as number) : 0;
-        entry.deletions = typeof obj["deletions"] === "number" ? (obj["deletions"] as number) : 0;
-        files.push(entry);
-      }
-      continue;
-    }
-    const synthesized = `diff --git a/${filename} b/${filename}\n--- a/${filename}\n+++ b/${filename}\n${patch}\n`;
-    const parsed = parseUnifiedDiff(synthesized);
-    if (parsed.length > 0) files.push(parsed[0]!);
+    const patch = typeof obj["patch"] === "string" ? (obj["patch"] as string) : "";
+    // github omits the patch for large files; its counts still drive the head and the large-diff placeholder
+    files.push({
+      path: filename,
+      oldPath: typeof obj["previous_filename"] === "string" ? (obj["previous_filename"] as string) : filename,
+      newPath: filename,
+      status: obj["status"] === "added" ? "added" : obj["status"] === "removed" ? "deleted" : obj["status"] === "renamed" ? "renamed" : "modified",
+      oldMode: null,
+      newMode: null,
+      hunks: patch ? parsePatch(patch) : [],
+      additions: typeof obj["additions"] === "number" ? (obj["additions"] as number) : 0,
+      deletions: typeof obj["deletions"] === "number" ? (obj["deletions"] as number) : 0,
+      isBinary: false,
+      binaryNote: null,
+    });
   }
   return { owner, repo, base, head, threeDot, files };
 }

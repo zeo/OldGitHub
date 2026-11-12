@@ -40,7 +40,7 @@ export function renderDiffSummary(files: DiffFile[]): string {
   `;
 }
 
-function renderHunks(hunks: DiffHunk[]): string {
+export function renderHunks(hunks: DiffHunk[]): string {
   if (hunks.length === 0) return "";
   return `
     <div class="oldgh-diff-scroll">

@@ -27,39 +27,35 @@ export type DiffFile = {
   binaryNote: string | null;
 };
 
+type Counts = { additions: number; deletions: number };
+
 export function parseUnifiedDiff(raw: string): DiffFile[] {
-  const lines = raw.split("\n");
+  const lines = raw.split(/\r?\n/);
   const files: DiffFile[] = [];
   let i = 0;
-
   while (i < lines.length) {
-    const line = lines[i]!;
-    if (!line.startsWith("diff --git")) {
+    if (!lines[i]!.startsWith("diff --git ")) {
       i++;
       continue;
     }
-    const file = parseFileHeader(lines, i);
-    if (!file) {
-      i++;
-      continue;
-    }
-    i = file.next;
-    file.entry.hunks = parseHunks(lines, file.entry, () => i, (n) => (i = n));
-    files.push(file.entry);
+    const header = parseFileHeader(lines, i);
+    const body = readHunks(lines, header.next, header.entry);
+    header.entry.hunks = body.hunks;
+    files.push(header.entry);
+    i = body.next;
   }
   return files;
 }
 
-type FileHeaderResult = { entry: DiffFile; next: number };
+// a bare patch as the REST API returns it: hunks only, no file header
+export function parsePatch(patch: string): DiffHunk[] {
+  return readHunks(patch.split(/\r?\n/), 0, { additions: 0, deletions: 0 }).hunks;
+}
 
-function parseFileHeader(lines: string[], start: number): FileHeaderResult | null {
-  const head = lines[start];
-  if (!head) return null;
-  const m = /^diff --git a\/(.+) b\/(.+)$/.exec(head);
-  const oldPath = m?.[1] ?? "";
-  const newPath = m?.[2] ?? "";
+function parseFileHeader(lines: string[], start: number): { entry: DiffFile; next: number } {
+  const [oldPath, newPath] = splitGitPaths(lines[start]!.slice("diff --git ".length));
   const entry: DiffFile = {
-    path: newPath || oldPath,
+    path: "",
     oldPath,
     newPath,
     status: "modified",
@@ -73,10 +69,9 @@ function parseFileHeader(lines: string[], start: number): FileHeaderResult | nul
   };
 
   let i = start + 1;
-  while (i < lines.length) {
+  for (; i < lines.length; i++) {
     const l = lines[i]!;
-    if (l.startsWith("@@") || l.startsWith("diff --git")) break;
-
+    if (l.startsWith("@@") || l.startsWith("diff --git ")) break;
     if (l.startsWith("new file mode ")) {
       entry.status = "added";
       entry.newMode = l.slice("new file mode ".length).trim();
@@ -85,88 +80,133 @@ function parseFileHeader(lines: string[], start: number): FileHeaderResult | nul
       entry.oldMode = l.slice("deleted file mode ".length).trim();
     } else if (l.startsWith("rename from ")) {
       entry.status = "renamed";
+      entry.oldPath = readPath(l.slice("rename from ".length));
     } else if (l.startsWith("rename to ")) {
-      // status already set
+      entry.newPath = readPath(l.slice("rename to ".length));
     } else if (l.startsWith("Binary files ")) {
       entry.status = "binary";
       entry.isBinary = true;
       entry.binaryNote = l;
     } else if (l.startsWith("--- ")) {
-      if (l === "--- /dev/null") entry.status = "added";
+      const path = headerPath(l, "a/");
+      if (path === null) entry.status = "added";
+      else entry.oldPath = path;
     } else if (l.startsWith("+++ ")) {
-      if (l === "+++ /dev/null") entry.status = "deleted";
+      const path = headerPath(l, "b/");
+      if (path === null) entry.status = "deleted";
+      else entry.newPath = path;
     }
-    i++;
   }
-
+  entry.path = entry.status === "deleted" ? entry.oldPath || entry.newPath : entry.newPath || entry.oldPath;
   return { entry, next: i };
 }
 
-function parseHunks(
-  lines: string[],
-  file: DiffFile,
-  getI: () => number,
-  setI: (n: number) => void,
-): DiffHunk[] {
+function readHunks(lines: string[], start: number, counts: Counts): { hunks: DiffHunk[]; next: number } {
   const hunks: DiffHunk[] = [];
-  while (getI() < lines.length) {
-    const line = lines[getI()]!;
-    if (line.startsWith("diff --git")) break;
-    if (!line.startsWith("@@")) {
-      setI(getI() + 1);
-      continue;
-    }
+  let i = start;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (line.startsWith("diff --git ")) break;
     const m = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/.exec(line);
-    if (!m) {
-      setI(getI() + 1);
-      continue;
-    }
-    const oldStart = parseInt(m[1]!, 10);
-    const oldLines = m[2] != null ? parseInt(m[2], 10) : 1;
-    const newStart = parseInt(m[3]!, 10);
-    const newLines = m[4] != null ? parseInt(m[4], 10) : 1;
-    const header = (m[5] ?? "").trim();
-
+    i++;
+    if (!m) continue;
     const hunk: DiffHunk = {
-      oldStart,
-      oldLines,
-      newStart,
-      newLines,
-      header,
+      oldStart: Number(m[1]),
+      oldLines: m[2] != null ? Number(m[2]) : 1,
+      newStart: Number(m[3]),
+      newLines: m[4] != null ? Number(m[4]) : 1,
+      header: (m[5] ?? "").trim(),
       lines: [],
     };
-    setI(getI() + 1);
-
-    let oldNo = oldStart;
-    let newNo = newStart;
-    while (getI() < lines.length) {
-      const l = lines[getI()]!;
-      if (l.startsWith("diff --git") || l.startsWith("@@")) break;
+    let oldNo = hunk.oldStart;
+    let newNo = hunk.newStart;
+    // the header's line counts end the hunk, so content like "--- x" or a trailing newline is never misread
+    let oldLeft = hunk.oldLines;
+    let newLeft = hunk.newLines;
+    for (; i < lines.length; i++) {
+      const l = lines[i]!;
       if (l.startsWith("\\")) {
         hunk.lines.push({ kind: "no-newline", text: l });
-        setI(getI() + 1);
         continue;
       }
-      const prefix = l[0] ?? " ";
+      if (oldLeft <= 0 && newLeft <= 0) break;
+      const prefix = l[0];
       const text = l.slice(1);
       if (prefix === "+") {
-        hunk.lines.push({ kind: "add", new: newNo, text });
-        newNo++;
-        file.additions++;
+        hunk.lines.push({ kind: "add", new: newNo++, text });
+        newLeft--;
+        counts.additions++;
       } else if (prefix === "-") {
-        hunk.lines.push({ kind: "del", old: oldNo, text });
-        oldNo++;
-        file.deletions++;
-      } else if (prefix === " ") {
-        hunk.lines.push({ kind: "context", old: oldNo, new: newNo, text });
-        oldNo++;
-        newNo++;
+        hunk.lines.push({ kind: "del", old: oldNo++, text });
+        oldLeft--;
+        counts.deletions++;
+      } else if (prefix === " " || l === "") {
+        hunk.lines.push({ kind: "context", old: oldNo++, new: newNo++, text });
+        oldLeft--;
+        newLeft--;
       } else {
         break;
       }
-      setI(getI() + 1);
     }
     hunks.push(hunk);
   }
-  return hunks;
+  return { hunks, next: i };
+}
+
+const QUOTED_PATH = /^"(?:[^"\\]|\\.)*"/;
+
+function splitGitPaths(rest: string): [string, string] {
+  const quoted = QUOTED_PATH.exec(rest);
+  if (quoted) {
+    return [stripPrefix(unquote(quoted[0]), "a/"), stripPrefix(readPath(rest.slice(quoted[0].length + 1)), "b/")];
+  }
+  const quotedNew = rest.lastIndexOf(' "b/');
+  if (rest.endsWith('"') && quotedNew > 0) {
+    return [stripPrefix(rest.slice(0, quotedNew), "a/"), stripPrefix(unquote(rest.slice(quotedNew + 1)), "b/")];
+  }
+  // unquoted names may contain spaces; when both sides match, the split is exactly in the middle
+  const mid = (rest.length - 1) / 2;
+  if (Number.isInteger(mid) && rest[mid] === " " && rest.slice(2, mid) === rest.slice(mid + 3)) {
+    return [stripPrefix(rest.slice(0, mid), "a/"), stripPrefix(rest.slice(mid + 1), "b/")];
+  }
+  const m = /^(.+?) (b\/.+)$/.exec(rest);
+  return m ? [stripPrefix(m[1]!, "a/"), stripPrefix(m[2]!, "b/")] : [stripPrefix(rest, "a/"), stripPrefix(rest, "a/")];
+}
+
+// git appends a tab to ---/+++ names that contain spaces
+function headerPath(line: string, prefix: string): string | null {
+  const value = line.slice(4).replace(/\t$/, "");
+  return value === "/dev/null" ? null : stripPrefix(readPath(value), prefix);
+}
+
+function readPath(value: string): string {
+  return value.startsWith('"') && value.endsWith('"') ? unquote(value) : value;
+}
+
+function stripPrefix(path: string, prefix: string): string {
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+const C_ESCAPES: Record<string, number> = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
+
+// git c-quotes unusual names, writing non-ascii as octal utf-8 bytes
+function unquote(token: string): string {
+  const chars = Array.from(token.slice(1, -1));
+  const bytes: number[] = [];
+  const encoder = new TextEncoder();
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i]!;
+    if (c !== "\\") {
+      bytes.push(...encoder.encode(c));
+      continue;
+    }
+    const next = chars[++i] ?? "";
+    if (/[0-7]/.test(next)) {
+      bytes.push(parseInt(chars.slice(i, i + 3).join(""), 8));
+      i += 2;
+    } else {
+      bytes.push(C_ESCAPES[next] ?? next.charCodeAt(0));
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
 }

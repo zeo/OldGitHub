@@ -5670,36 +5670,12 @@ html[data-oldgh-theme="dark"] .oldgh-pr-file__del { color: #ff7b72; }
   white-space: pre;
 }
 .oldgh-pr-file .oldgh-diff .oldgh-diff__num {
-  width: 1%;
   min-width: 40px;
-  color: rgba(0, 0, 0, 0.3);
-  text-align: right;
-  border-right: 1px solid var(--gh-border-faint);
-  user-select: none;
-  background: var(--gh-bg-subtle);
-}
-html[data-oldgh-theme="dark"] .oldgh-pr-file .oldgh-diff .oldgh-diff__num {
-  color: rgba(255, 255, 255, 0.3);
 }
 .oldgh-pr-file .oldgh-diff .oldgh-diff__code {
   white-space: pre-wrap;
   word-break: break-all;
 }
-.oldgh-diff__add { background: #dbffdb; }
-.oldgh-diff__add .oldgh-diff__num { background: #c5f0c5; color: #557755; }
-.oldgh-diff__del { background: #ffe1e1; }
-.oldgh-diff__del .oldgh-diff__num { background: #f3c8c8; color: #885555; }
-.oldgh-diff__hunk { background: #f0f4fa; }
-.oldgh-diff__hunk .oldgh-diff__code { color: #4a6b8a; }
-.oldgh-diff__hunk .oldgh-diff__num { background: #e6ecf3; border-right: 0; }
-
-html[data-oldgh-theme="dark"] .oldgh-diff__add { background: rgba(46, 160, 67, 0.15); }
-html[data-oldgh-theme="dark"] .oldgh-diff__add .oldgh-diff__num { background: rgba(46, 160, 67, 0.30); color: #7ee787; }
-html[data-oldgh-theme="dark"] .oldgh-diff__del { background: rgba(248, 81, 73, 0.15); }
-html[data-oldgh-theme="dark"] .oldgh-diff__del .oldgh-diff__num { background: rgba(248, 81, 73, 0.30); color: #ff7b72; }
-html[data-oldgh-theme="dark"] .oldgh-diff__hunk { background: rgba(56, 139, 253, 0.10); }
-html[data-oldgh-theme="dark"] .oldgh-diff__hunk .oldgh-diff__code { color: #79c0ff; }
-html[data-oldgh-theme="dark"] .oldgh-diff__hunk .oldgh-diff__num { background: rgba(56, 139, 253, 0.15); border-right: 0; }
 
 .oldgh-pr-commits__group {
   margin-bottom: 18px;

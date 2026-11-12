@@ -19,6 +19,8 @@ import { AdapterFailure } from "@/adapters";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, removeAllBodyRoots, navigationToken } from "./_body";
+import { renderHunks } from "./_diff-table";
+import { parsePatch } from "@/util/diff";
 
 const ROOT_CLASS = "oldgh-repo-issue";
 
@@ -246,7 +248,7 @@ function renderPullFile(f: PullFile): string {
     ? `${escapeText(f.previousFilename)} → ${escapeText(f.filename)}`
     : escapeText(f.filename);
   const hunk = f.patch
-    ? renderDiffPatch(f.patch)
+    ? renderHunks(parsePatch(f.patch))
     : `<div class="oldgh-pr-file__nopatch">Binary or large file — view on <a href="${escapeAttr(f.blobUrl)}">GitHub</a>.</div>`;
   return `
     <div class="oldgh-pr-file" data-status="${escapeAttr(f.status)}">
@@ -260,41 +262,6 @@ function renderPullFile(f: PullFile): string {
       <div class="oldgh-pr-file__diff">${hunk}</div>
     </div>
   `;
-}
-
-function renderDiffPatch(patch: string): string {
-  const lines = patch.split("\n");
-  let oldNum = 0;
-  let newNum = 0;
-  const rows: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("@@")) {
-      const m = /@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
-      if (m) {
-        oldNum = parseInt(m[1]!, 10);
-        newNum = parseInt(m[3]!, 10);
-      }
-      rows.push(`<tr class="oldgh-diff__hunk"><td class="oldgh-diff__num"></td><td class="oldgh-diff__num"></td><td class="oldgh-diff__code">${escapeText(line)}</td></tr>`);
-      continue;
-    }
-    if (line.startsWith("+") && !line.startsWith("+++")) {
-      rows.push(`<tr class="oldgh-diff__add"><td class="oldgh-diff__num"></td><td class="oldgh-diff__num">${newNum}</td><td class="oldgh-diff__code">${escapeText(line)}</td></tr>`);
-      newNum++;
-      continue;
-    }
-    if (line.startsWith("-") && !line.startsWith("---")) {
-      rows.push(`<tr class="oldgh-diff__del"><td class="oldgh-diff__num">${oldNum}</td><td class="oldgh-diff__num"></td><td class="oldgh-diff__code">${escapeText(line)}</td></tr>`);
-      oldNum++;
-      continue;
-    }
-    if (line.startsWith("---") || line.startsWith("+++")) continue;
-    // git's "\ No newline at end of file" marker is not a content line
-    if (line.startsWith("\\")) continue;
-    rows.push(`<tr class="oldgh-diff__ctx"><td class="oldgh-diff__num">${oldNum}</td><td class="oldgh-diff__num">${newNum}</td><td class="oldgh-diff__code">${escapeText(line)}</td></tr>`);
-    oldNum++;
-    newNum++;
-  }
-  return `<div class="oldgh-diff-scroll"><table class="oldgh-diff"><tbody>${rows.join("")}</tbody></table></div>`;
 }
 
 function renderPullCommits(owner: string, repo: string, commits: PullCommit[]): string {
