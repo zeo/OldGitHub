@@ -301,7 +301,7 @@ html[data-oldgh="active"] .oldgh-header__nav a[aria-current="page"] {
   background: rgba(0, 0, 0, 0.04);
   text-decoration: none;
 }
-[data-oldgh-theme="dark"] .oldgh-header__nav a {
+html[data-oldgh-theme="dark"] .oldgh-header__nav a {
   text-shadow: 0 -1px 0 #000;
 }
 
@@ -324,6 +324,7 @@ html[data-oldgh="active"] .oldgh-header__nav a[aria-current="page"] {
   border-radius: var(--gh-radius);
   cursor: pointer;
   line-height: 1.4;
+  text-decoration: none;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
   box-shadow: var(--gh-shadow-inset);
 }
@@ -2714,14 +2715,14 @@ html[data-oldgh-hide-modern-profile] [data-pjax-container] > main {
   overflow: hidden;
 }
 .oldgh-profile__stats li {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
   border-right: 1px solid var(--gh-border-faint);
 }
 .oldgh-profile__stats li:last-child { border-right: none; }
 .oldgh-profile__stats a {
   display: block;
-  padding: 6px 4px;
+  padding: 6px 6px;
   text-align: center;
   color: var(--gh-fg);
   white-space: nowrap;
@@ -3158,13 +3159,14 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="4
   background: var(--gh-bg-elev);
   border: 1px solid var(--gh-border);
   border-radius: var(--gh-radius);
-  padding: 10px 12px;
+  padding: 10px 8px;
   overflow-x: auto;
   overflow-y: hidden;
 }
 .oldgh-profile__contribs-graph table {
   border-collapse: separate;
-  border-spacing: 1px;
+  /* github's inline 3px spacing pushes 53 weeks past the 740px column */
+  border-spacing: 2px !important;
   margin: 0;
   /* the 53 fixed cells and day label fit inside the 740px profile column */
   width: auto;
@@ -11404,6 +11406,23 @@ html[data-oldgh="active"] .markdown-body table th {
 }
 html[data-oldgh="active"] .markdown-body table tr:nth-child(2n) td {
   background: var(--gh-bg-subtle);
+}
+html[data-oldgh="active"] .markdown-body .markdown-heading {
+  position: relative;
+}
+html[data-oldgh="active"] .markdown-body .markdown-heading .anchor {
+  position: absolute;
+  top: 50%;
+  left: -18px;
+  display: flex;
+  transform: translateY(-50%);
+  color: var(--gh-fg-muted);
+  opacity: 0;
+}
+html[data-oldgh="active"] .markdown-body .markdown-heading:hover .anchor,
+html[data-oldgh="active"] .markdown-body .markdown-heading .anchor:focus {
+  opacity: 1;
+  text-decoration: none;
 }
 html[data-oldgh="active"] .markdown-body hr {
   height: 4px;
