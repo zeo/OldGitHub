@@ -2,6 +2,8 @@ import { octicon } from "@/icons";
 import { getRepoOverview, type RepoOverview } from "@/adapters/repo-overview";
 import { getRepoLanguages, getRepoPageJson, getRepoSidebar, type RepoLanguage, type RepoSidebar } from "@/adapters/repo";
 import { fetchApi } from "@/adapters/rate-limit";
+import { fetchPageDoc } from "@/adapters/_page";
+import { fetchAssets, parseRelease, type Release, type ReleaseAsset } from "./repo-releases";
 import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
@@ -42,86 +44,45 @@ export async function mountRepoHome(owner: string, repo: string): Promise<void> 
   if (overview.releaseCount !== 0) void hydrateLatestRelease(root, owner, repo);
 }
 
-type ReleaseAsset = { name: string; url: string; size: number };
-type LatestRelease = {
-  tag: string;
-  name: string;
-  publishedAt: string;
-  htmlUrl: string;
-  isPrerelease: boolean;
-  assets: ReleaseAsset[];
-  zipUrl: string;
-};
-
-// surface the latest release on the repo home with a direct download — without
-// the extension a user can grab a new build from the repo home's release
-// shortcut; we restore that. fetched from the REST releases/latest endpoint;
-// the slot stays empty (no layout shift) when a repo has no releases.
+// surface the latest release on the repo home with a direct download, read from github's
+// own /releases/latest redirect; the slot stays empty (no layout shift) when a repo has no releases
 async function hydrateLatestRelease(root: HTMLElement, owner: string, repo: string): Promise<void> {
   const slot = root.querySelector<HTMLElement>(".oldgh-repo-home__release-slot");
   if (!slot) return;
   try {
-    const res = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!res.ok) return;
-    const data = parseLatestRelease(await res.json());
-    if (!data) return;
-    slot.innerHTML = renderLatestRelease(owner, repo, data);
+    const card = (await fetchPageDoc(`https://github.com/${owner}/${repo}/releases/latest`)).querySelector("[data-hpc] .Box");
+    const release = card && parseRelease(card);
+    if (!release) return;
+    const assets = release.assetsUrl ? await fetchAssets(release.assetsUrl) : [];
+    slot.innerHTML = renderLatestRelease(owner, repo, release, assets);
   } catch (err) {
     console.debug("[oldgh] latest release fetch failed:", err);
   }
 }
 
-function parseLatestRelease(raw: unknown): LatestRelease | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const tag = typeof r["tag_name"] === "string" ? (r["tag_name"] as string) : "";
-  if (!tag) return null;
-  const assetsRaw = Array.isArray(r["assets"]) ? (r["assets"] as unknown[]) : [];
-  const assets: ReleaseAsset[] = [];
-  for (const a of assetsRaw) {
-    if (!a || typeof a !== "object") continue;
-    const o = a as Record<string, unknown>;
-    const url = typeof o["browser_download_url"] === "string" ? (o["browser_download_url"] as string) : "";
-    const name = typeof o["name"] === "string" ? (o["name"] as string) : "";
-    if (url && name) assets.push({ name, url, size: typeof o["size"] === "number" ? (o["size"] as number) : 0 });
-  }
-  return {
-    tag,
-    name: typeof r["name"] === "string" && r["name"] ? (r["name"] as string) : tag,
-    publishedAt: typeof r["published_at"] === "string" ? (r["published_at"] as string) : "",
-    htmlUrl: typeof r["html_url"] === "string" ? (r["html_url"] as string) : "",
-    isPrerelease: r["prerelease"] === true,
-    assets,
-    zipUrl: typeof r["zipball_url"] === "string" ? (r["zipball_url"] as string) : "",
-  };
-}
-
-function renderLatestRelease(owner: string, repo: string, rel: LatestRelease): string {
-  const releaseHref = `/${owner}/${repo}/releases/tag/${encodeURIComponent(rel.tag)}`;
-  const time = rel.publishedAt
-    ? `<time class="oldgh-release-callout__time" datetime="${escapeAttr(rel.publishedAt)}" title="${escapeAttr(absoluteTime(rel.publishedAt))}">${escapeText(relativeTime(rel.publishedAt))}</time>`
+function renderLatestRelease(owner: string, repo: string, rel: Release, assets: ReleaseAsset[]): string {
+  const releaseHref = `/${owner}/${repo}/releases/tag/${encodeURIComponent(rel.tagName)}`;
+  const time = rel.date
+    ? `<time class="oldgh-release-callout__time" datetime="${escapeAttr(rel.date)}" title="${escapeAttr(absoluteTime(rel.date))}">${escapeText(relativeTime(rel.date))}</time>`
     : "";
-  // one binary asset → download it directly; several → go to the release page
-  // where our releases view lists them all; none → offer the source zip.
+  // one binary asset: download it directly; several: go to the release page; none: offer the source zip
+  const binaries = assets.filter((a) => !a.href.includes("/archive/"));
+  const zipUrl = assets.find((a) => a.href.includes("/archive/") && a.href.endsWith(".zip"))?.href ?? "";
   let download: string;
-  if (rel.assets.length === 1) {
-    const a = rel.assets[0]!;
-    download = `<a class="oldgh-btn oldgh-btn--primary oldgh-release-callout__dl" href="${escapeAttr(a.url)}" download>${octicon("cloud-download", { size: 14 })}<span>Download</span></a>`;
-  } else if (rel.assets.length > 1) {
-    download = `<a class="oldgh-btn oldgh-btn--primary oldgh-release-callout__dl" href="${escapeAttr(releaseHref)}">${octicon("cloud-download", { size: 14 })}<span>Download (${rel.assets.length})</span></a>`;
+  if (binaries.length === 1) {
+    download = `<a class="oldgh-btn oldgh-btn--primary oldgh-release-callout__dl" href="${escapeAttr(binaries[0]!.href)}" download>${octicon("cloud-download", { size: 14 })}<span>Download</span></a>`;
+  } else if (binaries.length > 1) {
+    download = `<a class="oldgh-btn oldgh-btn--primary oldgh-release-callout__dl" href="${escapeAttr(releaseHref)}">${octicon("cloud-download", { size: 14 })}<span>Download (${binaries.length})</span></a>`;
   } else {
-    download = `<a class="oldgh-btn oldgh-release-callout__dl" href="${escapeAttr(rel.zipUrl || releaseHref)}"${rel.zipUrl ? " download" : ""}>${octicon("cloud-download", { size: 14 })}<span>Source zip</span></a>`;
+    download = `<a class="oldgh-btn oldgh-release-callout__dl" href="${escapeAttr(zipUrl || releaseHref)}"${zipUrl ? " download" : ""}>${octicon("cloud-download", { size: 14 })}<span>Source zip</span></a>`;
   }
-  const pre = rel.isPrerelease ? `<span class="oldgh-release-callout__pre">Pre-release</span>` : "";
+  const pre = rel.labels.includes("Pre-release") ? `<span class="oldgh-release-callout__pre">Pre-release</span>` : "";
   return `
     <div class="oldgh-release-callout">
       ${octicon("tag", { size: 16 })}
       <span class="oldgh-release-callout__label">Latest release</span>
-      <a class="oldgh-release-callout__tag" href="${escapeAttr(releaseHref)}">${escapeText(rel.tag)}</a>
-      ${rel.name && rel.name !== rel.tag ? `<a class="oldgh-release-callout__name" href="${escapeAttr(releaseHref)}" title="${escapeAttr(rel.name)}">${escapeText(rel.name)}</a>` : ""}
+      <a class="oldgh-release-callout__tag" href="${escapeAttr(releaseHref)}">${escapeText(rel.tagName)}</a>
+      ${rel.name && rel.name !== rel.tagName ? `<a class="oldgh-release-callout__name" href="${escapeAttr(releaseHref)}" title="${escapeAttr(rel.name)}">${escapeText(rel.name)}</a>` : ""}
       ${pre}
       ${time}
       ${download}
@@ -543,12 +504,10 @@ async function loadBranches(list: HTMLUListElement | null, ctx: { owner: string;
   let names = branchCache.get(key);
   if (!names) {
     try {
-      // omit, not include — api.github.com sends ACAO:* which fails a
-      // credentialed CORS request; include threw and the picker never loaded
-      const res = await fetchApi(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/branches?per_page=100`, { credentials: "omit" });
-      if (!res.ok) throw new Error(`branches ${res.status}`);
-      const data = await res.json() as Array<{ name: string }>;
-      names = data.map((b) => b.name);
+      // github's own picker endpoint lists every branch and works on private repos
+      const refs = (await getRepoPageJson(ctx.owner, ctx.repo, "refs?type=branch"))?.["refs"];
+      if (!Array.isArray(refs)) throw new Error("branch refs unavailable");
+      names = refs.filter((n): n is string => typeof n === "string");
       // current branch first, then alphabetic
       names.sort((a, b) => {
         if (a === ctx.branch) return -1;

@@ -7,7 +7,7 @@ import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-releases";
 
-type Release = {
+export type Release = {
   tagName: string;
   name: string;
   bodyHtml: string;
@@ -80,7 +80,7 @@ function renderNoReleases(owner: string, repo: string): string {
   `;
 }
 
-function parseRelease(card: Element): Release | null {
+export function parseRelease(card: Element): Release | null {
   // release notes can hold their own links, times and labels, so read only the card chrome
   const chrome = <T extends Element>(selector: string): T[] =>
     Array.from(card.querySelectorAll<T>(selector)).filter((el) => !el.closest(".markdown-body"));
@@ -105,26 +105,32 @@ function parseRelease(card: Element): Release | null {
   };
 }
 
+export type ReleaseAsset = { href: string; label: string; size: string };
+
+export async function fetchAssets(url: string): Promise<ReleaseAsset[]> {
+  const doc = await fetchPageDoc(url);
+  return Array.from(doc.querySelectorAll("li")).flatMap((li) => {
+    const link = li.querySelector("a[href]");
+    const href = link?.getAttribute("href") ?? "";
+    if (!href) return [];
+    const size = Array.from(li.querySelectorAll("span.flex-shrink-0")).find((s) => !s.querySelector("relative-time"))?.textContent?.trim() ?? "";
+    return [{ href, label: link?.textContent?.replace(/\s+/g, " ").trim() ?? "", size }];
+  });
+}
+
 async function loadAssets(details: HTMLDetailsElement): Promise<void> {
   const url = details.dataset.assetsUrl;
   const list = details.querySelector("ul");
   if (!url || !list) return;
   delete details.dataset.assetsUrl;
   try {
-    const doc = await fetchPageDoc(url);
-    list.innerHTML = Array.from(doc.querySelectorAll("li")).map((li) => {
-      const link = li.querySelector("a[href]");
-      const href = link?.getAttribute("href") ?? "";
-      if (!href) return "";
-      const size = Array.from(li.querySelectorAll("span.flex-shrink-0")).find((s) => !s.querySelector("relative-time"))?.textContent?.trim() ?? "";
-      return `
-        <li class="oldgh-releases__asset">
-          ${octicon(href.includes("/archive/") ? "file-zip" : "file-binary", { size: 14 })}
-          <a href="${escapeAttr(href)}">${escapeText(link?.textContent?.replace(/\s+/g, " ").trim() ?? "")}</a>
-          ${size ? `<span class="oldgh-releases__asset-size">${escapeText(size)}</span>` : ""}
-        </li>
-      `;
-    }).join("");
+    list.innerHTML = (await fetchAssets(url)).map((a) => `
+      <li class="oldgh-releases__asset">
+        ${octicon(a.href.includes("/archive/") ? "file-zip" : "file-binary", { size: 14 })}
+        <a href="${escapeAttr(a.href)}">${escapeText(a.label)}</a>
+        ${a.size ? `<span class="oldgh-releases__asset-size">${escapeText(a.size)}</span>` : ""}
+      </li>
+    `).join("");
   } catch (err) {
     list.innerHTML = `<li class="oldgh-releases__asset">Couldn't load assets: ${escapeText(err instanceof Error ? err.message : String(err))}</li>`;
   }
