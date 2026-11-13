@@ -2,22 +2,25 @@ import { octicon } from "@/icons";
 import { getRepoBlob, type RepoBlobView } from "@/adapters/repo-overview";
 import { highlightFile } from "@/highlight";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-blob";
 const MAX_HIGHLIGHT_CHARS = 1_000_000;
 const MAX_HIGHLIGHT_LINES = 20_000;
 
-export async function mountRepoBlob(owner: string, repo: string, refAndPath: string): Promise<void> {
+export async function mountRepoBlob(owner: string, repo: string, refAndPath: string, query = ""): Promise<void> {
   const nav = navigationToken();
-  const view = await getRepoBlob(owner, repo, refAndPath);
+  const href = `/${owner}/${repo}/blob/${refAndPath}`;
+  const plain = new URLSearchParams(query).get("plain") === "1";
+  const view = await getRepoBlob(owner, repo, refAndPath, query);
+  const rendered = view.richHtml !== null && !plain;
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
-  root.innerHTML = renderShell(view);
+  root.innerHTML = renderShell(view, rendered, href);
   if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
-  if (!view.isBinary && view.rawLines.length > 0) {
+  if (!rendered && !view.isBinary && view.rawLines.length > 0) {
     void hydrateHighlight(root, view);
   }
 }
@@ -36,13 +39,16 @@ async function hydrateHighlight(root: HTMLElement, view: RepoBlobView): Promise<
   root.classList.add("oldgh-hljs");
 }
 
-function renderShell(v: RepoBlobView): string {
+function renderShell(v: RepoBlobView, rendered: boolean, href: string): string {
+  const content = rendered
+    ? `<div class="oldgh-repo-blob__rendered oldgh-repo-home__readme-body">${sanitizeHtml(v.richHtml ?? "")}</div>`
+    : v.isBinary ? renderBinary(v) : v.truncated ? renderTruncated(v) : renderSource(v);
   return `
     <div class="oldgh-page">
       ${renderBreadcrumb(v)}
       <div class="oldgh-repo-blob__file">
-        ${renderFileHeader(v)}
-        ${v.isBinary ? renderBinary(v) : v.truncated ? renderTruncated(v) : renderSource(v)}
+        ${renderFileHeader(v, rendered, href)}
+        ${content}
       </div>
     </div>
   `;
@@ -70,7 +76,7 @@ function renderBreadcrumb(v: RepoBlobView): string {
   return `<div class="oldgh-breadcrumb">${pieces.join("")}</div>`;
 }
 
-function renderFileHeader(v: RepoBlobView): string {
+function renderFileHeader(v: RepoBlobView, rendered: boolean, href: string): string {
   const lineCount = v.rawLines.length;
   const byteSize = v.isBinary ? "binary" : formatBytes(v.size);
   const lang = v.language ? `<span class="oldgh-repo-blob__lang">${escapeText(v.language)}</span>` : "";
@@ -83,6 +89,11 @@ function renderFileHeader(v: RepoBlobView): string {
     : "";
   const blame = `<a class="oldgh-btn" href="/${v.owner}/${v.repo}/blame/${encodeURIComponent(v.branch)}/${pathSegments(v.path)}">${octicon("versions", { size: 14 })}<span>Blame</span></a>`;
   const history = `<a class="oldgh-btn" href="/${v.owner}/${v.repo}/commits/${encodeURIComponent(v.branch)}/${pathSegments(v.path)}">${octicon("history", { size: 14 })}<span>History</span></a>`;
+  const toggle = !v.hasPreview
+    ? ""
+    : rendered
+      ? `<a class="oldgh-btn" href="${escapeAttr(href)}?plain=1">${octicon("code", { size: 14 })}<span>Source</span></a>`
+      : `<a class="oldgh-btn" href="${escapeAttr(href)}">${octicon("eye", { size: 14 })}<span>Preview</span></a>`;
 
   // empty text files have no meaningful line/byte counts to show
   const emptySource = !v.isBinary && isEmptySource(v);
@@ -97,7 +108,7 @@ function renderFileHeader(v: RepoBlobView): string {
         ${counts}
         ${lang ? `${counts ? `<span class="oldgh-repo-blob__sep">·</span>` : ""}${lang}` : ""}
       </div>
-      <div class="oldgh-repo-blob__actions">${raw}${download}${blame}${history}</div>
+      <div class="oldgh-repo-blob__actions">${toggle}${raw}${download}${blame}${history}</div>
     </div>
   `;
 }

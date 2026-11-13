@@ -2,7 +2,7 @@ export type Route =
   | { kind: "out-of-scope" }
   | { kind: "repo-home"; owner: string; repo: string }
   | { kind: "repo-tree"; owner: string; repo: string; refAndPath: string }
-  | { kind: "repo-blob"; owner: string; repo: string; refAndPath: string }
+  | { kind: "repo-blob"; owner: string; repo: string; refAndPath: string; query: string }
   | { kind: "repo-commits"; owner: string; repo: string; refAndPath: string; query: string }
   | { kind: "repo-commit"; owner: string; repo: string; sha: string }
   | { kind: "repo-compare"; owner: string; repo: string; range: string }
@@ -193,7 +193,7 @@ export function resolveRoute(pathname: string, search: string): Route {
 
   if (segs[2] === "blob" && segs.length >= 5) {
     const refAndPath = segs.slice(3).join("/");
-    return { kind: "repo-blob", owner, repo, refAndPath };
+    return { kind: "repo-blob", owner, repo, refAndPath, query: search };
   }
 
   if (segs[2] === "commits" && segs.length >= 3) {

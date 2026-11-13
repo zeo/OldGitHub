@@ -1,6 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
-import { extractEmbeddedPayload, parseRepoPage, takeFirstLoad } from "./_page";
+import { loadPagePayload, parseRepoPage } from "./_page";
 import { escapeText } from "@/util/html";
 
 export type IssueState = "OPEN" | "CLOSED";
@@ -444,16 +444,6 @@ export async function getPullFromPage(owner: string, repo: string, number: numbe
     reviewThreads: [],
     metadataHidden: true,
   };
-}
-
-async function loadPagePayload(url: string): Promise<unknown> {
-  let html = takeFirstLoad(url);
-  if (html === null) {
-    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
-    if (!resp.ok) throw new AdapterFailure("loadPagePayload", `${new URL(url).pathname} responded ${resp.status}`);
-    html = await resp.text();
-  }
-  return extractEmbeddedPayload(parseRepoPage(html));
 }
 
 function pageTimelineItem(n: Record<string, unknown>): TimelineNode | null {

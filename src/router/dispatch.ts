@@ -17,7 +17,7 @@ type BodyState =
   | { kind: "none" }
   | { kind: "home"; owner: string; repo: string }
   | { kind: "tree"; owner: string; repo: string; refAndPath: string }
-  | { kind: "blob"; owner: string; repo: string; refAndPath: string }
+  | { kind: "blob"; owner: string; repo: string; refAndPath: string; query: string }
   | { kind: "commits"; owner: string; repo: string; refAndPath: string; query: string }
   | { kind: "commit"; owner: string; repo: string; sha: string }
   | { kind: "compare"; owner: string; repo: string; range: string }
@@ -306,7 +306,7 @@ function clearMounted(): void {
 function targetBodyForRoute(route: Route): BodyState {
   if (route.kind === "repo-home") return { kind: "home", owner: route.owner, repo: route.repo };
   if (route.kind === "repo-tree") return { kind: "tree", owner: route.owner, repo: route.repo, refAndPath: route.refAndPath };
-  if (route.kind === "repo-blob") return { kind: "blob", owner: route.owner, repo: route.repo, refAndPath: route.refAndPath };
+  if (route.kind === "repo-blob") return { kind: "blob", owner: route.owner, repo: route.repo, refAndPath: route.refAndPath, query: route.query };
   if (route.kind === "repo-commits") return { kind: "commits", owner: route.owner, repo: route.repo, refAndPath: route.refAndPath, query: route.query };
   if (route.kind === "repo-commit") return { kind: "commit", owner: route.owner, repo: route.repo, sha: route.sha };
   if (route.kind === "repo-compare") return { kind: "compare", owner: route.owner, repo: route.repo, range: route.range };
@@ -386,7 +386,7 @@ async function mountBody(target: BodyState, nav: number): Promise<void> {
     return;
   }
   if (target.kind === "blob") {
-    await (await load(nav, import("@/views/repo-blob"))).mountRepoBlob(target.owner, target.repo, target.refAndPath);
+    await (await load(nav, import("@/views/repo-blob"))).mountRepoBlob(target.owner, target.repo, target.refAndPath, target.query);
     return;
   }
   if (target.kind === "commits") {
@@ -527,7 +527,7 @@ function sameBody(a: BodyState, b: BodyState): boolean {
     return a.owner === b.owner && a.repo === b.repo && a.refAndPath === b.refAndPath;
   }
   if (a.kind === "blob" && b.kind === "blob") {
-    return a.owner === b.owner && a.repo === b.repo && a.refAndPath === b.refAndPath;
+    return a.owner === b.owner && a.repo === b.repo && a.refAndPath === b.refAndPath && a.query === b.query;
   }
   if (a.kind === "commits" && b.kind === "commits") {
     return a.owner === b.owner && a.repo === b.repo && a.refAndPath === b.refAndPath && a.query === b.query;

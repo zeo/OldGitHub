@@ -1,5 +1,5 @@
 import { AdapterFailure } from "./index";
-import { extractEmbeddedPayload, fetchRepoPage, parseRepoPage } from "./_page";
+import { extractEmbeddedPayload, fetchRepoPage, loadPagePayload, parseRepoPage } from "./_page";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
 import { readProxyText } from "@/background/proxy-policy";
 
@@ -96,9 +96,19 @@ export type RepoBlobView = {
   rawBlobUrl: string | null;
   truncated: boolean;
   isBinary: boolean;
+  // github's rendering of markdown and similar files, when it has one
+  richHtml: string | null;
+  // github offers a rendered view of this file, even when this load asked for the source
+  hasPreview: boolean;
 };
 
-export async function getRepoBlob(owner: string, repo: string, refAndPath: string): Promise<RepoBlobView> {
+export async function getRepoBlob(owner: string, repo: string, refAndPath: string, query = ""): Promise<RepoBlobView> {
+  try {
+    const fromPage = await getBlobFromPage(owner, repo, refAndPath, query);
+    if (fromPage) return fromPage;
+  } catch (err) {
+    if (!(err instanceof AdapterFailure) || err.status === 404) throw err;
+  }
   const { branch, path } = await resolveBranchAndPath(owner, repo, refAndPath);
 
   if (isApiRateLimited()) {
@@ -165,6 +175,37 @@ export async function getRepoBlob(owner: string, repo: string, refAndPath: strin
     rawBlobUrl,
     truncated,
     isBinary,
+    richHtml: null,
+    hasPreview: false,
+  };
+}
+
+// the blob page holds the resolved branch, the lines and github's rendering, so text files need no api quota
+async function getBlobFromPage(owner: string, repo: string, refAndPath: string, query: string): Promise<RepoBlobView | null> {
+  const payload = read(await loadPagePayload(`https://github.com/${owner}/${repo}/blob/${refAndPath}${query ? `?${query}` : ""}`), "payload");
+  const layout = read<Record<string, unknown>>(payload, "codeViewBlobLayoutRoute");
+  const blob = read<Record<string, unknown>>(layout, "blob");
+  const rawLines = read<unknown>(read(payload, "codeViewBlobLayoutRoute.StyledBlob"), "rawLines");
+  const branch = read<unknown>(read(layout, "refInfo"), "name");
+  const path = read<unknown>(layout, "path");
+  if (!blob || blob["truncated"] === true || blob["large"] === true || typeof branch !== "string" || typeof path !== "string") return null;
+  if (!Array.isArray(rawLines) || !rawLines.every((l): l is string => typeof l === "string")) return null;
+  const richText = read<unknown>(read(payload, "codeViewBlobRoute"), "richText");
+  const rawBlobUrl = blob["rawBlobUrl"];
+  return {
+    owner,
+    repo,
+    branch,
+    path,
+    displayName: pathBasename(path),
+    language: guessLanguage(path),
+    rawLines,
+    size: new TextEncoder().encode(rawLines.join("\n")).length,
+    rawBlobUrl: typeof rawBlobUrl === "string" ? rawBlobUrl : null,
+    truncated: false,
+    isBinary: false,
+    richHtml: typeof richText === "string" && richText ? richText : null,
+    hasPreview: read<unknown>(read(blob, "headerInfo"), "isRichtext") === true,
   };
 }
 
@@ -193,6 +234,8 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
       rawBlobUrl: rawUrl,
       truncated: false,
       isBinary: true,
+      richHtml: null,
+      hasPreview: false,
     };
   }
   return {
@@ -204,6 +247,8 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
     rawBlobUrl: rawUrl,
     truncated: false,
     isBinary: false,
+    richHtml: null,
+    hasPreview: false,
   };
 }
 

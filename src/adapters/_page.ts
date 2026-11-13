@@ -57,6 +57,16 @@ async function loadRepoPage(owner: string, repo: string): Promise<string> {
   return resp.text();
 }
 
+export async function loadPagePayload(url: string): Promise<unknown> {
+  let html = takeFirstLoad(url);
+  if (html === null) {
+    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
+    if (!resp.ok) throw new AdapterFailure("loadPagePayload", `${new URL(url).pathname} responded ${resp.status}`);
+    html = await resp.text();
+  }
+  return extractEmbeddedPayload(parseRepoPage(html));
+}
+
 export function parseRepoPage(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
 }
