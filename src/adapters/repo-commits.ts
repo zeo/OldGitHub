@@ -56,7 +56,9 @@ export async function getRepoCommits(
   const doc = parseRepoPage(html);
   const payload = extractEmbeddedPayload(doc);
 
-  const root = read<Record<string, unknown>>(payload, "payload");
+  // github's data router nests the page under commitsRefRoute; older rollouts put it at the top
+  const page = read<Record<string, unknown>>(payload, "payload");
+  const root = read<Record<string, unknown>>(page, "commitsRefRoute") ?? page;
   if (!root) {
     throw new AdapterFailure("getRepoCommits", "missing payload");
   }
@@ -68,7 +70,9 @@ export async function getRepoCommits(
 
   const refInfo = read<{ name?: unknown }>(root, "refInfo");
   const branch = typeof refInfo?.name === "string" ? refInfo.name : extractRefFromPath(refAndPath);
-  const path = typeof root["path"] === "string" ? (root["path"] as string) : "";
+  const filters = read<Record<string, unknown>>(root, "filters");
+  const rawPath = root["path"] ?? filters?.["currentBlobPath"];
+  const path = typeof rawPath === "string" ? rawPath : "";
 
   return {
     owner,
@@ -158,7 +162,9 @@ function readPerson(raw: unknown): PersonRef | null {
 }
 
 function readPagination(root: Record<string, unknown>): CommitsView["pagination"] {
-  const pag = read<Record<string, unknown>>(root, "paginationParameters") ?? root;
+  const pag = read<Record<string, unknown>>(root, "paginationParameters")
+    ?? read<Record<string, unknown>>(read(root, "filters"), "pagination")
+    ?? root;
   return {
     hasNext: pag["hasNextPage"] === true,
     hasPrevious: pag["hasPreviousPage"] === true,

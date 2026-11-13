@@ -48,8 +48,8 @@ async function fetchCommitMeta(
   const doc = parseRepoPage(html);
   const payload = extractEmbeddedPayload(doc);
 
-  const root = read<Record<string, unknown>>(payload, "payload");
-  const commit = read<Record<string, unknown>>(root, "commit");
+  const page = read<Record<string, unknown>>(payload, "payload");
+  const commit = read<Record<string, unknown>>(read(page, "commitRoute") ?? page, "commit");
   if (!commit) {
     throw new AdapterFailure("getCommit", "missing commit in payload");
   }
