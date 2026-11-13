@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { fetchApi } from "@/adapters/rate-limit";
+import { AdapterFailure } from "@/adapters";
+import { fetchPageDoc } from "@/adapters/_page";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
 
@@ -17,8 +18,6 @@ type SecurityCard = {
 type SecurityView = {
   owner: string;
   repo: string;
-  hasSecurityPolicy: boolean;
-  securityPolicyUrl: string | null;
   features: SecurityCard[];
 };
 
@@ -48,63 +47,46 @@ export async function mountRepoSecurity(owner: string, repo: string, subkind: "o
 
 type Advisory = {
   ghsaId: string;
-  cveId: string | null;
   summary: string;
-  description: string | null;
-  severity: "low" | "medium" | "high" | "critical" | "unknown";
-  state: "draft" | "triage" | "published" | "closed" | "withdrawn";
-  cvssScore: number | null;
+  severity: string;
+  state: string;
   publishedAt: string | null;
-  updatedAt: string | null;
+  author: string | null;
   url: string;
-  vulnerabilities: Array<{ ecosystem: string | null; packageName: string | null }>;
 };
 
+// github's advisories page lists the same published advisories as the api, plus drafts for maintainers
 async function fetchAdvisories(owner: string, repo: string): Promise<Advisory[]> {
-  const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/security-advisories?per_page=30`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github+json" },
-  });
-  if (!resp.ok) {
-    if (resp.status === 404) return [];
-    throw new Error(`responded ${resp.status}`);
+  let doc: Document;
+  try {
+    doc = await fetchPageDoc(`https://github.com/${owner}/${repo}/security/advisories`);
+  } catch (err) {
+    if (err instanceof AdapterFailure && /\b404\b/.test(err.message)) return [];
+    throw err;
   }
-  const data = (await resp.json()) as unknown[];
-  if (!Array.isArray(data)) return [];
-  return data.map(parseAdvisory).filter((a): a is Advisory => a !== null);
+  return Array.from(doc.querySelectorAll("main li.Box-row")).flatMap((row) => {
+    const link = row.querySelector<HTMLAnchorElement>('a[href*="/security/advisories/GHSA-"]');
+    const href = link?.getAttribute("href");
+    if (!link || !href) return [];
+    const state = /^(\w+) advisory$/i.exec(row.querySelector("[aria-label$=' advisory']")?.getAttribute("aria-label") ?? "")?.[1];
+    return [{
+      ghsaId: href.split("/").pop()!,
+      summary: text(link) || "Untitled advisory",
+      severity: /^Severity: (\w+)/.exec(row.querySelector("[title^='Severity:']")?.getAttribute("title") ?? "")?.[1]?.toLowerCase() ?? "unknown",
+      state: state?.toLowerCase() ?? "published",
+      publishedAt: row.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? null,
+      author: text(row.querySelector("a.author")) || null,
+      url: href,
+    }];
+  });
 }
 
-function parseAdvisory(raw: unknown): Advisory | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const ghsaId = typeof r["ghsa_id"] === "string" ? (r["ghsa_id"] as string) : null;
-  if (!ghsaId) return null;
-  const cvss = r["cvss"] && typeof r["cvss"] === "object" ? (r["cvss"] as Record<string, unknown>) : null;
-  const vulns = Array.isArray(r["vulnerabilities"]) ? (r["vulnerabilities"] as unknown[]) : [];
-  return {
-    ghsaId,
-    cveId: typeof r["cve_id"] === "string" ? (r["cve_id"] as string) : null,
-    summary: (typeof r["summary"] === "string" ? (r["summary"] as string) : "") || "Untitled advisory",
-    description: typeof r["description"] === "string" ? (r["description"] as string) : null,
-    severity: ((typeof r["severity"] === "string" ? (r["severity"] as string) : "unknown") as Advisory["severity"]),
-    state: ((typeof r["state"] === "string" ? (r["state"] as string) : "published") as Advisory["state"]),
-    cvssScore: cvss && typeof cvss["score"] === "number" ? (cvss["score"] as number) : null,
-    publishedAt: typeof r["published_at"] === "string" ? (r["published_at"] as string) : null,
-    updatedAt: typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : null,
-    url: (typeof r["html_url"] === "string" ? (r["html_url"] as string) : `/advisories/${ghsaId}`).replace(/^https:\/\/github\.com/, ""),
-    vulnerabilities: vulns
-      .map((v) => {
-        if (!v || typeof v !== "object") return null;
-        const vo = v as Record<string, unknown>;
-        const pkg = vo["package"] && typeof vo["package"] === "object" ? (vo["package"] as Record<string, unknown>) : null;
-        return {
-          ecosystem: pkg && typeof pkg["ecosystem"] === "string" ? (pkg["ecosystem"] as string) : null,
-          packageName: pkg && typeof pkg["name"] === "string" ? (pkg["name"] as string) : null,
-        };
-      })
-      .filter((v): v is { ecosystem: string | null; packageName: string | null } => v !== null && (v.ecosystem !== null || v.packageName !== null)),
-  };
+function text(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
+
+// github calls it moderate, the 2013 palette names it medium
+const SEVERITY_CLASS: Record<string, string> = { critical: "critical", high: "high", moderate: "medium", medium: "medium", low: "low" };
 
 function renderAdvisories(owner: string, repo: string, items: Advisory[]): string {
   if (items.length === 0) {
@@ -129,24 +111,18 @@ function renderAdvisories(owner: string, repo: string, items: Advisory[]): strin
 }
 
 function renderAdvisoryRow(a: Advisory): string {
-  const sev = a.severity || "unknown";
   return `
-    <li class="oldgh-advisories__item oldgh-advisories__item--${sev}">
-      <span class="oldgh-advisories__severity oldgh-advisories__severity--${sev}" title="Severity: ${escapeAttr(sev)}">${sev.charAt(0).toUpperCase()}${sev.slice(1)}</span>
+    <li class="oldgh-advisories__item">
+      <span class="oldgh-advisories__severity oldgh-advisories__severity--${SEVERITY_CLASS[a.severity] ?? "unknown"}" title="Severity: ${escapeAttr(a.severity)}">${escapeText(a.severity)}</span>
       <div class="oldgh-advisories__main">
         <h3 class="oldgh-advisories__title">
           <a href="${escapeAttr(a.url)}">${escapeText(a.summary)}</a>
         </h3>
         <div class="oldgh-advisories__meta">
           <code class="oldgh-advisories__id">${escapeText(a.ghsaId)}</code>
-          ${a.cveId ? `<code class="oldgh-advisories__id">${escapeText(a.cveId)}</code>` : ""}
-          ${a.cvssScore !== null ? `<span class="oldgh-advisories__cvss">CVSS ${a.cvssScore.toFixed(1)}</span>` : ""}
           ${a.state !== "published" ? `<span class="oldgh-advisories__state">${escapeText(a.state)}</span>` : ""}
-          ${a.publishedAt ? `<time datetime="${escapeAttr(a.publishedAt)}">${escapeText(formatDate(a.publishedAt))}</time>` : ""}
+          ${a.publishedAt ? `<span>published <time datetime="${escapeAttr(a.publishedAt)}">${escapeText(formatDate(a.publishedAt))}</time>${a.author ? ` by <a href="/${escapeAttr(a.author)}">${escapeText(a.author)}</a>` : ""}</span>` : ""}
         </div>
-        ${a.vulnerabilities.length > 0
-          ? `<ul class="oldgh-advisories__packages">${a.vulnerabilities.slice(0, 6).map((v) => `<li><code>${escapeText(v.ecosystem ? v.ecosystem + (v.packageName ? `: ${v.packageName}` : "") : (v.packageName || ""))}</code></li>`).join("")}</ul>`
-          : ""}
       </div>
     </li>
   `;
@@ -159,32 +135,19 @@ function formatDate(iso: string): string {
 }
 
 async function fetchSecurityView(owner: string, repo: string): Promise<SecurityView> {
-  // Pull community profile to learn if there's a security policy file.
-  const community = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/community/profile`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github+json" },
-  });
-  let securityFile: { html_url?: string; name?: string } | null = null;
-  if (community.ok) {
-    const j = (await community.json()) as Record<string, unknown>;
-    const files = (j["files"] && typeof j["files"] === "object" ? j["files"] : null) as Record<string, unknown> | null;
-    const sec = files?.["security"];
-    if (sec && typeof sec === "object") {
-      securityFile = sec as { html_url?: string; name?: string };
-    }
-  }
+  // github renders the policy file on this page only when the repository has one
+  const policyHref = `/${owner}/${repo}/security/policy`;
+  const hasPolicy = (await fetchPageDoc(`https://github.com${policyHref}`)).querySelector("main .markdown-body") !== null;
 
   const features: SecurityCard[] = [
     {
       key: "security-policy",
       title: "Security policy",
       icon: "shield",
-      status: securityFile ? "enabled" : "needs-setup",
-      description: securityFile
-        ? `Define how users should report security vulnerabilities for this repository. Current policy: ${securityFile.name || "SECURITY.md"}.`
-        : "Define how users should report security vulnerabilities for this repository.",
-      action: securityFile?.html_url
-        ? { label: "View policy", href: securityFile.html_url }
+      status: hasPolicy ? "enabled" : "needs-setup",
+      description: "Define how users should report security vulnerabilities for this repository.",
+      action: hasPolicy
+        ? { label: "View policy", href: policyHref }
         : { label: "Set up", href: `/${owner}/${repo}/security/policy/edit` },
     },
     {
@@ -232,8 +195,6 @@ async function fetchSecurityView(owner: string, repo: string): Promise<SecurityV
   return {
     owner,
     repo,
-    hasSecurityPolicy: !!securityFile,
-    securityPolicyUrl: securityFile?.html_url ?? null,
     features,
   };
 }

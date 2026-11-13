@@ -11,7 +11,6 @@ import {
   type CommunityFile,
 } from "@/adapters/repo-graphs";
 import { octicon } from "@/icons";
-import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderInsightsNav } from "./repo-pulse";
 import { renderForks } from "./repo-lists";
@@ -50,8 +49,8 @@ export async function mountRepoGraphs(owner: string, repo: string, subkind: Grap
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (/422/.test(msg)) {
-      main.innerHTML = `<div class="oldgh-graphs__empty">This repository is too large for the stats endpoint to return — open the modern view <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/graphs/${escapeAttr(subkind)}">here</a>.</div>`;
+    if (/too large/.test(msg)) {
+      main.innerHTML = `<div class="oldgh-graphs__empty">GitHub doesn't compute this graph for a repository this large.</div>`;
     } else {
       main.innerHTML = `<div class="oldgh-graphs__empty">Couldn't load: ${escapeText(msg)}</div>`;
     }
@@ -85,18 +84,20 @@ function renderContributors(v: ContributorsView): string {
     return `<div class="oldgh-graphs__empty">No contributors recorded for this repository.</div>`;
   }
   const maxCommits = Math.max(1, ...v.entries.map((e) => e.totalCommits));
+  // github reports zero line counts for every contributor once a repository passes 10,000 commits
+  const hasLineCounts = v.entries.some((e) => e.totalAdditions > 0 || e.totalDeletions > 0);
   return `
     <header class="oldgh-graphs__header">
       <h1>Contributors</h1>
       <p class="oldgh-graphs__sub"><strong>${v.entries.length}</strong> ${v.entries.length === 1 ? "contributor" : "contributors"} ranked by commits</p>
     </header>
     <ol class="oldgh-graphs__contributors">
-      ${v.entries.slice(0, 100).map((c, i) => renderContributor(c, i + 1, maxCommits)).join("")}
+      ${v.entries.slice(0, 100).map((c, i) => renderContributor(c, i + 1, maxCommits, hasLineCounts)).join("")}
     </ol>
   `;
 }
 
-function renderContributor(c: ContributorEntry, rank: number, maxCommits: number): string {
+function renderContributor(c: ContributorEntry, rank: number, maxCommits: number, hasLineCounts: boolean): string {
   const sparkline = renderSparkline(c.weeks);
   return `
     <li class="oldgh-graphs__contrib">
@@ -108,8 +109,8 @@ function renderContributor(c: ContributorEntry, rank: number, maxCommits: number
         <a class="oldgh-graphs__name" href="/${escapeAttr(c.login)}"><strong>${escapeText(c.login)}</strong></a>
         <div class="oldgh-graphs__contrib-meta">
           <strong>${c.totalCommits.toLocaleString()}</strong> ${c.totalCommits === 1 ? "commit" : "commits"}
-          · <span class="oldgh-graphs__add">+${c.totalAdditions.toLocaleString()}</span>
-          · <span class="oldgh-graphs__del">−${c.totalDeletions.toLocaleString()}</span>
+          ${hasLineCounts ? `· <span class="oldgh-graphs__add">+${c.totalAdditions.toLocaleString()}</span>
+          · <span class="oldgh-graphs__del">−${c.totalDeletions.toLocaleString()}</span>` : ""}
         </div>
       </div>
       <div class="oldgh-graphs__bar-wrap">
@@ -244,7 +245,7 @@ function graphTitle(subkind: GraphsSubkind): string {
 function renderCommunity(owner: string, repo: string, v: CommunityView): string {
   const present = v.files.filter((f) => f.present).length;
   const total = v.files.length;
-  const pct = v.healthPercentage || Math.round((present / Math.max(1, total)) * 100);
+  const pct = Math.round((present / Math.max(1, total)) * 100);
   const grade = pct >= 90 ? "A" : pct >= 70 ? "B" : pct >= 50 ? "C" : "D";
   const gradeClass = pct >= 90 ? "a" : pct >= 70 ? "b" : pct >= 50 ? "c" : "d";
   return `
@@ -266,7 +267,6 @@ function renderCommunity(owner: string, repo: string, v: CommunityView): string 
       <ul class="oldgh-community__checklist">
         ${v.files.map((f) => renderCommunityRow(owner, repo, f)).join("")}
       </ul>
-      ${v.updatedAt ? `<p class="oldgh-community__updated">Updated <time datetime="${escapeAttr(v.updatedAt)}" title="${escapeAttr(absoluteTime(v.updatedAt))}">${escapeText(relativeTime(v.updatedAt))}</time></p>` : ""}
     </div>
   `;
 }
@@ -276,8 +276,8 @@ function renderCommunityRow(owner: string, repo: string, f: CommunityFile): stri
     ? `<span class="oldgh-community__check oldgh-community__check--on">${octicon("check", { size: 14 })}</span>`
     : `<span class="oldgh-community__check oldgh-community__check--off">${octicon("primitive-dot", { size: 14 })}</span>`;
   const setupHref = communitySetupHref(owner, repo, f.key);
-  const link = f.htmlUrl
-    ? `<a class="oldgh-community__link" href="${escapeAttr(f.htmlUrl.replace("https://github.com", ""))}">${escapeText(f.label)}</a>`
+  const link = f.href
+    ? `<a class="oldgh-community__link" href="${escapeAttr(f.href.replace("https://github.com", ""))}">${escapeText(f.label)}</a>`
     : `<span class="oldgh-community__label">${escapeText(f.label)}</span>`;
   return `
     <li class="oldgh-community__row ${f.present ? "is-present" : "is-missing"}">
@@ -301,7 +301,6 @@ function communitySetupHref(owner: string, repo: string, key: string): string | 
     case "contributing":
       return `/${owner}/${repo}/new/HEAD?filename=CONTRIBUTING.md`;
     case "code_of_conduct":
-    case "code_of_conduct_file":
       return `/${owner}/${repo}/community/code-of-conduct/new?branch=HEAD`;
     case "issue_template":
       return `/${owner}/${repo}/issues/templates/edit`;
