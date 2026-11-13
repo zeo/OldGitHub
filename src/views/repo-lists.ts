@@ -1,6 +1,5 @@
 import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
-import { fetchApi } from "@/adapters/rate-limit";
 import { fetchPageDoc, loadPagePayload, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
@@ -62,13 +61,6 @@ function renderShell(kind: RepoListKind): string {
       </div>
     </div>
   `;
-}
-
-async function fetchPage(url: string): Promise<unknown[]> {
-  const resp = await fetchApi(url, { credentials: "omit", headers: { Accept: "application/vnd.github+json" } });
-  if (!resp.ok) throw new AdapterFailure("repoList", `${url} responded ${resp.status}`);
-  const data = (await resp.json()) as unknown;
-  return Array.isArray(data) ? data : [];
 }
 
 async function renderTags(owner: string, repo: string, search: string): Promise<string> {
@@ -163,52 +155,40 @@ export async function renderForks(owner: string, repo: string, page: number): Pr
 }
 
 async function renderStargazers(owner: string, repo: string, page: number): Promise<string> {
-  const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=60&page=${page}`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github.star+json" },
-  });
-  if (!resp.ok) throw new AdapterFailure("repoList", `stargazers responded ${resp.status}`);
-  const data = (await resp.json()) as unknown;
-  const arr = Array.isArray(data) ? data : [];
-  if (arr.length === 0) return emptyHtml("No stargazers.");
-  const rows = arr.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
-    const starredAt = readString(r, "starred_at") ?? "";
-    const user = readObj(r["user"]) ?? r;
-    const login = (user && readString(user as Record<string, unknown>, "login")) ?? "";
-    const avatar = (user && readString(user as Record<string, unknown>, "avatar_url")) ?? "";
-    return `
-      <li class="oldgh-repo-list__star-cell">
-        <a class="oldgh-repo-list__star-link" href="/${escapeAttr(login)}">
-          <img src="${escapeAttr(avatar)}" width="48" height="48" alt="" />
-          <span class="oldgh-repo-list__star-name">${escapeText(login)}</span>
-          ${starredAt ? `<span class="oldgh-repo-list__star-when" title="${escapeAttr(absoluteTime(starredAt))}">${escapeText(relativeTime(starredAt))}</span>` : ""}
-        </a>
-      </li>
-    `;
-  }).join("");
-  return `<ul class="oldgh-repo-list__star-grid">${rows}</ul>${pagerHtml(owner, repo, "stargazers", page, arr.length === 60)}`;
+  return renderPeople(owner, repo, "stargazers", page, "No one has starred this repository yet.");
 }
 
 async function renderWatchers(owner: string, repo: string, page: number): Promise<string> {
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/subscribers?per_page=60&page=${page}`);
-  if (data.length === 0) return emptyHtml("No watchers.");
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
-    const login = readString(r, "login") ?? "";
-    const avatar = readString(r, "avatar_url") ?? "";
+  return renderPeople(owner, repo, "watchers", page, "No one is watching this repository.");
+}
+
+// since june 2026 github shows these lists only to a repo's admins and collaborators and 404s for everyone else
+async function renderPeople(owner: string, repo: string, kind: "stargazers" | "watchers", page: number, emptyMsg: string): Promise<string> {
+  const doc = await fetchPageDoc(`https://github.com/${owner}/${repo}/${kind}?page=${page}`).catch((err: unknown) => {
+    if (err instanceof AdapterFailure && err.status === 404) return null;
+    throw err;
+  });
+  const list = doc?.querySelector("#repos");
+  if (!list) return emptyHtml(`GitHub only shows ${kind} to this repository's admins and collaborators.`);
+  const rows = Array.from(list.querySelectorAll("li.col-md-4")).map((li) => {
+    const login = li.querySelector("h2 a")?.textContent?.trim() ?? "";
+    if (!login) return "";
+    const avatar = li.querySelector("img.avatar")?.getAttribute("src") ?? "";
+    const detail = li.querySelector("p")?.cloneNode(true) as HTMLElement | undefined;
+    detail?.querySelectorAll(".sr-only").forEach((e) => e.remove());
+    const note = detail?.textContent?.replace(/\s+/g, " ").trim() ?? "";
     return `
       <li class="oldgh-repo-list__star-cell">
         <a class="oldgh-repo-list__star-link" href="/${escapeAttr(login)}">
           <img src="${escapeAttr(avatar)}" width="48" height="48" alt="" />
           <span class="oldgh-repo-list__star-name">${escapeText(login)}</span>
+          ${note ? `<span class="oldgh-repo-list__star-when">${escapeText(note)}</span>` : ""}
         </a>
       </li>
     `;
   }).join("");
-  return `<ul class="oldgh-repo-list__star-grid">${rows}</ul>${pagerHtml(owner, repo, "watchers", page, data.length === 60)}`;
+  if (!rows) return emptyHtml(emptyMsg);
+  return `<ul class="oldgh-repo-list__star-grid">${rows}</ul>${pagerHtml(owner, repo, kind, page, pageLinks(list.ownerDocument).next !== null)}`;
 }
 
 // labels and milestones pages embed the graphql connection they render

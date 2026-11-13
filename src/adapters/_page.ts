@@ -73,7 +73,7 @@ export async function loadPagePayload(url: string): Promise<unknown> {
 
 // github's own previous and next links keep its cursor, which for tags is ?after=<tag>
 export function pageLinks(doc: ParentNode): { prev: string | null; next: string | null } {
-  const links = Array.from(doc.querySelectorAll(".pagination a[href]"));
+  const links = Array.from(doc.querySelectorAll(".pagination a[href], .paginate-container a[href]"));
   const find = (label: string): string | null => links.find((a) => a.textContent?.trim() === label)?.getAttribute("href") ?? null;
   return { prev: find("Previous"), next: find("Next") };
 }
