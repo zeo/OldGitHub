@@ -7329,7 +7329,8 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
 }
 
 .oldgh-repo-list__pager,
-.oldgh-topic__pager {
+.oldgh-topic__pager,
+.oldgh-stars__pager {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -7853,11 +7854,6 @@ html[data-oldgh-theme="dark"] .oldgh-discussion__answer-head {
   background: var(--gh-bg-stripe);
   font-weight: bold;
 }
-.oldgh-stars__lang-count {
-  margin-left: auto;
-  color: var(--gh-fg-faint);
-  font-size: 11px;
-}
 .oldgh-stars__main {
   min-width: 0;
 }
@@ -7924,7 +7920,6 @@ html[data-oldgh-theme="dark"] .oldgh-discussion__answer-head {
   font-size: var(--gh-size-md);
   color: var(--gh-fg);
 }
-.oldgh-stars__topics { margin: 4px 0; }
 .oldgh-stars__meta {
   list-style: none;
   display: flex;
