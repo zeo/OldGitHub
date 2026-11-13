@@ -6483,7 +6483,6 @@ html[data-oldgh-theme="dark"] .oldgh-search__topic:hover {
 
 .oldgh-pulse__overview h2,
 .oldgh-pulse__col h3,
-.oldgh-pulse__commits h3,
 .oldgh-graphs__header h1 {
   font-size: var(--gh-size-h2);
   font-weight: normal;
@@ -6575,18 +6574,15 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
   font-size: 11px;
 }
 
-.oldgh-pulse__commits {
-  margin-top: 18px;
-}
-.oldgh-pulse__commit-list {
+.oldgh-pulse__committers {
   list-style: none;
-  margin: 0;
+  margin: 12px 0 0;
   padding: 0;
   border: 1px solid var(--gh-border);
   border-radius: 3px;
   background: var(--gh-bg-elev);
 }
-.oldgh-pulse__commit {
+.oldgh-pulse__committer {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -6594,33 +6590,37 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
   font-size: var(--gh-size-md);
   border-bottom: 1px solid var(--gh-border-faint);
 }
-.oldgh-pulse__commit:last-child { border-bottom: 0; }
-.oldgh-pulse__commit img {
+.oldgh-pulse__committer:last-child { border-bottom: 0; }
+.oldgh-pulse__committer img {
   border-radius: 3px;
   flex: 0 0 20px;
 }
-.oldgh-pulse__commit-msg {
-  flex: 1;
+.oldgh-pulse__committer-name {
+  flex: 0 0 160px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--gh-fg);
   font-weight: bold;
 }
-.oldgh-pulse__commit-sha {
-  font-family: var(--gh-font-mono);
-  font-size: 11px;
-  padding: 2px 6px;
-  border: 1px solid var(--gh-border);
-  border-radius: 3px;
-  background: var(--gh-bg-subtle);
-}
-.oldgh-pulse__commit-sha a { color: var(--gh-fg-muted); }
-.oldgh-pulse__commit-meta {
-  flex: 0 0 auto;
+.oldgh-pulse__committer .oldgh-graphs__bar-wrap { flex: 1; }
+.oldgh-pulse__committer-meta {
+  flex: 0 0 80px;
+  text-align: right;
   font-size: 11px;
   color: var(--gh-fg-muted);
+}
+.oldgh-pulse__badge {
+  display: inline-block;
+  min-width: 64px;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .oldgh-pulse__empty,

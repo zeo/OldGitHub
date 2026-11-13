@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { getRepoPulse, type PulseView, type PulseIssueRef, type PulseCommitRef } from "@/adapters/repo-pulse";
+import { getRepoPulse, type PulseItem, type PulseList, type PulseView } from "@/adapters/repo-pulse";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
@@ -17,7 +17,7 @@ export async function mountRepoPulse(owner: string, repo: string): Promise<void>
   if (!main) return;
   try {
     const view = await getRepoPulse(owner, repo);
-    main.innerHTML = renderBody(view);
+    main.innerHTML = renderBody(owner, repo, view);
   } catch (err) {
     main.innerHTML = `<div class="oldgh-pulse__empty">Couldn't load pulse data: ${escapeText(err instanceof Error ? err.message : String(err))}</div>`;
   }
@@ -38,91 +38,81 @@ function renderShell(_owner: string, _repo: string): string {
   `;
 }
 
-function renderBody(v: PulseView): string {
-  const sinceLabel = formatDate(v.sinceIso);
-  const todayLabel = formatDate(new Date().toISOString());
-  // header must reconcile with the open/merged split shown below
-  const totalPrActivity = v.openedPrs.length + v.mergedPrs.length;
-  const authorCount = countCommitAuthors(v.commits);
-  const totalIssueActivity = v.openedIssues.length + v.closedIssues.length;
+function renderBody(owner: string, repo: string, v: PulseView): string {
+  const prTotal = v.mergedPrs.items.length + v.newPrs.items.length;
+  const issueTotal = v.closedIssues.items.length + v.newIssues.items.length;
+  const d = v.diffstat;
+  const maxCommits = Math.max(1, ...v.committers.map((c) => c.commits));
   return `
     <header class="oldgh-pulse__header">
       <h1>Pulse</h1>
-      <p class="oldgh-pulse__period">Period: <strong>1 week</strong>  ·  ${escapeText(sinceLabel)} – ${escapeText(todayLabel)}</p>
+      <p class="oldgh-pulse__period">Period: <strong>1 week</strong>${v.rangeLabel ? `  ·  ${escapeText(v.rangeLabel)}` : ""}</p>
     </header>
 
     <section class="oldgh-pulse__overview">
       <h2>Overview</h2>
-      <p class="oldgh-pulse__summary">
-        Excluding merges, <strong>${authorCount}</strong>
-        ${authorCount === 1 ? "author has" : "authors have"} pushed
-        <strong>${v.commits.length}</strong> ${v.commits.length === 1 ? "commit" : "commits"} this week.
-        <strong>${v.openedPrs.length}</strong> ${v.openedPrs.length === 1 ? "pull request" : "pull requests"} opened,
-        <strong>${v.mergedPrs.length}</strong> merged,
-        <strong>${v.openedIssues.length}</strong> ${v.openedIssues.length === 1 ? "issue" : "issues"} opened,
-        <strong>${v.closedIssues.length}</strong> ${v.closedIssues.length === 1 ? "issue" : "issues"} closed.
-      </p>
+      <div class="oldgh-pulse__columns">
+        <section class="oldgh-pulse__col">
+          <h3>${octicon("git-pull-request", { size: 14 })} ${prTotal} Active ${prTotal === 1 ? "Pull Request" : "Pull Requests"}</h3>
+          <div class="oldgh-pulse__split">
+            <div class="oldgh-pulse__split-num oldgh-pulse__split-num--merged">${v.mergedPrs.items.length}<small>Merged</small></div>
+            <div class="oldgh-pulse__split-num oldgh-pulse__split-num--open">${v.newPrs.items.length}<small>Proposed</small></div>
+          </div>
+        </section>
+        <section class="oldgh-pulse__col">
+          <h3>${octicon("issue-opened", { size: 14 })} ${issueTotal} Active ${issueTotal === 1 ? "Issue" : "Issues"}</h3>
+          <div class="oldgh-pulse__split">
+            <div class="oldgh-pulse__split-num oldgh-pulse__split-num--closed">${v.closedIssues.items.length}<small>Closed</small></div>
+            <div class="oldgh-pulse__split-num oldgh-pulse__split-num--open">${v.newIssues.items.length}<small>New</small></div>
+          </div>
+        </section>
+      </div>
+      ${d ? `
+        <p class="oldgh-pulse__summary">
+          Excluding merges, <strong>${d.authors}</strong> ${d.authors === 1 ? "author has" : "authors have"} pushed
+          <strong>${d.branchCommits}</strong> ${d.branchCommits === 1 ? "commit" : "commits"} to ${escapeText(d.branch)}
+          and <strong>${d.totalCommits}</strong> ${d.totalCommits === 1 ? "commit" : "commits"} to all branches.
+          On ${escapeText(d.branch)}, <strong>${d.filesChanged}</strong> ${d.filesChanged === 1 ? "file has" : "files have"} changed
+          and there have been <strong class="oldgh-graphs__add">${d.additions.toLocaleString()}</strong> additions
+          and <strong class="oldgh-graphs__del">${d.deletions.toLocaleString()}</strong> deletions.
+        </p>` : ""}
+      ${v.committers.length ? `
+        <ul class="oldgh-pulse__committers">
+          ${v.committers.map((c) => `
+            <li class="oldgh-pulse__committer">
+              ${c.avatarUrl ? `<img src="${escapeAttr(c.avatarUrl)}" width="20" height="20" alt="" />` : ""}
+              <a class="oldgh-pulse__committer-name" href="/${escapeAttr(c.login)}">${escapeText(c.login)}</a>
+              <div class="oldgh-graphs__bar-wrap"><div class="oldgh-graphs__bar" style="width:${Math.round((c.commits / maxCommits) * 100)}%"></div></div>
+              <span class="oldgh-pulse__committer-meta">${c.commits} ${c.commits === 1 ? "commit" : "commits"}</span>
+            </li>`).join("")}
+        </ul>` : ""}
     </section>
 
-    <div class="oldgh-pulse__columns">
-      <section class="oldgh-pulse__col">
-        <h3>${octicon("git-pull-request", { size: 14 })} ${totalPrActivity} Active Pull Requests</h3>
-        <div class="oldgh-pulse__split">
-          <div class="oldgh-pulse__split-num oldgh-pulse__split-num--open">${v.openedPrs.length}<small>Open</small></div>
-          <div class="oldgh-pulse__split-num oldgh-pulse__split-num--merged">${v.mergedPrs.length}<small>Merged</small></div>
-        </div>
-        ${renderIssueList("Recently opened pull requests", v.openedPrs.slice(0, 5))}
-        ${renderIssueList("Recently merged pull requests", v.mergedPrs.slice(0, 5))}
-      </section>
-
-      <section class="oldgh-pulse__col">
-        <h3>${octicon("issue-opened", { size: 14 })} ${totalIssueActivity} Active Issues</h3>
-        <div class="oldgh-pulse__split">
-          <div class="oldgh-pulse__split-num oldgh-pulse__split-num--open">${v.openedIssues.length}<small>Opened</small></div>
-          <div class="oldgh-pulse__split-num oldgh-pulse__split-num--closed">${v.closedIssues.length}<small>Closed</small></div>
-        </div>
-        ${renderIssueList("Recently opened issues", v.openedIssues.slice(0, 5))}
-        ${renderIssueList("Recently closed issues", v.closedIssues.slice(0, 5))}
-      </section>
-    </div>
-
-    <section class="oldgh-pulse__commits">
-      <h3>${octicon("git-commit", { size: 14 })} ${v.commits.length} Commits in the last 7 days</h3>
-      ${v.commits.length === 0
-        ? `<p class="oldgh-pulse__empty">No commits in this period.</p>`
-        : `<ul class="oldgh-pulse__commit-list">${v.commits.slice(0, 25).map(renderCommitRow).join("")}</ul>`}
-    </section>
+    ${renderList(owner, repo, v.releases, "Release", "Releases", "published", "Published", "merged")}
+    ${renderList(owner, repo, v.mergedPrs, "Pull request", "Pull requests", "merged", "Merged", "merged")}
+    ${renderList(owner, repo, v.newPrs, "Pull request", "Pull requests", "proposed", "Proposed", "open")}
+    ${renderList(owner, repo, v.closedIssues, "Issue", "Issues", "closed", "Closed", "closed")}
+    ${renderList(owner, repo, v.newIssues, "Issue", "Issues", "created", "New", "open")}
   `;
 }
 
-function renderIssueList(title: string, items: PulseIssueRef[]): string {
-  if (items.length === 0) return "";
+function renderList(owner: string, repo: string, list: PulseList, one: string, many: string, verb: string, badge: string, tone: string): string {
+  const n = list.items.length;
+  if (n === 0) return "";
+  const by = list.authors ? ` by ${list.authors} ${list.authors === 1 ? "person" : "people"}` : "";
   return `
     <div class="oldgh-pulse__sublist">
-      <h4>${escapeText(title)}</h4>
+      <h4>${n} ${escapeText(n === 1 ? one : many)} ${escapeText(verb)}${by}</h4>
       <ul>
-        ${items.map((it) => `
+        ${list.items.map((it) => `
           <li>
-            ${linkOrText(it.htmlUrl, it.title)}
-            <span class="oldgh-pulse__sublist-meta">#${it.number} ${it.user ? `· ${escapeText(it.user.login)}` : ""}</span>
+            <span class="oldgh-pulse__badge oldgh-pulse__split-num--${tone}">${escapeText(badge)}</span>
+            <a href="${escapeAttr(localPath(owner, repo, it))}">${escapeText(it.title)}</a>
+            <span class="oldgh-pulse__sublist-meta">${/^\d+$/.test(it.ref) ? `#${escapeText(it.ref)}` : escapeText(it.ref)}${it.date ? ` · <span title="${escapeAttr(absoluteTime(it.date))}">${escapeText(relativeTime(it.date))}</span>` : ""}</span>
           </li>
         `).join("")}
       </ul>
     </div>
-  `;
-}
-
-function renderCommitRow(c: PulseCommitRef): string {
-  return `
-    <li class="oldgh-pulse__commit">
-      ${c.authorAvatar ? `<img src="${escapeAttr(c.authorAvatar)}" width="20" height="20" alt="" />` : ""}
-      ${linkOrText(c.htmlUrl, c.headline, "oldgh-pulse__commit-msg")}
-      <code class="oldgh-pulse__commit-sha">${linkOrText(c.htmlUrl, c.abbrevSha)}</code>
-      <span class="oldgh-pulse__commit-meta">
-        ${c.authorLogin ? `<a href="/${escapeAttr(c.authorLogin)}">${escapeText(c.authorLogin)}</a>` : ""}
-        ${c.date ? `<span title="${escapeAttr(absoluteTime(c.date))}">${escapeText(relativeTime(c.date))}</span>` : ""}
-      </span>
-    </li>
   `;
 }
 
@@ -152,28 +142,8 @@ export function renderInsightsNav(active: "pulse" | "contributors" | "commit-act
   `;
 }
 
-// emit an anchor only when the url is present; an empty href would navigate
-// to the current page, so fall back to plain text in that case
-function linkOrText(htmlUrl: string, text: string, className?: string): string {
-  const cls = className ? ` class="${className}"` : "";
-  if (!htmlUrl) return `<span${cls}>${escapeText(text)}</span>`;
-  const href = htmlUrl.replace("https://github.com", "");
-  return `<a${cls} href="${escapeAttr(href)}">${escapeText(text)}</a>`;
-}
-
-// count distinct authors by a stable identity so unlinked (bot/ci/noreply)
-// commits still register an author and the count is never 0 while commits exist
-function countCommitAuthors(commits: PulseCommitRef[]): number {
-  const seen = new Set<string>();
-  for (const c of commits) {
-    seen.add(c.authorLogin || c.authorAvatar || c.sha);
-  }
-  return seen.size;
-}
-
-function formatDate(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+// some paths come back absolute, and a missing one falls back to the item's own number
+function localPath(owner: string, repo: string, it: PulseItem): string {
+  if (it.path) return it.path.replace(/^https:\/\/github\.com/, "");
+  return `/${owner}/${repo}/${/^\d+$/.test(it.ref) ? `issues/${it.ref}` : `releases/tag/${encodeURIComponent(it.ref)}`}`;
 }
