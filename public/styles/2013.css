@@ -2146,6 +2146,16 @@ html[data-oldgh-theme="dark"] .oldgh-repo-blob__table tr:target .oldgh-repo-blob
   padding: 20px;
   color: var(--gh-fg);
 }
+.oldgh-repo-blob__image {
+  padding: 20px;
+  text-align: center;
+}
+.oldgh-repo-blob__image img {
+  max-width: 100%;
+  vertical-align: middle;
+  /* a light checker keeps dark transparent images visible in the dark theme */
+  background: #fff repeating-conic-gradient(#e6e6e6 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+}
 .oldgh-repo-blob__truncated > p {
   color: var(--gh-fg-muted);
   background: #fff8c4;

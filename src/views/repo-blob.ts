@@ -78,7 +78,7 @@ function renderBreadcrumb(v: RepoBlobView): string {
 
 function renderFileHeader(v: RepoBlobView, rendered: boolean, href: string): string {
   const lineCount = v.rawLines.length;
-  const byteSize = v.isBinary ? "binary" : formatBytes(v.size);
+  const byteSize = v.isImage ? "image" : v.isBinary ? "binary" : formatBytes(v.size);
   const lang = v.language ? `<span class="oldgh-repo-blob__lang">${escapeText(v.language)}</span>` : "";
   const raw = v.rawBlobUrl
     ? `<a class="oldgh-btn" href="${escapeAttr(v.rawBlobUrl)}">${octicon("file-binary", { size: 14 })}<span>Raw</span></a>`
@@ -147,6 +147,9 @@ function renderSource(v: RepoBlobView): string {
 }
 
 function renderBinary(v: RepoBlobView): string {
+  if (v.isImage && v.rawBlobUrl) {
+    return `<div class="oldgh-repo-blob__image"><img src="${escapeAttr(v.rawBlobUrl)}" alt="${escapeAttr(v.displayName)}" /></div>`;
+  }
   return `
     <div class="oldgh-repo-blob__binary">
       <p>This file is a binary and cannot be displayed inline.</p>

@@ -96,6 +96,7 @@ export type RepoBlobView = {
   rawBlobUrl: string | null;
   truncated: boolean;
   isBinary: boolean;
+  isImage: boolean;
   // github's rendering of markdown and similar files, when it has one
   richHtml: string | null;
   // github offers a rendered view of this file, even when this load asked for the source
@@ -175,6 +176,7 @@ export async function getRepoBlob(owner: string, repo: string, refAndPath: strin
     rawBlobUrl,
     truncated,
     isBinary,
+    isImage: false,
     richHtml: null,
     hasPreview: false,
   };
@@ -188,10 +190,28 @@ async function getBlobFromPage(owner: string, repo: string, refAndPath: string, 
   const rawLines = read<unknown>(read(payload, "codeViewBlobLayoutRoute.StyledBlob"), "rawLines");
   const branch = read<unknown>(read(layout, "refInfo"), "name");
   const path = read<unknown>(layout, "path");
-  if (!blob || blob["truncated"] === true || blob["large"] === true || typeof branch !== "string" || typeof path !== "string") return null;
-  if (!Array.isArray(rawLines) || !rawLines.every((l): l is string => typeof l === "string")) return null;
+  if (!blob || typeof branch !== "string" || typeof path !== "string") return null;
+  const rawBlobUrl = typeof blob["rawBlobUrl"] === "string" ? blob["rawBlobUrl"] : null;
+  if (blob["image"] === true || blob["viewable"] === false) {
+    return {
+      owner, repo, branch, path,
+      displayName: pathBasename(path),
+      language: null,
+      rawLines: [],
+      size: 0,
+      rawBlobUrl,
+      truncated: false,
+      isBinary: true,
+      isImage: blob["image"] === true,
+      richHtml: null,
+      hasPreview: false,
+    };
+  }
+  // github leaves the lines out of the page for large files
+  if (blob["truncated"] === true || blob["large"] === true || !Array.isArray(rawLines) || !rawLines.every((l): l is string => typeof l === "string")) {
+    return loadBlobViaScrape(owner, repo, branch, path, rawBlobUrl);
+  }
   const richText = read<unknown>(read(payload, "codeViewBlobRoute"), "richText");
-  const rawBlobUrl = blob["rawBlobUrl"];
   return {
     owner,
     repo,
@@ -201,15 +221,16 @@ async function getBlobFromPage(owner: string, repo: string, refAndPath: string, 
     language: guessLanguage(path),
     rawLines,
     size: new TextEncoder().encode(rawLines.join("\n")).length,
-    rawBlobUrl: typeof rawBlobUrl === "string" ? rawBlobUrl : null,
+    rawBlobUrl,
     truncated: false,
     isBinary: false,
+    isImage: false,
     richHtml: typeof richText === "string" && richText ? richText : null,
     hasPreview: read<unknown>(read(blob, "headerInfo"), "isRichtext") === true,
   };
 }
 
-async function loadBlobViaScrape(owner: string, repo: string, branch: string, path: string): Promise<RepoBlobView> {
+async function loadBlobViaScrape(owner: string, repo: string, branch: string, path: string, pageRawUrl: string | null = null): Promise<RepoBlobView> {
   // public repos: raw.githubusercontent.com works anonymously
   // private repos: github.com/raw redirects to a signed url and needs the session cookie
   // both go through the background service worker to bypass cross-origin cors
@@ -217,7 +238,7 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
   const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${encodedPath}`;
   let proxy = await proxyFetchViaBackground(rawUrl, "omit");
   if (!proxy.ok) {
-    const ghRawUrl = `https://github.com/${owner}/${repo}/raw/refs/heads/${encodeURIComponent(branch)}/${encodedPath}`;
+    const ghRawUrl = pageRawUrl ?? `https://github.com/${owner}/${repo}/raw/refs/heads/${encodeURIComponent(branch)}/${encodedPath}`;
     proxy = await proxyFetchViaBackground(ghRawUrl, "include");
     if (!proxy.ok) {
       throw new AdapterFailure("getRepoBlob", `raw ${owner}/${repo}/${path}@${branch} responded ${proxy.status || "network error"}`);
@@ -234,6 +255,7 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
       rawBlobUrl: rawUrl,
       truncated: false,
       isBinary: true,
+      isImage: /^image\//i.test(proxy.contentType),
       richHtml: null,
       hasPreview: false,
     };
@@ -247,6 +269,7 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
     rawBlobUrl: rawUrl,
     truncated: false,
     isBinary: false,
+    isImage: false,
     richHtml: null,
     hasPreview: false,
   };
