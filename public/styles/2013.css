@@ -4859,6 +4859,81 @@ html[data-oldgh-theme="dark"] .oldgh-issue__subtab .blob-code-deletion { backgro
    hashed suffixes; !important beats Primer's high-specificity hashed
    rules. All colors via --gh-* so light+dark adapt. */
 
+/* the primer utilities github's settings markup leans on, since its own css is blocked */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-flex { display: flex; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-inline-flex { display: inline-flex; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-inline-block { display: inline-block; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-block { display: block; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-none { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column { flex-direction: column; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column-reverse { flex-direction: column-reverse; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-start { align-items: flex-start; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-center { align-items: center; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-justify-between { justify-content: space-between; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-self-end { align-self: flex-end; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-1 { flex: 1; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-auto { flex: auto; min-width: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-shrink-0 { flex-shrink: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-order-2 { order: 2; }
+@media (min-width: 768px) {
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-row { flex-direction: row; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-items-center { align-items: center; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-order-1 { order: 1; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-md-0 { margin-bottom: 0; }
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-0 { margin-top: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-1 { margin-top: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-2 { margin-top: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-0 { margin-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-2 { margin-bottom: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .my-0 { margin-top: 0; margin-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .my-2 { margin-top: 8px; margin-bottom: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ml-1 { margin-left: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ml-2 { margin-left: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mr-2 { margin-right: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .px-2 { padding-left: 8px; padding-right: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .py-0 { padding-top: 0; padding-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .py-1 { padding-top: 4px; padding-bottom: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .f6 { font-size: 12px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .text-normal { font-weight: normal; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .text-bold { font-weight: bold; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .width-full { width: 100%; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .position-relative { position: relative; }
+/* file-attachment shows one of these upload errors at a time through scripts that don't run here */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .upload-state { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox {
+  position: relative;
+  padding-left: 20px;
+  margin: 15px 0;
+}
+/* some rows put the label before the input, so a float would drop the box below it */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.form-checkbox, .form-checkbox > form) > input:is([type="checkbox"], [type="radio"]) {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  margin: 0;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox label {
+  display: inline;
+  margin: 0;
+  font-weight: bold;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox .note {
+  display: block;
+  margin: 2px 0 0;
+  font-weight: normal;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .Box-row { list-style: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .Label {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--gh-border);
+  border-radius: 2em;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 18px;
+}
+
 /* buttons */
 .oldgh-account-settings__native [class*="prc-Button-ButtonBase"],
 .oldgh-settings__native [class*="prc-Button-ButtonBase"] {

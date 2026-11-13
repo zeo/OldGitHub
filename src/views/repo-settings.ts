@@ -112,6 +112,7 @@ export async function mountRepoSettings(owner: string, repo: string, subPath: st
     // that submit the underlying forms with our own confirmation dialog.
     rewireDialogActions(owner, repo, main);
     disableAutosaveToggles(main);
+    fillMenuLabels(main);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-settings__empty">Couldn't load settings: ${escapeText(msg)}</div>`;
@@ -180,6 +181,17 @@ function disableAutosaveToggles(main: HTMLElement): void {
   note.className = "flash";
   note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="javascript:void(0)" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
   main.querySelector(".oldgh-settings__native")?.prepend(note);
+}
+
+// action-menu writes the chosen item into its button with js, so the scraped button arrives blank
+function fillMenuLabels(main: HTMLElement): void {
+  for (const menu of Array.from(main.querySelectorAll<HTMLElement>("action-menu[data-dynamic-label]"))) {
+    const label = menu.querySelector(".Button-label");
+    const chosen = menu.querySelector("[aria-checked='true'] .ActionListItem-label")?.textContent?.trim();
+    if (!label || !chosen) continue;
+    const prefix = menu.getAttribute("data-dynamic-label-prefix");
+    label.textContent = prefix ? `${prefix}: ${chosen}` : chosen;
+  }
 }
 
 function findVisibilityTrigger(dialog: HTMLElement): HTMLButtonElement | null {
