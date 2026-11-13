@@ -7654,15 +7654,6 @@ html[data-oldgh-theme="dark"] .oldgh-hovercard__chip--warn {
 .oldgh-hovercard__state-label {
   font-weight: bold;
 }
-.oldgh-hovercard__issue-author {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 11px;
-  color: var(--gh-fg-muted);
-}
-.oldgh-hovercard__issue-author img { border-radius: 3px; }
 .oldgh-hovercard__issue-body {
   margin-top: 8px;
   padding-top: 8px;

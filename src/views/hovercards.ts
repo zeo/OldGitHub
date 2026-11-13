@@ -1,5 +1,4 @@
 import { octicon } from "@/icons";
-import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor } from "@/util/language-color";
 import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
@@ -13,12 +12,9 @@ type UserCard = {
   name: string | null;
   avatarUrl: string;
   bio: string | null;
-  followers: number;
-  following: number;
-  publicRepos: number;
-  company: string | null;
   location: string | null;
-  htmlUrl: string;
+  orgs: string[];
+  stats: string[];
   type: "User" | "Organization";
 };
 
@@ -28,8 +24,6 @@ type RepoCard = {
   stars: number;
   forks: number;
   language: string | null;
-  htmlUrl: string;
-  ownerAvatar: string;
   isPrivate: boolean;
   isArchived: boolean;
 };
@@ -38,17 +32,11 @@ type IssueCard = {
   owner: string;
   repo: string;
   number: number;
-  title: string;
-  state: "open" | "closed";
-  stateReason: string | null;
+  titleHtml: string;
+  stateLabel: string;
   isPull: boolean;
-  merged: boolean;
-  draft: boolean;
-  authorLogin: string;
-  authorAvatar: string;
-  createdAt: string;
+  openedOn: string | null;
   bodyHtml: string;
-  htmlUrl: string;
 };
 
 const issueCache = new Map<string, Promise<IssueCard | null>>();
@@ -204,7 +192,7 @@ async function showCard(anchor: HTMLAnchorElement, target: HoverTarget): Promise
       if (activeAnchor !== anchor) return;
       popoverEl.innerHTML = renderRepoCard(card);
     } else {
-      const card = await fetchIssue(target.owner, target.repo, target.number);
+      const card = await fetchIssue(target.owner, target.repo, target.number, target.isPull);
       if (!card) { hideNow(); return; }
       if (activeAnchor !== anchor) return;
       popoverEl.innerHTML = renderIssueCard(card);
@@ -237,33 +225,55 @@ function positionPopover(anchor: HTMLAnchorElement): void {
   pop.style.visibility = "";
 }
 
+// github serves its own hovercards as html fragments, which cost no api quota; null means the subject doesn't exist
+async function fetchHovercard(path: string): Promise<Document | null> {
+  const r = await fetch(path, { credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`${path} responded ${r.status}`);
+  return new DOMParser().parseFromString(await r.text(), "text/html");
+}
+
+function textOf(root: ParentNode, selector: string): string | null {
+  return root.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim() || null;
+}
+
+function countOf(root: ParentNode, selector: string): number {
+  return Number(textOf(root, selector)?.replace(/,/g, "")) || 0;
+}
+
 async function fetchUser(login: string): Promise<UserCard | null> {
   const cached = userCache.get(login);
   if (cached) return cached;
   const p = (async (): Promise<UserCard | null> => {
     try {
-      const r = await fetchApi(`https://api.github.com/users/${encodeURIComponent(login)}`, {
-        credentials: "omit",
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (r.status === 404) {
+      const user = await fetchHovercard(`/users/${encodeURIComponent(login)}/hovercard`);
+      if (user) {
+        return {
+          login: textOf(user, "section[aria-label='User login and name'] > a") ?? login,
+          name: textOf(user, "section[aria-label='User login and name'] .Truncate-text"),
+          avatarUrl: user.querySelector("img.user-hovercard-avatar-image")?.getAttribute("src") ?? `https://github.com/${login}.png?size=96`,
+          bio: textOf(user, "section[aria-label='User bio']"),
+          location: textOf(user, "address[aria-label='User location']"),
+          orgs: Array.from(user.querySelectorAll("a[data-octo-dimensions='link_type:organization']"), (a) => a.getAttribute("href")?.slice(1) ?? "").filter(Boolean),
+          stats: [],
+          type: "User",
+        };
+      }
+      const org = await fetchHovercard(`/orgs/${encodeURIComponent(login)}/hovercard`);
+      if (!org) {
         negativeCache.add(`u:${login}`);
         return null;
       }
-      if (!r.ok) return null;
-      const d = (await r.json()) as Record<string, unknown>;
+      const links = org.querySelectorAll("a.no-underline[href]");
       return {
-        login: readString(d, "login") ?? login,
-        name: readString(d, "name"),
-        avatarUrl: readString(d, "avatar_url") ?? `https://github.com/${login}.png?size=96`,
-        bio: readString(d, "bio"),
-        followers: readNumber(d, "followers") ?? 0,
-        following: readNumber(d, "following") ?? 0,
-        publicRepos: readNumber(d, "public_repos") ?? 0,
-        company: readString(d, "company"),
-        location: readString(d, "location"),
-        htmlUrl: readString(d, "html_url") ?? `https://github.com/${login}`,
-        type: readString(d, "type") === "Organization" ? "Organization" : "User",
+        login: links[1]?.textContent?.trim() || login,
+        name: links[0]?.textContent?.trim() || null,
+        avatarUrl: org.querySelector("img.avatar")?.getAttribute("src") ?? `https://github.com/${login}.png?size=96`,
+        bio: null,
+        location: null,
+        orgs: [],
+        stats: Array.from(org.querySelectorAll(".border-top .d-inline-block"), (el) => el.textContent?.replace(/\s+/g, " ").trim() ?? "").filter(Boolean),
+        type: "Organization",
       };
     } catch {
       return null;
@@ -278,27 +288,20 @@ async function fetchRepo(owner: string, repo: string): Promise<RepoCard | null> 
   if (cached) return cached;
   const p = (async (): Promise<RepoCard | null> => {
     try {
-      const r = await fetchApi(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, {
-        credentials: "omit",
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (r.status === 404) {
+      const doc = await fetchHovercard(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/hovercard`);
+      if (!doc) {
         negativeCache.add(`r:${key}`);
         return null;
       }
-      if (!r.ok) return null;
-      const d = (await r.json()) as Record<string, unknown>;
-      const ownerObj = d["owner"] && typeof d["owner"] === "object" ? (d["owner"] as Record<string, unknown>) : null;
+      const labels = Array.from(doc.querySelectorAll(".Label"), (el) => el.textContent ?? "");
       return {
-        fullName: readString(d, "full_name") ?? key,
-        description: readString(d, "description"),
-        stars: readNumber(d, "stargazers_count") ?? 0,
-        forks: readNumber(d, "forks_count") ?? 0,
-        language: readString(d, "language"),
-        htmlUrl: readString(d, "html_url") ?? `https://github.com/${key}`,
-        ownerAvatar: (ownerObj && readString(ownerObj, "avatar_url")) ?? "",
-        isPrivate: d["private"] === true,
-        isArchived: d["archived"] === true,
+        fullName: textOf(doc, "h1 a") ?? key,
+        description: textOf(doc, "p[itemprop='description']"),
+        stars: countOf(doc, "a[href$='/stargazers']"),
+        forks: countOf(doc, "a[href$='/forks']"),
+        language: textOf(doc, "[itemprop='programmingLanguage']"),
+        isPrivate: labels.some((l) => /private/i.test(l)),
+        isArchived: labels.some((l) => /archive/i.test(l)),
       };
     } catch {
       return null;
@@ -307,41 +310,26 @@ async function fetchRepo(owner: string, repo: string): Promise<RepoCard | null> 
   return remember(repoCache, key, p);
 }
 
-async function fetchIssue(owner: string, repo: string, number: number): Promise<IssueCard | null> {
+async function fetchIssue(owner: string, repo: string, number: number, isPull: boolean): Promise<IssueCard | null> {
   const key = `${owner}/${repo}#${number}`;
   const cached = issueCache.get(key);
   if (cached) return cached;
   const p = (async (): Promise<IssueCard | null> => {
     try {
-      const r = await fetchApi(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${number}`, {
-        credentials: "omit",
-        headers: { Accept: "application/vnd.github.html+json" },
-      });
-      if (r.status === 404) {
+      const doc = await fetchHovercard(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${isPull ? "pull" : "issues"}/${number}/hovercard`);
+      if (!doc) {
         negativeCache.add(`i:${key}`);
         return null;
       }
-      if (!r.ok) return null;
-      const d = (await r.json()) as Record<string, unknown>;
-      const userObj = d["user"] && typeof d["user"] === "object" ? (d["user"] as Record<string, unknown>) : null;
-      const pull = d["pull_request"] && typeof d["pull_request"] === "object" ? (d["pull_request"] as Record<string, unknown>) : null;
-      const isPull = !!pull;
-      const merged = pull ? typeof pull["merged_at"] === "string" && pull["merged_at"] !== null : false;
       return {
         owner,
         repo,
         number,
-        title: readString(d, "title") ?? "",
-        state: readString(d, "state") === "closed" ? "closed" : "open",
-        stateReason: readString(d, "state_reason"),
-        isPull,
-        merged,
-        draft: d["draft"] === true,
-        authorLogin: userObj ? (readString(userObj, "login") ?? "") : "",
-        authorAvatar: userObj ? (readString(userObj, "avatar_url") ?? "") : "",
-        createdAt: readString(d, "created_at") ?? "",
-        bodyHtml: readString(d, "body_html") ?? "",
-        htmlUrl: readString(d, "html_url") ?? `https://github.com/${key}`,
+        titleHtml: sanitizeHtml(doc.querySelector(".markdown-title bdi")?.innerHTML ?? ""),
+        stateLabel: textOf(doc, ".State") ?? "Open",
+        isPull: doc.querySelector("[data-hydro-view*='pull-request-hovercard']") !== null,
+        openedOn: textOf(doc, ".mb-1 > span"),
+        bodyHtml: doc.querySelector(".markdown-body-short")?.innerHTML ?? "",
       };
     } catch {
       return null;
@@ -362,8 +350,8 @@ function remember<T>(cache: Map<string, Promise<T | null>>, key: string, p: Prom
 
 function renderUserCard(c: UserCard): string {
   const meta: string[] = [];
-  if (c.company) meta.push(`${octicon("organization", { size: 12 })} ${escapeText(c.company)}`);
   if (c.location) meta.push(`${octicon("location", { size: 12 })} ${escapeText(c.location)}`);
+  if (c.orgs.length) meta.push(`${octicon("organization", { size: 12 })} Member of ${c.orgs.map((o) => `<a href="/${escapeAttr(o)}">${escapeText(o)}</a>`).join(", ")}`);
   return `
     <header class="oldgh-hovercard__head">
       <img class="oldgh-hovercard__avatar" src="${escapeAttr(c.avatarUrl)}" width="64" height="64" alt="" />
@@ -375,11 +363,7 @@ function renderUserCard(c: UserCard): string {
     </header>
     ${c.bio ? `<p class="oldgh-hovercard__bio">${escapeText(c.bio)}</p>` : ""}
     ${meta.length > 0 ? `<ul class="oldgh-hovercard__meta">${meta.map((m) => `<li>${m}</li>`).join("")}</ul>` : ""}
-    <ul class="oldgh-hovercard__stats">
-      <li><strong>${formatCount(c.followers)}</strong> ${c.followers === 1 ? "follower" : "followers"}</li>
-      <li><strong>${formatCount(c.following)}</strong> following</li>
-      <li><strong>${formatCount(c.publicRepos)}</strong> ${c.publicRepos === 1 ? "repo" : "repos"}</li>
-    </ul>
+    ${c.stats.length > 0 ? `<ul class="oldgh-hovercard__stats">${c.stats.map((st) => `<li>${escapeText(st)}</li>`).join("")}</ul>` : ""}
   `;
 }
 
@@ -387,7 +371,7 @@ function renderRepoCard(c: RepoCard): string {
   const [ownerLogin, repoName] = c.fullName.split("/");
   return `
     <header class="oldgh-hovercard__head">
-      <img class="oldgh-hovercard__avatar oldgh-hovercard__avatar--repo" src="${escapeAttr(c.ownerAvatar)}" width="32" height="32" alt="" />
+      <img class="oldgh-hovercard__avatar oldgh-hovercard__avatar--repo" src="${escapeAttr(`https://github.com/${ownerLogin ?? ""}.png?size=64`)}" width="32" height="32" alt="" />
       <div class="oldgh-hovercard__head-text">
         <div class="oldgh-hovercard__login">
           <a href="/${escapeAttr(ownerLogin ?? "")}">${escapeText(ownerLogin ?? "")}</a> /
@@ -409,50 +393,22 @@ function renderRepoCard(c: RepoCard): string {
 }
 
 function renderIssueCard(c: IssueCard): string {
-  let stateIcon = octicon("issue-opened", { size: 14 });
-  let stateLabel = "Open";
-  let stateCls = "oldgh-hovercard__state--open";
-  if (c.isPull) {
-    if (c.merged) {
-      stateIcon = octicon("git-merge", { size: 14 });
-      stateLabel = "Merged";
-      stateCls = "oldgh-hovercard__state--merged";
-    } else if (c.state === "closed") {
-      stateIcon = octicon("git-pull-request", { size: 14 });
-      stateLabel = "Closed";
-      stateCls = "oldgh-hovercard__state--closed";
-    } else if (c.draft) {
-      stateIcon = octicon("git-pull-request", { size: 14 });
-      stateLabel = "Draft";
-      stateCls = "oldgh-hovercard__state--draft";
-    } else {
-      stateIcon = octicon("git-pull-request", { size: 14 });
-      stateLabel = "Open";
-    }
-  } else if (c.state === "closed") {
-    stateIcon = octicon("issue-closed", { size: 14 });
-    stateLabel = c.stateReason === "not_planned" ? "Closed (not planned)" : "Closed";
-    stateCls = "oldgh-hovercard__state--closed";
-  }
-  const dateNote = c.createdAt ? ` · opened ${formatRelative(c.createdAt)}` : "";
+  const state = /^merged/i.test(c.stateLabel) ? "merged" : /^closed/i.test(c.stateLabel) ? "closed" : /^draft/i.test(c.stateLabel) ? "draft" : "open";
+  const icon = c.isPull
+    ? octicon(state === "merged" ? "git-merge" : "git-pull-request", { size: 14 })
+    : octicon(state === "closed" ? "issue-closed" : "issue-opened", { size: 14 });
   const bodyExcerpt = c.bodyHtml ? `<div class="oldgh-hovercard__issue-body">${truncateHtml(c.bodyHtml, 320)}</div>` : "";
   return `
     <header class="oldgh-hovercard__head">
-      <span class="oldgh-hovercard__state ${stateCls}">${stateIcon}</span>
+      <span class="oldgh-hovercard__state oldgh-hovercard__state--${state}">${icon}</span>
       <div class="oldgh-hovercard__head-text">
-        <a class="oldgh-hovercard__issue-title" href="/${escapeAttr(c.owner)}/${escapeAttr(c.repo)}/${c.isPull ? "pull" : "issues"}/${c.number}">${escapeText(c.title)}</a>
+        <a class="oldgh-hovercard__issue-title" href="/${escapeAttr(c.owner)}/${escapeAttr(c.repo)}/${c.isPull ? "pull" : "issues"}/${c.number}">${c.titleHtml}</a>
         <div class="oldgh-hovercard__issue-meta">
-          <span class="oldgh-hovercard__state-label">${escapeText(stateLabel)}</span>
-          · ${escapeText(c.owner)}/${escapeText(c.repo)}#${c.number}${dateNote}
+          <span class="oldgh-hovercard__state-label">${escapeText(c.stateLabel)}</span>
+          · ${escapeText(c.owner)}/${escapeText(c.repo)}#${c.number}${c.openedOn ? ` · opened ${escapeText(c.openedOn)}` : ""}
         </div>
       </div>
     </header>
-    ${c.authorLogin ? `
-      <div class="oldgh-hovercard__issue-author">
-        <img src="${escapeAttr(c.authorAvatar)}" width="20" height="20" alt="" />
-        <a href="/${escapeAttr(c.authorLogin)}">${escapeText(c.authorLogin)}</a>
-      </div>
-    ` : ""}
     ${bodyExcerpt}
   `;
 }
@@ -466,31 +422,4 @@ function truncateHtml(html: string, maxChars: number): string {
   return escapeText(text.slice(0, maxChars).trim() + "…");
 }
 
-function formatRelative(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return iso;
-  const diff = Date.now() - t;
-  const s = Math.round(diff / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
-  const mo = Math.round(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const y = Math.round(mo / 12);
-  return `${y}y ago`;
-}
-
 import { formatCount } from "@/util/format";
-
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
-}
