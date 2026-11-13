@@ -957,54 +957,18 @@ html[data-oldgh-repo-nav="compact"] .oldgh-repo-header__topics {
   padding: 4px 10px;
   font-size: var(--gh-size-sm);
   font-weight: bold;
-  color: var(--gh-btn-fg);
-  background: linear-gradient(
-    to bottom,
-    var(--gh-btn-bg-top),
-    var(--gh-btn-bg-bottom)
-  );
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
   border: 1px solid var(--gh-btn-border);
   border-left: none;
   border-top-right-radius: var(--gh-radius);
   border-bottom-right-radius: var(--gh-radius);
   line-height: 1.4;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
-  box-shadow: var(--gh-shadow-inset);
 }
-/* 2013 count-bubble tail: a small triangle notch pointing left into the count */
-.oldgh-repo-header__action-count::before {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 50%;
-  margin-top: -4px;
-  width: 7px;
-  height: 7px;
-  background: var(--gh-btn-bg-top);
-  border-left: 1px solid var(--gh-btn-border);
-  border-bottom: 1px solid var(--gh-btn-border);
-  transform: rotate(45deg);
-}
-[data-oldgh-theme="dark"] .oldgh-repo-header__action-count {
-  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
-}
-/* light both halves of the grouped pill as one unit on hover/active */
-.oldgh-repo-header__action:hover .oldgh-repo-header__action-btn,
-.oldgh-repo-header__action:hover .oldgh-repo-header__action-count {
-  background: linear-gradient(
-    to bottom,
-    var(--gh-btn-bg-top-hover),
-    var(--gh-btn-bg-bottom-hover)
-  );
+/* 2013's social count is a flat box flush with its minibutton; only the number turns link blue */
+.oldgh-repo-header__action-count:hover {
+  color: var(--gh-link);
   text-decoration: none;
-  color: var(--gh-btn-fg);
-}
-.oldgh-repo-header__action:hover .oldgh-repo-header__action-count::before {
-  background: var(--gh-btn-bg-top-hover);
-}
-.oldgh-repo-header__action:active .oldgh-repo-header__action-btn,
-.oldgh-repo-header__action:active .oldgh-repo-header__action-count {
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .oldgh-repo-header__action:not(:has(.oldgh-repo-header__action-count)) .oldgh-repo-header__action-btn {
   border-radius: var(--gh-radius);
