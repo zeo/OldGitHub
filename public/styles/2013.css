@@ -150,6 +150,78 @@ html[data-oldgh-host="gist"] .oldgh-header {
   text-decoration: underline;
 }
 
+/* primer's base resets (primer/css src/base), which this sheet was tuned against. github's own
+   css is blocked on pages we render, so they ship here at the same element specificity */
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) * {
+  box-sizing: border-box;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) body {
+  margin: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(input, select, textarea, button) {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) button {
+  cursor: pointer;
+  border-radius: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) label {
+  font-weight: 600;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) table {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(td, th) {
+  padding: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) summary {
+  cursor: pointer;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(h1, h2, h3, h4, h5, h6, pre) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) blockquote {
+  margin: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(ul, ol) {
+  padding-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) dd {
+  margin-left: 0;
+}
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) [hidden] {
+  display: none !important;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: rect(0 0 0 0);
+  overflow-wrap: normal;
+  border: 0;
+}
+/* github's js positions these; without it their text would sit inline in scraped markup */
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) tool-tip {
+  display: none !important;
+}
+
 html[data-oldgh="active"]:not([data-oldgh-host="gist"]) code,
 html[data-oldgh="active"]:not([data-oldgh-host="gist"]) pre,
 html[data-oldgh="active"]:not([data-oldgh-host="gist"]) tt {
