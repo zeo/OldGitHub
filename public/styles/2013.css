@@ -3434,6 +3434,16 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="
   color: var(--gh-fg-muted);
   font-size: 11px;
 }
+.oldgh-activity__detail {
+  display: block;
+  color: var(--gh-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oldgh-activity__detail a {
+  color: inherit;
+}
 
 /* issues + pulls list */
 .oldgh-repo-issues > .oldgh-page {

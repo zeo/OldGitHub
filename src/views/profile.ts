@@ -1,6 +1,5 @@
 import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
-import { fetchApi } from "@/adapters/rate-limit";
 import { getProfile, type PinnedRepo, type ProfileReadme, type ProfileView } from "@/adapters/profile";
 import { setFollowing, type FollowForms } from "@/adapters/social";
 import { isLoggedIn } from "@/auth/session";
@@ -47,14 +46,11 @@ export async function mountProfile(login: string, tab: string, query: string): P
 
   if (tab === "repositories") {
     void hydrateRepos(root, login, query);
-  } else if (tab === "stars") {
-    void hydrateStars(root, login);
   } else if (tab !== "overview") {
     void hydrateScrapedTab(root, login, tab, query);
   }
   if (tab === "overview" && view.kind === "user") {
-    // public events API only goes back ~90 days; if the viewer is looking at
-    // a prior year, the current activity list is misleading — hide it.
+    // the public feed only holds recent events, which would mislead under a past year
     if (!isViewingPastYear(query)) {
       void hydrateActivity(root, login);
     }
@@ -288,366 +284,159 @@ function formatGraphDate(iso: string): string {
   return d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
+// github's public atom feed holds the same recent events as the events api without spending quota
 async function hydrateActivity(root: HTMLElement, login: string): Promise<void> {
   const slot = root.querySelector<HTMLElement>(".oldgh-profile__activity-slot");
   if (!slot) return;
-  try {
-    const resp = await fetchApi(`https://api.github.com/users/${encodeURIComponent(login)}/events/public?per_page=30`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!resp.ok) return;
-    const events = (await resp.json()) as unknown[];
-    if (!Array.isArray(events) || events.length === 0) return;
-    const groups = groupEventsByMonth(events);
-    if (groups.length === 0) return;
-    slot.innerHTML = `
-      <section class="oldgh-profile__activity">
-        <h3 class="oldgh-profile__section-title">${octicon("clock", { size: 14 })} Public activity</h3>
-        <div class="oldgh-activity">
-          ${groups.map((g) => `
-            <details class="oldgh-activity__group" ${g.isLatest ? "open" : ""}>
-              <summary class="oldgh-activity__month">
-                <span class="oldgh-activity__month-label">${escapeText(g.label)}</span>
-                <span class="oldgh-activity__month-count">${g.items.length} ${g.items.length === 1 ? "event" : "events"}</span>
-              </summary>
-              <ul class="oldgh-activity__list">
-                ${g.items.map(renderActivityItem).join("")}
-              </ul>
-            </details>
-          `).join("")}
-        </div>
-      </section>
-    `;
-  } catch {
-    // silent — activity is optional
-  }
+  const resp = await fetch(`https://github.com/${encodeURIComponent(login)}.atom`).catch(() => null);
+  if (!resp?.ok) return;
+  const feed = new DOMParser().parseFromString(await resp.text(), "application/xml");
+  // github orders the feed by event id, which drifts from event time for batched pushes
+  const items = Array.from(feed.querySelectorAll("entry"), parseEntry)
+    .filter((x): x is ActivityItem => x !== null)
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  const groups = groupByMonth(items);
+  if (groups.length === 0) return;
+  slot.innerHTML = `
+    <section class="oldgh-profile__activity">
+      <h3 class="oldgh-profile__section-title">${octicon("clock", { size: 14 })} Public activity</h3>
+      <div class="oldgh-activity">
+        ${groups.map((g, i) => `
+          <details class="oldgh-activity__group" ${i === 0 ? "open" : ""}>
+            <summary class="oldgh-activity__month">
+              <span class="oldgh-activity__month-label">${escapeText(g.label)}</span>
+              <span class="oldgh-activity__month-count">${g.items.length} ${g.items.length === 1 ? "event" : "events"}</span>
+            </summary>
+            <ul class="oldgh-activity__list">
+              ${g.items.map(renderActivityItem).join("")}
+            </ul>
+          </details>
+        `).join("")}
+      </div>
+    </section>
+  `;
 }
 
-type ActivityItem = {
-  type: string;
-  iconName: string;
-  line: string;
-  occurredAt: string;
+type ActivityItem = { icon: string; line: string; detail: { text: string; href: string | null } | null; occurredAt: string };
+
+// keyed by the class github puts on each feed card
+const ACTIVITY_ICONS: Record<string, string> = {
+  "repo-push": "git-commit",
+  "git-branch": "git-branch",
+  "git-pull-request": "git-pull-request",
+  "git-merge": "git-merge",
+  issues_opened: "issue-opened",
+  issues_closed: "issue-closed",
+  issues_reopened: "issue-reopened",
+  issues_comment: "comment",
+  release: "tag",
+  star: "star",
+  fork: "repo-forked",
+  gollum: "book",
+  public: "repo",
 };
 
-type ActivityGroup = {
-  label: string;
-  isLatest: boolean;
-  items: ActivityItem[];
-};
-
-function groupEventsByMonth(events: unknown[]): ActivityGroup[] {
+function groupByMonth(items: ActivityItem[]): { label: string; items: ActivityItem[] }[] {
   const grouped = new Map<string, ActivityItem[]>();
-  for (const raw of events) {
-    const item = parseEvent(raw);
-    if (!item) continue;
-    const monthKey = item.occurredAt.slice(0, 7);
-    const list = grouped.get(monthKey) ?? [];
-    list.push(item);
-    grouped.set(monthKey, list);
+  for (const item of items) {
+    const key = item.occurredAt.slice(0, 7);
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
-  const out: ActivityGroup[] = [];
-  let first = true;
-  for (const [key, items] of grouped) {
-    const d = new Date(key + "-01T00:00:00Z");
-    const label = Number.isNaN(d.getTime())
-      ? key
-      : d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    out.push({ label, isLatest: first, items });
-    first = false;
-  }
-  return out;
+  return Array.from(grouped, ([key, list]) => ({
+    label: new Date(`${key}-01T00:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" }),
+    items: list,
+  }));
 }
 
-function parseEvent(raw: unknown): ActivityItem | null {
-  if (!raw || typeof raw !== "object") return null;
-  const e = raw as Record<string, unknown>;
-  const type = typeof e["type"] === "string" ? (e["type"] as string) : "";
-  if (!type) return null;
-  const repoRaw = e["repo"] && typeof e["repo"] === "object" ? (e["repo"] as Record<string, unknown>) : null;
-  const repoName = repoRaw && typeof repoRaw["name"] === "string" ? (repoRaw["name"] as string) : "";
-  const repoLink = repoName ? `<a href="/${escapeAttr(repoName)}">${escapeText(repoName)}</a>` : "this repository";
-  const payload = e["payload"] && typeof e["payload"] === "object" ? (e["payload"] as Record<string, unknown>) : {};
-  const createdAt = typeof e["created_at"] === "string" ? (e["created_at"] as string) : "";
-  const when = createdAt
-    ? `<span class="oldgh-activity__when" title="${escapeAttr(absoluteTime(createdAt))}">${escapeText(relativeTime(createdAt))}</span>`
-    : "";
+function parseEntry(entry: Element): ActivityItem | null {
+  const card = new DOMParser().parseFromString(entry.querySelector("content")?.textContent ?? "", "text/html");
+  const header = card.querySelector("div.color-fg-muted:has(relative-time)");
+  const stamp = new Date(header?.querySelector("relative-time")?.getAttribute("datetime") ?? "");
+  if (!header || Number.isNaN(stamp.getTime())) return null;
 
-  const built = buildLine(type, repoName, repoLink, payload, when);
-  if (!built) return null;
-  return { type, iconName: built.icon, line: built.line, occurredAt: createdAt };
+  const parts: string[] = [];
+  let actorSkipped = false;
+  for (const node of Array.from(header.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      parts.push(escapeText(node.textContent ?? ""));
+      continue;
+    }
+    if (!(node instanceof Element) || node.matches("div, span:has(img), span:has(relative-time)")) continue;
+    const label = (node.textContent ?? "").replace(/\s+/g, " ").trim().replace(/^refs\/heads\//, "");
+    if (node.matches("a") && !actorSkipped) {
+      actorSkipped = true;
+      continue;
+    }
+    const shown = node.matches(".branch-name") ? `<code>${escapeText(label)}</code>` : escapeText(label);
+    const href = node.getAttribute("href");
+    parts.push(href ? `<a href="${escapeAttr(sameSiteHref(href))}">${shown}</a>` : shown);
+  }
+  const line = parts.join("").replace(/\s+/g, " ").trim().replace(/^[a-z]/, (c) => c.toUpperCase());
+  if (!line) return null;
+
+  const titleLink = card.querySelector('.Box .f4 a[href*="/pull/"], .Box .f4 a[href*="/issues/"]');
+  const target = header.querySelector('a[href*="/pull/"], a[href*="/issues/"]');
+  const commit = card.querySelector(".commits li");
+  const detail = titleLink
+    ? { text: text(titleLink), href: titleLink.getAttribute("href") }
+    : target?.getAttribute("title")
+      ? { text: target.getAttribute("title") ?? "", href: target.getAttribute("href") }
+      : commit
+        ? { text: text(commit.querySelector("blockquote")), href: commit.querySelector("code a")?.getAttribute("href") ?? null }
+        : null;
+  const kind = card.querySelector(".js-feed-item-view")?.classList[0] ?? "";
+  return { icon: ACTIVITY_ICONS[kind] ?? "primitive-dot", line, detail, occurredAt: stamp.toISOString() };
 }
 
-function buildLine(
-  type: string,
-  repoName: string,
-  repoLink: string,
-  payload: Record<string, unknown>,
-  when: string,
-): { icon: string; line: string } | null {
-  switch (type) {
-    case "PushEvent": {
-      const commits = Array.isArray(payload["commits"]) ? (payload["commits"] as unknown[]) : [];
-      const sizeRaw = payload["size"];
-      const size = typeof sizeRaw === "number" ? (sizeRaw as number) : commits.length;
-      const ref = typeof payload["ref"] === "string" ? (payload["ref"] as string).replace(/^refs\/heads\//, "") : "";
-      const refLabel = ref ? `<code>${escapeText(ref)}</code>` : "";
-      if (size > 0) {
-        return { icon: "git-commit", line: `Pushed <strong>${size}</strong> commit${size === 1 ? "" : "s"} to ${refLabel} in ${repoLink} ${when}` };
-      }
-      return { icon: "git-commit", line: `Pushed to ${refLabel} in ${repoLink} ${when}` };
-    }
-    case "PullRequestEvent": {
-      const action = typeof payload["action"] === "string" ? (payload["action"] as string) : "";
-      const pr = payload["pull_request"] && typeof payload["pull_request"] === "object" ? (payload["pull_request"] as Record<string, unknown>) : null;
-      const num = pr && typeof pr["number"] === "number" ? (pr["number"] as number) : (typeof payload["number"] === "number" ? (payload["number"] as number) : 0);
-      const title = pr && typeof pr["title"] === "string" ? (pr["title"] as string) : "";
-      const merged = action === "merged" || (pr && pr["merged"] === true);
-      const verb = merged ? "Merged" : action === "closed" ? "Closed" : action === "opened" ? "Opened" : action === "reopened" ? "Reopened" : capitalize(action);
-      const icon = merged ? "git-merge" : "git-pull-request";
-      const link = num
-        ? `<a href="/${escapeAttr(repoName)}/pull/${num}">${escapeText(title || "#" + num)}</a>`
-        : escapeText(title);
-      return { icon, line: `${escapeText(verb)} pull request ${link} in ${repoLink} ${when}` };
-    }
-    case "PullRequestReviewEvent": {
-      const pr = payload["pull_request"] && typeof payload["pull_request"] === "object" ? (payload["pull_request"] as Record<string, unknown>) : null;
-      const num = pr && typeof pr["number"] === "number" ? (pr["number"] as number) : 0;
-      const link = num ? `<a href="/${escapeAttr(repoName)}/pull/${num}">#${num}</a>` : "";
-      return { icon: "eye", line: `Reviewed pull request ${link} in ${repoLink} ${when}` };
-    }
-    case "PullRequestReviewCommentEvent": {
-      const pr = payload["pull_request"] && typeof payload["pull_request"] === "object" ? (payload["pull_request"] as Record<string, unknown>) : null;
-      const num = pr && typeof pr["number"] === "number" ? (pr["number"] as number) : 0;
-      const link = num ? `<a href="/${escapeAttr(repoName)}/pull/${num}">#${num}</a>` : "";
-      return { icon: "comment", line: `Commented on pull request ${link} in ${repoLink} ${when}` };
-    }
-    case "IssuesEvent": {
-      const action = typeof payload["action"] === "string" ? (payload["action"] as string) : "";
-      const issue = payload["issue"] && typeof payload["issue"] === "object" ? (payload["issue"] as Record<string, unknown>) : null;
-      const num = issue && typeof issue["number"] === "number" ? (issue["number"] as number) : (typeof payload["number"] === "number" ? (payload["number"] as number) : 0);
-      const title = issue && typeof issue["title"] === "string" ? (issue["title"] as string) : "";
-      const verb = action === "closed" ? "Closed" : action === "opened" ? "Opened" : action === "reopened" ? "Reopened" : capitalize(action);
-      const icon = action === "closed" ? "issue-closed" : action === "reopened" ? "issue-reopened" : "issue-opened";
-      const link = num
-        ? `<a href="/${escapeAttr(repoName)}/issues/${num}">${escapeText(title || "#" + num)}</a>`
-        : escapeText(title);
-      return { icon, line: `${escapeText(verb)} issue ${link} in ${repoLink} ${when}` };
-    }
-    case "IssueCommentEvent": {
-      const issue = payload["issue"] && typeof payload["issue"] === "object" ? (payload["issue"] as Record<string, unknown>) : null;
-      const num = issue && typeof issue["number"] === "number" ? (issue["number"] as number) : 0;
-      const title = issue && typeof issue["title"] === "string" ? (issue["title"] as string) : "";
-      const isPull = issue && !!issue["pull_request"];
-      const path = isPull ? "pull" : "issues";
-      const link = num
-        ? `<a href="/${escapeAttr(repoName)}/${path}/${num}">${escapeText(title || "#" + num)}</a>`
-        : "";
-      return { icon: "comment", line: `Commented on ${isPull ? "pull request" : "issue"} ${link} in ${repoLink} ${when}` };
-    }
-    case "CreateEvent": {
-      const refType = typeof payload["ref_type"] === "string" ? (payload["ref_type"] as string) : "";
-      const ref = typeof payload["ref"] === "string" ? (payload["ref"] as string) : "";
-      if (refType === "repository") {
-        return { icon: "repo", line: `Created repository ${repoLink} ${when}` };
-      }
-      const label = ref ? `<code>${escapeText(ref)}</code>` : refType;
-      return { icon: refType === "tag" ? "tag" : "git-branch", line: `Created ${escapeText(refType)} ${label} in ${repoLink} ${when}` };
-    }
-    case "DeleteEvent": {
-      const refType = typeof payload["ref_type"] === "string" ? (payload["ref_type"] as string) : "";
-      const ref = typeof payload["ref"] === "string" ? (payload["ref"] as string) : "";
-      return { icon: "trashcan", line: `Deleted ${escapeText(refType)} <code>${escapeText(ref)}</code> in ${repoLink} ${when}` };
-    }
-    case "ForkEvent": {
-      const fork = payload["forkee"] && typeof payload["forkee"] === "object" ? (payload["forkee"] as Record<string, unknown>) : null;
-      const forkName = fork && typeof fork["full_name"] === "string" ? (fork["full_name"] as string) : "";
-      const forkLink = forkName ? `<a href="/${escapeAttr(forkName)}">${escapeText(forkName)}</a>` : "a fork";
-      return { icon: "repo-forked", line: `Forked ${repoLink} to ${forkLink} ${when}` };
-    }
-    case "WatchEvent":
-      return { icon: "star", line: `Starred ${repoLink} ${when}` };
-    case "ReleaseEvent": {
-      const action = typeof payload["action"] === "string" ? (payload["action"] as string) : "";
-      const release = payload["release"] && typeof payload["release"] === "object" ? (payload["release"] as Record<string, unknown>) : null;
-      const tag = release && typeof release["tag_name"] === "string" ? (release["tag_name"] as string) : "";
-      const name = release && typeof release["name"] === "string" ? (release["name"] as string) : tag;
-      const html = release && typeof release["html_url"] === "string" ? (release["html_url"] as string) : "";
-      const link = html ? `<a href="${escapeAttr(html)}">${escapeText(name || tag || "release")}</a>` : escapeText(name);
-      const verb = action === "published" ? "Released" : capitalize(action);
-      return { icon: "tag", line: `${escapeText(verb)} ${link} in ${repoLink} ${when}` };
-    }
-    case "PublicEvent":
-      return { icon: "repo", line: `Made ${repoLink} public ${when}` };
-    case "MemberEvent": {
-      const member = payload["member"] && typeof payload["member"] === "object" ? (payload["member"] as Record<string, unknown>) : null;
-      const memberLogin = member && typeof member["login"] === "string" ? (member["login"] as string) : "";
-      const link = memberLogin ? `<a href="/${escapeAttr(memberLogin)}">${escapeText(memberLogin)}</a>` : "a collaborator";
-      return { icon: "person", line: `Added ${link} as a collaborator on ${repoLink} ${when}` };
-    }
-    case "CommitCommentEvent": {
-      const comment = payload["comment"] && typeof payload["comment"] === "object" ? (payload["comment"] as Record<string, unknown>) : null;
-      const sha = comment && typeof comment["commit_id"] === "string" ? (comment["commit_id"] as string).slice(0, 7) : "";
-      const link = sha ? `<a href="/${escapeAttr(repoName)}/commit/${escapeAttr(sha)}"><code>${escapeText(sha)}</code></a>` : "";
-      return { icon: "comment", line: `Commented on commit ${link} in ${repoLink} ${when}` };
-    }
-    case "GollumEvent": {
-      const pages = Array.isArray(payload["pages"]) ? (payload["pages"] as unknown[]) : [];
-      return { icon: "book", line: `Updated <strong>${pages.length}</strong> wiki page${pages.length === 1 ? "" : "s"} in ${repoLink} ${when}` };
-    }
-    default:
-      return null;
-  }
+function sameSiteHref(href: string): string {
+  const url = new URL(href, "https://github.com");
+  return url.origin === "https://github.com" ? url.pathname + url.search + url.hash : safeHref(url.href);
+}
+
+function text(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
 function renderActivityItem(item: ActivityItem): string {
   return `
     <li class="oldgh-activity__item">
-      <span class="oldgh-activity__icon">${octicon(item.iconName, { size: 14 })}</span>
-      <span class="oldgh-activity__line">${item.line}</span>
+      <span class="oldgh-activity__icon">${octicon(item.icon, { size: 14 })}</span>
+      <span class="oldgh-activity__line">
+        ${item.line}
+        <span class="oldgh-activity__when" title="${escapeAttr(absoluteTime(item.occurredAt))}">${escapeText(relativeTime(item.occurredAt))}</span>
+        ${item.detail?.text ? `<span class="oldgh-activity__detail">${item.detail.href ? `<a href="${escapeAttr(sameSiteHref(item.detail.href))}">${escapeText(item.detail.text)}</a>` : escapeText(item.detail.text)}</span>` : ""}
+      </span>
     </li>
   `;
 }
 
-function capitalize(s: string): string {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
-}
-
-async function hydrateStars(root: HTMLElement, login: string): Promise<void> {
-  const container = root.querySelector<HTMLElement>(".oldgh-profile__scraped");
-  if (!container) return;
-  try {
-    const resp = await fetchApi(`https://api.github.com/users/${encodeURIComponent(login)}/starred?per_page=30`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (resp.ok) {
-      const data = (await resp.json()) as unknown[];
-      if (Array.isArray(data) && data.length > 0) {
-        container.innerHTML = `
-          <ul class="oldgh-profile__repos-list">
-            ${data.map((r) => renderStarItem(r)).join("")}
-          </ul>
-        `;
-        return;
-      }
-    }
-    // Fall back to scraping the page (catches private stars / API gaps).
-    const html = await scrapeStarsPage(login);
-    if (html) {
-      container.innerHTML = html;
-      return;
-    }
-    container.innerHTML = `<div class="oldgh-profile__empty"><p class="oldgh-profile__muted">No starred repositories.</p></div>`;
-  } catch {
-    container.innerHTML = `<div class="oldgh-profile__empty"><p class="oldgh-profile__muted">Couldn't load stars.</p></div>`;
-  }
-}
-
-async function scrapeStarsPage(login: string): Promise<string | null> {
-  try {
-    const resp = await fetch(`https://github.com/${encodeURIComponent(login)}?tab=stars`, {
-      credentials: "include",
-      headers: { Accept: "text/html" },
-    });
-    if (!resp.ok) return null;
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const items: string[] = [];
-    const seen = new Set<string>();
-    // modern GH wraps each starred entry in a div with a repo title <h3> and a
-    // description <p>. itemprop attributes are gone from current markup, so
-    // walk every h3 with a /:owner/:repo anchor instead and read its siblings.
-    const anchors = Array.from(doc.querySelectorAll<HTMLAnchorElement>("h3 a[href^='/']"));
-    for (const a of anchors) {
-      const href = a.getAttribute("href") || "";
-      const m = /^\/([\w.-]+)\/([\w.-]+)\/?$/.exec(href);
-      if (!m || !m[1] || !m[2]) continue;
-      const full = `${m[1]}/${m[2]}`;
-      if (seen.has(full)) continue;
-      seen.add(full);
-      // walk up to a card-like container — turbo-frame items, divs, articles, list rows
-      const card: Element = a.closest("article, li, .Box-row, [class*='border-bottom'], div.py-3, div.py-4") || a.parentElement?.parentElement || a.parentElement || a;
-      // description: pinned-item-desc OR a generic <p> after the h3. skip any
-      // <p> whose text matches GitHub's hydration-error placeholder.
-      const descCandidates = [
-        ...Array.from(card.querySelectorAll<HTMLElement>(".pinned-item-desc, p[itemprop='description'], p.color-fg-muted")),
-        ...Array.from(card.querySelectorAll<HTMLElement>("h3 + p, h3 + div p")),
-      ];
-      let desc = "";
-      for (const el of descCandidates) {
-        const t = el.textContent?.replace(/\s+/g, " ").trim() || "";
-        if (!t) continue;
-        if (/There was an error while loading/i.test(t)) continue;
-        if (/^Loading\.?\.?\.?$/i.test(t)) continue;
-        desc = t;
-        break;
-      }
-      // language: span next to a color swatch, or repo-language-color sibling
-      const langSwatch = card.querySelector<HTMLElement>(".repo-language-color, [style*='background-color'][class*='language']");
-      const langColor = langSwatch ? langSwatch.style.backgroundColor || null : null;
-      const langText =
-        card.querySelector<HTMLElement>("[itemprop='programmingLanguage'], span.color-fg-default + span, span.f6.color-fg-muted span")?.textContent?.replace(/\s+/g, " ").trim() ||
-        (langSwatch ? (langSwatch.nextElementSibling?.textContent?.trim() || langSwatch.parentElement?.textContent?.trim() || null) : null);
-      // stars count
-      const starsEl = card.querySelector<HTMLAnchorElement>('a[href*="/stargazers"]');
-      const starsTxt = starsEl?.textContent?.replace(/\s+/g, " ").trim() || "";
-      // updated time
-      const timeEl = card.querySelector<HTMLElement>("relative-time, time-ago, time");
-      const updatedIso = timeEl?.getAttribute("datetime") || "";
-      const langDot = langText
-        ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(langColor || languageColor(langText))}"></span>`
-        : "";
-      const meta: string[] = [];
-      if (langText) meta.push(`<span>${langDot}${escapeText(langText)}</span>`);
-      if (starsTxt) meta.push(`<span>${octicon("star", { size: 12 })}${escapeText(starsTxt)}</span>`);
-      if (updatedIso) meta.push(`<span title="${escapeAttr(absoluteTime(updatedIso))}">updated ${escapeText(relativeTime(updatedIso))}</span>`);
-      items.push(`
-        <li class="oldgh-profile__repo">
-          <h3 class="oldgh-profile__repo-name"><a href="/${escapeAttr(full)}">${escapeText(full)}</a></h3>
-          ${desc ? `<p class="oldgh-profile__repo-desc">${escapeText(desc)}</p>` : ""}
-          ${meta.length > 0 ? `<p class="oldgh-profile__repo-meta">${meta.join("")}</p>` : ""}
-        </li>
-      `);
-    }
-    if (items.length === 0) return null;
-    return `<ul class="oldgh-profile__repos-list">${items.join("")}</ul>`;
-  } catch {
-    return null;
-  }
-}
-
-function renderStarItem(raw: unknown): string {
-  if (!raw || typeof raw !== "object") return "";
-  const r = raw as Record<string, unknown>;
-  const full = typeof r["full_name"] === "string" ? (r["full_name"] as string) : "";
-  if (!full) return "";
-  const desc = typeof r["description"] === "string" ? (r["description"] as string) : "";
-  const stars = typeof r["stargazers_count"] === "number" ? (r["stargazers_count"] as number) : 0;
-  const forks = typeof r["forks_count"] === "number" ? (r["forks_count"] as number) : 0;
-  const lang = typeof r["language"] === "string" ? (r["language"] as string) : null;
-  const updated = typeof r["pushed_at"] === "string" ? (r["pushed_at"] as string) : "";
-  const langDot = lang
-    ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(languageColor(lang))}"></span>`
-    : "";
-  return `
-    <li class="oldgh-profile__repo">
-      <h3 class="oldgh-profile__repo-name"><a href="/${escapeAttr(full)}">${escapeText(full)}</a></h3>
-      ${desc ? `<p class="oldgh-profile__repo-desc">${escapeText(desc)}</p>` : ""}
-      <p class="oldgh-profile__repo-meta">
-        ${lang ? `<span>${langDot}${escapeText(lang)}</span>` : ""}
-        <span>${octicon("star", { size: 12 })}${formatNum(stars)}</span>
-        <span>${octicon("repo-forked", { size: 12 })}${formatNum(forks)}</span>
-        ${updated ? `<span>updated <span title="${escapeAttr(absoluteTime(updated))}">${escapeText(relativeTime(updated))}</span></span>` : ""}
-      </p>
-    </li>
-  `;
-}
-
-function formatNum(n: number): string {
-  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
-  return String(n);
+function renderStarsFromFrame(frame: Element): string {
+  const items = Array.from(frame.querySelectorAll("h3 a[href^='/']")).flatMap((a) => {
+    const full = /^\/([\w.-]+\/[\w.-]+)\/?$/.exec(a.getAttribute("href") ?? "")?.[1];
+    const card = a.closest(".border-bottom");
+    if (!full || !card) return [];
+    const desc = text(card.querySelector("p[itemprop='description']"));
+    const lang = text(card.querySelector("[itemprop='programmingLanguage']"));
+    const swatch = card.querySelector<HTMLElement>(".repo-language-color")?.style.backgroundColor || languageColor(lang);
+    const stars = text(card.querySelector('a[href$="/stargazers"]'));
+    const forks = text(card.querySelector('a[href$="/forks"]'));
+    const updated = card.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? "";
+    const meta = [
+      lang ? `<span><span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(swatch)}"></span>${escapeText(lang)}</span>` : "",
+      stars ? `<span>${octicon("star", { size: 12 })}${escapeText(stars)}</span>` : "",
+      forks ? `<span>${octicon("repo-forked", { size: 12 })}${escapeText(forks)}</span>` : "",
+      updated ? `<span title="${escapeAttr(absoluteTime(updated))}">updated ${escapeText(relativeTime(updated))}</span>` : "",
+    ].join("");
+    return [`
+      <li class="oldgh-profile__repo">
+        <h3 class="oldgh-profile__repo-name"><a href="/${escapeAttr(full)}">${escapeText(full)}</a></h3>
+        ${desc ? `<p class="oldgh-profile__repo-desc">${escapeText(desc)}</p>` : ""}
+        ${meta ? `<p class="oldgh-profile__repo-meta">${meta}</p>` : ""}
+      </li>
+    `];
+  });
+  if (items.length === 0) return `<div class="oldgh-profile__empty"><p class="oldgh-profile__muted">No starred repositories.</p></div>`;
+  return `<ul class="oldgh-profile__repos-list">${items.join("")}</ul>`;
 }
 
 function renderShell(v: ProfileView, tab: string): string {
@@ -744,6 +533,10 @@ async function hydrateScrapedTab(root: HTMLElement, login: string, tab: string, 
       doc.body;
     if (tab === "achievements") {
       container.innerHTML = renderAchievementsFromFrame(frame);
+      return;
+    }
+    if (tab === "stars") {
+      container.innerHTML = renderStarsFromFrame(frame) + renderPagination(framePagination(frame));
       return;
     }
     if (tab === "followers" || tab === "following" || tab === "people") {
