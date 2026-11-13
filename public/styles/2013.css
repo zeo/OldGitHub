@@ -7381,6 +7381,42 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
 }
 
 /* Hovercards */
+.oldgh-quota-notice {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100000;
+  width: 340px;
+  padding: 12px 34px 12px 14px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: var(--gh-size-md);
+  line-height: 1.45;
+  color: var(--gh-fg);
+}
+.oldgh-quota-notice p {
+  margin: 0;
+}
+.oldgh-quota-notice p + p {
+  margin-top: 6px;
+}
+.oldgh-quota-notice__close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--gh-fg-muted);
+  cursor: pointer;
+}
+.oldgh-quota-notice__close:hover {
+  color: var(--gh-fg);
+}
 .oldgh-hovercard {
   position: absolute;
   z-index: 100000;

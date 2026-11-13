@@ -29,6 +29,12 @@ if (hasStorage()) {
   });
 }
 
+const quotaListeners = new Set<(resetAt: number) => void>();
+
+export function onAnonymousQuotaUsed(listener: (resetAt: number) => void): void {
+  quotaListeners.add(listener);
+}
+
 export function noteApiRateLimited(until = Date.now() + RATE_LIMIT_PAUSE_MS): void {
   blockedUntil = Math.max(blockedUntil, until);
 }
@@ -100,19 +106,24 @@ function cacheKey(url: string, init: RequestInit | undefined): string {
 function trackRateLimit(response: Response): void {
   const remaining = response.headers.get("x-ratelimit-remaining");
   if (response.status !== 429 && remaining !== "0") return;
+  noteApiRateLimited(rateLimitEnd(response));
+  // only the anonymous core quota is worth a token prompt; search has its own per-minute limit
+  if (response.headers.get("x-ratelimit-limit") !== "60") return;
+  const resetAt = blockedUntil;
+  void readToken().then((token) => {
+    if (!token) for (const listener of quotaListeners) listener(resetAt);
+  });
+}
 
+function rateLimitEnd(response: Response): number | undefined {
   const retryAfter = response.headers.get("retry-after");
   if (retryAfter) {
     const seconds = Number(retryAfter);
     const retryAt = Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Date.parse(retryAfter);
-    if (Number.isFinite(retryAt)) {
-      noteApiRateLimited(retryAt + 1000);
-      return;
-    }
+    if (Number.isFinite(retryAt)) return retryAt + 1000;
   }
-
   const reset = Number(response.headers.get("x-ratelimit-reset"));
-  noteApiRateLimited(Number.isFinite(reset) && reset > 0 ? reset * 1000 + 1000 : undefined);
+  return Number.isFinite(reset) && reset > 0 ? reset * 1000 + 1000 : undefined;
 }
 
 function trimCache(): void {

@@ -119,3 +119,31 @@ test("sends the saved token only to api.github.com and drops it after a 401", as
   await api.fetchApi("https://api.github.com/users/hubot");
   assert.deepEqual(seen, [["https://api.github.com/users/hubot", null]]);
 });
+
+test("reports the anonymous core quota once it runs out, but not search limits or token users", async () => {
+  await chrome.storage.local.set({ apiToken: "" });
+  const resets = [];
+  api.onAnonymousQuotaUsed((at) => resets.push(at));
+  const reset = Math.ceil(Date.now() / 1000) + 600;
+  const exhausted = (limit) => async () => new Response(null, {
+    status: 403,
+    headers: { "x-ratelimit-limit": limit, "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+  });
+
+  api.clearApiCache();
+  api.clearRateLimit();
+  globalThis.fetch = exhausted("10");
+  await api.fetchApi("https://api.github.com/search/repositories?q=x");
+  api.clearRateLimit();
+  globalThis.fetch = exhausted("60");
+  await api.fetchApi("https://api.github.com/users/octocat");
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(resets, [reset * 1000 + 1000]);
+
+  await chrome.storage.local.set({ apiToken: "ghp_test", apiTokenInvalid: false });
+  api.clearRateLimit();
+  await api.fetchApi("https://api.github.com/users/hubot");
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(resets.length, 1);
+  api.clearRateLimit();
+});

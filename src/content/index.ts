@@ -7,6 +7,7 @@ import { applyTheme, watchThemeChanges } from "@/theme";
 import { mountHeader } from "@/views/header";
 import { mountFooter } from "@/views/footer";
 import { mountHovercards } from "@/views/hovercards";
+import { mountQuotaNotice } from "@/views/quota-notice";
 import { bindNativeLinks, isNativeTab, mountNativePill, reloadOnce, reportPageMode, type PageMode } from "@/native-mode";
 
 const IS_GIST = window.location.hostname === "gist.github.com";
@@ -173,6 +174,7 @@ async function run(): Promise<void> {
   await mountHeader();
   mountFooter();
   mountHovercards();
+  mountQuotaNotice();
   bindShortcuts();
   mountRouter();
 }
