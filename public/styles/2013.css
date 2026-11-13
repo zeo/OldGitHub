@@ -1,6 +1,7 @@
 /* OldGitHub — 2013 theme tokens and base styles */
 
 :root {
+  color-scheme: light;
   --gh-font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --gh-font-mono: Consolas, "Liberation Mono", Menlo, Courier, monospace;
 
@@ -75,6 +76,7 @@
 
 /* dark variant, invented in 2013 idiom */
 :root[data-oldgh-theme="dark"] {
+  color-scheme: dark;
   --gh-bg: #1c1c1c;
   --gh-bg-elev: #242424;
   --gh-bg-subtle: #1e1e1e;
@@ -11425,6 +11427,13 @@ html[data-oldgh="active"] .markdown-body .markdown-heading:hover .anchor,
 html[data-oldgh="active"] .markdown-body .markdown-heading .anchor:focus {
   opacity: 1;
   text-decoration: none;
+}
+html[data-oldgh="active"] .markdown-body .task-list-item {
+  list-style-type: none;
+}
+html[data-oldgh="active"] .markdown-body .task-list-item-checkbox {
+  margin: 0 0.2em 0.25em -1.4em;
+  vertical-align: middle;
 }
 html[data-oldgh="active"] .markdown-body hr {
   height: 4px;
