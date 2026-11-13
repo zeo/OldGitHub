@@ -1,7 +1,10 @@
 import { octicon } from "@/icons";
 import {
   getIssue,
+  getIssueFromPage,
+  fillTimelineGap,
   getPull,
+  getPullFromPage,
   getPullFiles,
   getPullCommits,
   getPullChecks,
@@ -17,6 +20,7 @@ import {
   type ReviewThread,
 } from "@/adapters/repo-issue";
 import { AdapterFailure } from "@/adapters";
+import { isApiRateLimited } from "@/adapters/rate-limit";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
@@ -36,165 +40,32 @@ export async function mountRepoIssue(
   tab: IssueTab = "conversation",
 ): Promise<void> {
   const nav = navigationToken();
-  let view: IssueDetail | PullDetail | null = null;
-  try {
-    view = kind === "pull"
-      ? await getPull(owner, repo, number)
-      : await getIssue(owner, repo, number);
-  } catch (err) {
-    if (!(err instanceof AdapterFailure)) throw err;
-    // Don't re-throw on 404: the anonymous REST API returns 404 for any
-    // private repo (regardless of whether the user can see it via cookie),
-    // so we always fall through to the cookie-authed HTML scrape below.
-    // hydrateScrapedBody surfaces a real "not found" message if even that
-    // fails.
-  }
-
+  const view = kind === "pull" ? await loadPull(owner, repo, number) : await loadIssue(owner, repo, number);
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
-  if (view) {
-    root.innerHTML = renderShell(view, kind, tab);
-  } else {
-    root.innerHTML = renderScrapedShell(owner, repo, number, kind, tab);
-  }
+  root.innerHTML = renderShell(view, kind, tab);
   if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
-
-  if (!view) {
-    void hydrateScrapedBody(root, owner, repo, number, kind, tab);
-  } else if (kind === "pull" && tab !== "conversation") {
+  if (kind === "pull" && tab !== "conversation") {
     void hydrateSubTab(root, owner, repo, number, tab, (view as PullDetail).reviewThreads);
   }
 }
 
-function renderScrapedShell(
-  owner: string,
-  repo: string,
-  number: number,
-  kind: "issue" | "pull",
-  tab: IssueTab,
-): string {
-  const isPull = kind === "pull";
-  const tabsNav = isPull ? renderScrapedPrTabs(owner, repo, number, tab) : "";
-  return `
-    <div class="oldgh-page oldgh-issue">
-      <header class="oldgh-issue__header">
-        <h1 class="oldgh-issue__title">
-          ${escapeText(isPull ? "Pull request" : "Issue")}
-          <span class="oldgh-issue__number">#${number}</span>
-        </h1>
-        ${tabsNav}
-      </header>
-      <div class="oldgh-issue__subtab" data-tab="${escapeAttr(tab)}">
-        <p class="oldgh-issue__subtab-empty">Loading…</p>
-      </div>
-    </div>
-  `;
-}
-
-function renderScrapedPrTabs(
-  owner: string,
-  repo: string,
-  number: number,
-  active: IssueTab,
-): string {
-  const base = `/${escapeAttr(owner)}/${escapeAttr(repo)}/pull/${number}`;
-  const tabs: { key: IssueTab; label: string; icon: string }[] = [
-    { key: "conversation", label: "Conversation", icon: "comment-discussion" },
-    { key: "commits", label: "Commits", icon: "git-commit" },
-    { key: "checks", label: "Checks", icon: "check" },
-    { key: "files", label: "Files changed", icon: "diff" },
-  ];
-  return `
-    <nav class="oldgh-issue__pr-tabs" aria-label="Pull request sections">
-      <ul>
-        ${tabs.map((t) => `
-          <li class="${active === t.key ? "is-active" : ""}">
-            <a href="${base}${t.key === "conversation" ? "" : "/" + t.key}">
-              ${octicon(t.icon, { size: 14 })}
-              <span>${escapeText(t.label)}</span>
-            </a>
-          </li>
-        `).join("")}
-      </ul>
-    </nav>
-  `;
-}
-
-async function hydrateScrapedBody(
-  root: HTMLElement,
-  owner: string,
-  repo: string,
-  number: number,
-  kind: "issue" | "pull",
-  tab: IssueTab,
-): Promise<void> {
-  const container = root.querySelector<HTMLElement>(".oldgh-issue__subtab");
-  if (!container) return;
-  const segment = kind === "pull" ? "pull" : "issues";
-  const sub = tab === "conversation" ? "" : "/" + tab;
-  const url = `https://github.com/${owner}/${repo}/${segment}/${number}${sub}`;
+// the page also covers private repos, where the anonymous api answers 404
+async function loadIssue(owner: string, repo: string, number: number): Promise<IssueDetail> {
   try {
-    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
-    if (resp.status === 404) {
-      container.innerHTML = `<p class="oldgh-issue__subtab-empty">This ${kind === "pull" ? "pull request" : "issue"} doesn't exist or you don't have access to it.</p>`;
-      return;
-    }
-    if (!resp.ok) throw new Error(`status ${resp.status}`);
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const inner =
-      doc.querySelector("turbo-frame#repo-content-turbo-frame") ||
-      doc.querySelector("[data-pjax-container]") ||
-      doc.querySelector(".application-main") ||
-      doc.querySelector("main");
-    if (!inner) {
-      container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this view.</p>`;
-      return;
-    }
-    // Update our placeholder title with the real one from GitHub's page.
-    const pageTitle = (doc.querySelector("title")?.textContent || "").trim();
-    const titleFromHead = pageTitle
-      .replace(/\s*·\s*(Issue|Pull Request)\s*#\d+\s*·\s*[^\s]+\/[^\s]+\s*$/i, "")
-      .replace(/^Issue\s+#\d+:\s*/i, "")
-      .trim();
-    const titleEl = root.querySelector<HTMLElement>(".oldgh-issue__title");
-    if (titleEl && titleFromHead) {
-      titleEl.innerHTML = `${escapeText(titleFromHead)} <span class="oldgh-issue__number">#${number}</span>`;
-    }
-    for (const sel of [
-      "header.AppHeader",
-      "header[role='banner']",
-      "footer",
-      "#repository-container-header",
-      ".pagehead",
-      ".UnderlineNav.js-repo-nav",
-      "[class*='PageLayout-Header-']",
-      "[class*='PageHeader-']",
-      ".tabnav",
-      ".UnderlineNav",
-      ".gh-header",
-      ".gh-header-actions",
-      ".gh-header-meta",
-      ".pull-discussion-timeline > header",
-      "[data-component='HeaderMeta']",
-      "[data-component='Page::Title']",
-      "[aria-label*='error' i][role='alert']",
-      "script",
-      "style",
-      "iframe",
-      "object",
-      "embed",
-    ]) {
-      inner.querySelectorAll(sel).forEach((n) => n.remove());
-    }
-    for (const node of Array.from(inner.querySelectorAll<HTMLElement>("*"))) {
-      for (const attr of Array.from(node.attributes)) {
-        if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-      }
-    }
-    container.innerHTML = inner.innerHTML;
-  } catch {
-    container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this view.</p>`;
+    return await fillTimelineGap(await getIssueFromPage(owner, repo, number));
+  } catch (err) {
+    if (!(err instanceof AdapterFailure)) throw err;
+    return getIssue(owner, repo, number);
+  }
+}
+
+async function loadPull(owner: string, repo: string, number: number): Promise<PullDetail> {
+  try {
+    return await getPull(owner, repo, number);
+  } catch (err) {
+    if (!(err instanceof AdapterFailure)) throw err;
+    return getPullFromPage(owner, repo, number).catch(() => Promise.reject(err));
   }
 }
 
@@ -224,8 +95,9 @@ async function hydrateSubTab(
       container.innerHTML = renderPullChecks(checks);
       return;
     }
-  } catch {
-    container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this tab.</p>`;
+  } catch (err) {
+    if (!(err instanceof AdapterFailure)) throw err;
+    container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this tab${isApiRateLimited() ? ": GitHub's API limit is used up" : ""}. <a href="javascript:void(0)" data-oldgh-show-native>Show it on GitHub</a>.</p>`;
   }
 }
 
@@ -482,7 +354,7 @@ function renderShell(v: IssueDetail | PullDetail, kind: "issue" | "pull", tab: I
             <a href="/${escapeAttr(v.author?.login || "")}">${escapeText(v.author?.login || "ghost")}</a>
             opened this ${isPull ? "pull request" : "issue"} ${relativeTimeLink(v.createdAt)}
             ${pull ? renderPullRefs(pull) : ""}
-            · ${v.totalTimelineCount} ${v.totalTimelineCount === 1 ? "comment" : "comments"}
+            ${v.totalTimelineCount == null ? "" : `· ${v.totalTimelineCount} ${v.totalTimelineCount === 1 ? "comment" : "comments"}`}
           </span>
         </div>
         ${isPull && pull ? renderPrTabs(pull, tab) : ""}
@@ -496,7 +368,7 @@ function renderShell(v: IssueDetail | PullDetail, kind: "issue" | "pull", tab: I
             ${renderTimelineGroup(v)}
           </div>
           <aside class="oldgh-issue__sidebar">
-            ${renderSidebar(v)}
+            ${"metadataHidden" in v && v.metadataHidden ? "" : renderSidebar(v)}
           </aside>
         </div>
       `}
@@ -506,11 +378,11 @@ function renderShell(v: IssueDetail | PullDetail, kind: "issue" | "pull", tab: I
 
 function renderPrTabs(p: PullDetail, active: IssueTab): string {
   const base = `/${escapeAttr(p.owner)}/${escapeAttr(p.repo)}/pull/${p.number}`;
-  const tabs: { key: IssueTab; label: string; icon: string; count?: number | string }[] = [
+  const tabs: { key: IssueTab; label: string; icon: string; count: number | null }[] = [
     { key: "conversation", label: "Conversation", icon: "comment-discussion", count: p.totalTimelineCount },
-    { key: "commits", label: "Commits", icon: "git-commit", count: p.commitsCount ?? undefined },
-    { key: "checks", label: "Checks", icon: "check" },
-    { key: "files", label: "Files changed", icon: "diff", count: p.changedFiles ?? undefined },
+    { key: "commits", label: "Commits", icon: "git-commit", count: p.commitsCount },
+    { key: "checks", label: "Checks", icon: "check", count: null },
+    { key: "files", label: "Files changed", icon: "diff", count: p.changedFiles },
   ];
   return `
     <nav class="oldgh-issue__pr-tabs" aria-label="Pull request sections">
@@ -690,7 +562,7 @@ function renderEvent(e: Extract<TimelineNode, { kind: "event" }>): string {
       break;
     case "ClosedEvent":
       icon = "issue-closed";
-      line = `<a href="/${escapeAttr(actor)}">${escapeText(actor)}</a> closed this ${e.toState && (e.toState || "").toUpperCase() !== "COMPLETED" ? `as ${escapeText(e.toState.toLowerCase())}` : ""} ${when}`;
+      line = `<a href="/${escapeAttr(actor)}">${escapeText(actor)}</a> closed this ${e.toState && (e.toState || "").toUpperCase() !== "COMPLETED" ? `as ${escapeText(e.toState.toLowerCase().replace(/_/g, " "))}` : ""} ${when}`;
       break;
     case "ReopenedEvent":
       icon = "issue-reopened";
@@ -740,6 +612,14 @@ function renderEvent(e: Extract<TimelineNode, { kind: "event" }>): string {
         icon = "eye";
         line = `<a href="/${escapeAttr(actor)}">${escapeText(actor)}</a> reviewed ${when}`;
       }
+      break;
+    }
+    case "TimelineGap": {
+      const hidden = Number(e.toState);
+      icon = "unfold";
+      line = `${hidden
+        ? `${hidden} more ${hidden === 1 ? "item isn't" : "items aren't"} shown here.`
+        : `Comments and reviews come from GitHub's API, which didn't answer${isApiRateLimited() ? " because its hourly limit is used up" : ""}. <a href="javascript:void(0)" data-oldgh-open-options>Add a token</a> or`} <a href="javascript:void(0)" data-oldgh-show-native>${hidden ? "Show the full timeline on GitHub" : "show them on GitHub"}</a>.`;
       break;
     }
     case "SubscribedEvent":

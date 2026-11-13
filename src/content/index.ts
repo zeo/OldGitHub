@@ -165,7 +165,7 @@ async function run(): Promise<void> {
     return;
   }
   const firstKind = resolveRoute(location.pathname, location.search.slice(1)).kind;
-  if (firstKind === "repo-home" || firstKind === "profile") keepFirstLoad();
+  if (firstKind === "repo-home" || firstKind === "profile" || firstKind === "repo-issue") keepFirstLoad();
   killTurbo();
   bindNativeLinks();
   await applyTheme();

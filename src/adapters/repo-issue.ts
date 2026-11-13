@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
+import { extractEmbeddedPayload, parseRepoPage, takeFirstLoad } from "./_page";
 import { escapeText } from "@/util/html";
 
 export type IssueState = "OPEN" | "CLOSED";
@@ -74,7 +75,7 @@ export type IssueDetail = {
   milestone: Milestone | null;
   reactions: ReactionCount[];
   timeline: TimelineNode[];
-  totalTimelineCount: number;
+  totalTimelineCount: number | null;
   isLocked: boolean;
 };
 
@@ -85,13 +86,15 @@ export type PullDetail = Omit<IssueDetail, "state"> & {
   baseRefName: string;
   headRepoOwner: string | null;
   commitsCount: number;
-  changedFiles: number;
+  changedFiles: number | null;
   additions: number;
   deletions: number;
   merged: boolean;
   mergedAt: string | null;
   mergedBy: Actor | null;
   reviewThreads: ReviewThread[];
+  // built from the page alone: labels, assignees, comments and reviews were not available
+  metadataHidden?: boolean;
 };
 
 export type ReviewComment = {
@@ -326,6 +329,198 @@ export async function getPull(owner: string, repo: string, number: number): Prom
   }
   const base = restToIssue(owner, repo, number, issueRaw as Record<string, unknown>, timelineRaw);
   return { ...restToPull(base, prRaw as Record<string, unknown>), reviewThreads };
+}
+
+// the issue page embeds the same graphql data github's own view renders, so it needs no api quota
+export async function getIssueFromPage(owner: string, repo: string, number: number): Promise<IssueDetail> {
+  const payload = await loadPagePayload(`https://github.com/${owner}/${repo}/issues/${number}`);
+  const issue = readPath(payload, ["payload", "issueViewerRoute", "data", "repository", "issue"]);
+  if (!issue || readNumber(issue, "number") !== number) {
+    throw new AdapterFailure("getIssueFromPage", `issue ${owner}/${repo}#${number} not in page payload`);
+  }
+  const front = readObj(issue["timelineItems"]);
+  const seen = new Set<string>();
+  const nodesOf = (conn: Record<string, unknown> | null): TimelineNode[] =>
+    readArray(conn?.["edges"]).flatMap((e) => {
+      const n = readObj(readObj(e)?.["node"]);
+      const id = n && readString(n, "id");
+      if (!n || !id || seen.has(id)) return [];
+      seen.add(id);
+      const node = pageTimelineItem(n);
+      return node ? [node] : [];
+    });
+  const timeline = nodesOf(front);
+  const tail = nodesOf(readObj(issue["backTimelineItems"]));
+  const hidden = (front ? readNumber(front, "totalCount") ?? 0 : 0) - seen.size;
+  if (readObj(front?.["pageInfo"])?.["hasNextPage"] === true && hidden > 0) {
+    timeline.push({ kind: "event", type: "TimelineGap", actor: null, createdAt: "", toState: String(hidden) });
+  }
+  timeline.push(...tail);
+  const title = readString(issue, "title") ?? "";
+
+  return {
+    owner,
+    repo,
+    number,
+    title,
+    titleHtml: readString(issue, "titleHTML") ?? escapeText(title),
+    state: readString(issue, "state") === "CLOSED" ? "CLOSED" : "OPEN",
+    stateReason: readString(issue, "stateReason"),
+    bodyHtml: readString(issue, "bodyHTML") ?? "",
+    author: pageActor(issue["author"]),
+    createdAt: readString(issue, "createdAt") ?? "",
+    labels: readArray(readObj(issue["labels"])?.["edges"]).map((e) => restLabel(readObj(e)?.["node"])).filter((l): l is Label => l !== null),
+    assignees: readArray(readObj(issue["assignedActors"])?.["nodes"]).map(pageActor).filter((a): a is Actor => a !== null),
+    milestone: restMilestone(issue["milestone"]),
+    reactions: pageReactions(issue["reactionGroups"]),
+    timeline,
+    totalTimelineCount: readNumber(issue, "totalCommentsCount") ?? timeline.filter((n) => n.kind === "comment").length,
+    isLocked: issue["locked"] === true,
+  };
+}
+
+// the middle of a long issue's timeline is only reachable through the api
+export async function fillTimelineGap(v: IssueDetail): Promise<IssueDetail> {
+  if (!v.timeline.some((n) => n.kind === "event" && n.type === "TimelineGap")) return v;
+  try {
+    return { ...v, timeline: restTimeline(await apiFetchAll(`/repos/${v.owner}/${v.repo}/issues/${v.number}/timeline`)) };
+  } catch (err) {
+    if (!(err instanceof AdapterFailure)) throw err;
+    return v;
+  }
+}
+
+// signed in, the pull page carries the header and description but loads comments and reviews separately
+export async function getPullFromPage(owner: string, repo: string, number: number): Promise<PullDetail> {
+  const payload = await loadPagePayload(`https://github.com/${owner}/${repo}/pull/${number}`);
+  const pr = readPath(payload, ["payload", "pullRequestsLayoutRoute", "pullRequest"]);
+  const overview = readPath(payload, ["payload", "pullRequestsOverviewIndexRoute"]);
+  if (!pr || !overview || readNumber(pr, "number") !== number) {
+    throw new AdapterFailure("getPullFromPage", `pull ${owner}/${repo}#${number} not in page payload`);
+  }
+  const author = readObj(pr["author"]);
+  const login = author && readString(author, "login");
+  const mergedLogin = readString(pr, "mergedBy") ?? readNestedString(pr["mergedBy"], ["login"]);
+  const mergedAt = readString(pr, "mergedTime");
+  const rawState = readString(pr, "state");
+  const headOwner = readString(pr, "headRepositoryOwnerLogin");
+  const title = readString(pr, "title") ?? "";
+  const reactions = readArray(overview["reactionGroups"]).flatMap((g) => {
+    const o = readObj(g);
+    const content = readNestedString(o, ["reaction", "content"]);
+    const count = o ? readNumber(o, "totalCount") ?? 0 : 0;
+    return content && count > 0 ? [{ content, count }] : [];
+  });
+
+  return {
+    owner,
+    repo,
+    number,
+    title,
+    titleHtml: readString(pr, "titleHtml") ?? escapeText(title),
+    state: mergedAt ? "MERGED" : rawState === "CLOSED" ? "CLOSED" : "OPEN",
+    stateReason: null,
+    bodyHtml: readString(overview, "description") ?? "",
+    author: login ? { login, avatarUrl: readString(author, "avatarUrl") ?? `https://github.com/${login}.png?size=64`, isAgent: author["isAgent"] === true } : null,
+    createdAt: readString(pr, "createdTime") ?? "",
+    labels: [],
+    assignees: [],
+    milestone: null,
+    reactions,
+    timeline: [{ kind: "event", type: "TimelineGap", actor: null, createdAt: "" }],
+    totalTimelineCount: null,
+    isLocked: pr["locked"] === true,
+    isDraft: rawState === "DRAFT",
+    headRefName: readString(pr, "headBranch") ?? "",
+    baseRefName: readString(pr, "baseBranch") ?? "",
+    headRepoOwner: headOwner && headOwner.toLowerCase() !== owner.toLowerCase() ? headOwner : null,
+    commitsCount: readNumber(pr, "commitsCount") ?? 0,
+    changedFiles: null,
+    additions: 0,
+    deletions: 0,
+    merged: mergedAt !== null,
+    mergedAt,
+    mergedBy: mergedLogin ? { login: mergedLogin, avatarUrl: readString(pr, "mergedByAvatarUrl") ?? `https://github.com/${mergedLogin}.png?size=64` } : null,
+    reviewThreads: [],
+    metadataHidden: true,
+  };
+}
+
+async function loadPagePayload(url: string): Promise<unknown> {
+  let html = takeFirstLoad(url);
+  if (html === null) {
+    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
+    if (!resp.ok) throw new AdapterFailure("loadPagePayload", `${new URL(url).pathname} responded ${resp.status}`);
+    html = await resp.text();
+  }
+  return extractEmbeddedPayload(parseRepoPage(html));
+}
+
+function pageTimelineItem(n: Record<string, unknown>): TimelineNode | null {
+  const type = readString(n, "__typename") ?? "";
+  const createdAt = readString(n, "createdAt") ?? "";
+  if (type === "IssueComment") {
+    const reason = readString(n, "minimizedReason");
+    return {
+      kind: "comment",
+      id: String(n["databaseId"] ?? n["id"]),
+      author: pageActor(n["author"]),
+      bodyHtml: n["isMinimized"] === true
+        ? `<p><em>This comment was hidden${reason ? ` as ${escapeText(reason.toLowerCase().replace(/[_-]/g, " "))}` : ""}.</em></p>`
+        : readString(n, "bodyHTML") ?? "",
+      createdAt,
+      authorAssociation: readString(n, "authorAssociation"),
+      reactions: pageReactions(n["reactionGroups"]),
+      isAuthor: false,
+    };
+  }
+  const base: EventNode = { kind: "event", type, actor: pageActor(n["actor"]), createdAt };
+  const label = restLabel(n["label"]);
+  if (label) base.label = label;
+  const assignee = pageActor(n["assignee"]);
+  if (assignee) base.assignee = assignee;
+  const reason = readString(n, "stateReason");
+  if (type === "ClosedEvent" && reason) base.toState = reason;
+  if (type === "RenamedTitleEvent") {
+    base.fromState = readString(n, "previousTitle") ?? "";
+    base.toState = readString(n, "currentTitle") ?? "";
+  }
+  const source = readObj(n["innerSource"]);
+  if (source) {
+    const titleHtml = readString(source, "titleHTML");
+    const url = readString(source, "url");
+    const num = readNumber(source, "number");
+    if (titleHtml) base.refTitle = parseRepoPage(titleHtml).body.textContent ?? "";
+    if (url) base.refUrl = url.replace(/^https:\/\/github\.com/, "");
+    if (num != null) base.ref = `#${num}`;
+  }
+  return base;
+}
+
+function pageActor(raw: unknown): Actor | null {
+  const a = readObj(raw);
+  const login = a && readString(a, "login");
+  if (!login) return null;
+  return {
+    login,
+    avatarUrl: readString(a, "avatarUrl") ?? `https://github.com/${login}.png?size=64`,
+    isAgent: a["__typename"] === "Bot",
+  };
+}
+
+function pageReactions(raw: unknown): ReactionCount[] {
+  return readArray(raw).flatMap((g) => {
+    const o = readObj(g);
+    const content = o && readString(o, "content");
+    const count = readNumber(readObj(o?.["reactors"]) ?? {}, "totalCount") ?? 0;
+    return content && count > 0 ? [{ content, count }] : [];
+  });
+}
+
+function readPath(raw: unknown, path: string[]): Record<string, unknown> | null {
+  let cur: unknown = raw;
+  for (const k of path) cur = readObj(cur)?.[k];
+  return readObj(cur);
 }
 
 async function apiFetch(path: string): Promise<unknown | null> {
@@ -668,7 +863,7 @@ function restMilestone(raw: unknown): Milestone | null {
   if (!title) return null;
   return {
     title,
-    url: (readString(m, "html_url") ?? "").replace(/^https:\/\/github\.com/, ""),
+    url: (readString(m, "html_url") ?? readString(m, "url") ?? "").replace(/^https:\/\/github\.com/, ""),
   };
 }
 
