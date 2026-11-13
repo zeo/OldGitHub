@@ -1,7 +1,8 @@
 import { octicon } from "@/icons";
-import { fetchApi } from "@/adapters/rate-limit";
+import { fetchPageDoc } from "@/adapters/_page";
+import { formatCount } from "@/util/format";
 import { AdapterFailure } from "@/adapters";
-import { relativeTime } from "@/util/time";
+import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
@@ -9,29 +10,24 @@ import { escapeAttr, escapeText } from "@/util/html";
 const ROOT_CLASS = "oldgh-topic";
 
 type TopicMeta = {
-  name: string;
-  displayName: string | null;
-  shortDescription: string | null;
+  displayName: string;
   description: string | null;
-  createdBy: string | null;
-  released: string | null;
-  featured: boolean;
-  curated: boolean;
+  logoUrl: string | null;
+  facts: { label: string; value: string }[];
+  related: string[];
 };
 
 type TopicRepo = {
-  fullName: string;
-  ownerLogin: string;
-  ownerAvatar: string;
-  repoName: string;
+  owner: string;
+  name: string;
   description: string | null;
   language: string | null;
-  stars: number;
-  forks: number;
+  languageColor: string | null;
+  stars: number | null;
   updatedAt: string;
-  htmlUrl: string;
-  isPrivate: boolean;
 };
+
+type TopicPage = { meta: TopicMeta; repos: TopicRepo[]; totalCount: number | null; page: number; hasNext: boolean };
 
 export async function mountTopic(pathname: string, search: string): Promise<void> {
   const nav = navigationToken();
@@ -50,92 +46,73 @@ export async function mountTopic(pathname: string, search: string): Promise<void
   root.innerHTML = renderShell(slug);
   if (!adoptBodyRoot(root, undefined, nav)) return;
 
-  const params = new URLSearchParams(search);
-  const sort = params.get("s") ?? params.get("sort") ?? "stars";
-  const order = params.get("o") ?? params.get("order") ?? "desc";
-
-  const [meta, repoResult] = await Promise.all([
-    fetchTopicMeta(slug).catch(() => null),
-    fetchTopicRepos(slug, sort, order).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))),
-  ]);
-
   const heroSlot = root.querySelector<HTMLElement>(".oldgh-topic__hero");
-  if (heroSlot) heroSlot.innerHTML = renderHero(slug, meta);
   const reposSlot = root.querySelector<HTMLElement>(".oldgh-topic__repos");
-  if (reposSlot) {
-    reposSlot.innerHTML = repoResult instanceof Error
-      ? `<p class="oldgh-topic__empty">Couldn't load repositories: ${escapeText(repoResult.message)}</p>`
-      : renderRepos(repoResult.repos, repoResult.totalCount);
+  if (!heroSlot || !reposSlot) return;
+  try {
+    const result = await fetchTopicPage(slug, search);
+    heroSlot.innerHTML = renderHero(slug, result.meta);
+    reposSlot.innerHTML = renderRepos(slug, search, result);
+  } catch (err) {
+    heroSlot.innerHTML = "";
+    reposSlot.innerHTML = `<p class="oldgh-topic__empty">Couldn't load this topic: ${escapeText(err instanceof Error ? err.message : String(err))}</p>`;
+    return;
   }
   bindSort(root);
 }
 
-async function fetchTopicMeta(slug: string): Promise<TopicMeta | null> {
-  const resp = await fetchApi(`https://api.github.com/search/topics?q=${encodeURIComponent(slug)}`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github.mercy-preview+json" },
+// github's topic page is server-rendered and takes the same s, o, l and page params
+async function fetchTopicPage(slug: string, search: string): Promise<TopicPage> {
+  const params = new URLSearchParams(search);
+  const query = params.toString();
+  const doc = await fetchPageDoc(`https://github.com/topics/${encodeURIComponent(slug)}${query ? `?${query}` : ""}`);
+  const main = doc.querySelector("main");
+  if (!main) throw new AdapterFailure("getTopic", `topic ${slug} page has no content`);
+
+  const intro = main.querySelector(".markdown-body")?.closest(".border");
+  const relatedHeading = Array.from(main.querySelectorAll("h2")).find((h) => /related topics/i.test(h.textContent ?? ""));
+  const facts = Array.from(main.querySelectorAll("p")).flatMap((p) => {
+    const label = text(p.querySelector(":scope > span.color-fg-muted"));
+    if (label !== "Created by" && label !== "Released") return [];
+    return [{ label, value: text(p).slice(label.length).trim() }];
   });
-  if (!resp.ok) return null;
-  const data = (await resp.json()) as Record<string, unknown>;
-  const items = Array.isArray(data["items"]) ? (data["items"] as unknown[]) : [];
-  const exact = items.find((it) => {
-    if (!it || typeof it !== "object") return false;
-    const o = it as Record<string, unknown>;
-    return typeof o["name"] === "string" && (o["name"] as string).toLowerCase() === slug.toLowerCase();
+  const meta: TopicMeta = {
+    displayName: text(main.querySelector("h1")) || slug,
+    description: text(intro?.querySelector(".markdown-body")) || null,
+    logoUrl: intro?.querySelector("img")?.getAttribute("src") ?? null,
+    facts,
+    related: Array.from(relatedHeading?.parentElement?.querySelectorAll("a.topic-tag") ?? [], (a) => text(a)).filter(Boolean),
+  };
+
+  const repos = Array.from(main.querySelectorAll("article")).flatMap((art) => {
+    const [ownerLink, repoLink] = Array.from(art.querySelectorAll("h3 a"));
+    const owner = text(ownerLink);
+    const name = text(repoLink);
+    if (!owner || !name) return [];
+    const lang = art.querySelector('[itemprop="programmingLanguage"]');
+    const stars = art.querySelector('[aria-label$="users starred this repository"]')?.getAttribute("title") ?? "";
+    return [{
+      owner,
+      name,
+      description: text(art.querySelector(".rounded-bottom-2 p")) || null,
+      language: text(lang) || null,
+      languageColor: lang?.previousElementSibling?.getAttribute("style")?.match(/background-color:\s*(#[0-9a-f]{3,8})/i)?.[1] ?? null,
+      stars: stars ? Number(stars.replace(/,/g, "")) : null,
+      updatedAt: art.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? "",
+    }];
   });
-  const item = (exact || items[0]) as Record<string, unknown> | undefined;
-  if (!item) return null;
+  const total = Array.from(main.querySelectorAll("h2"), (h) => /([\d,]+)\s+public repositor/.exec(text(h))?.[1]).find(Boolean);
   return {
-    name: typeof item["name"] === "string" ? (item["name"] as string) : slug,
-    displayName: typeof item["display_name"] === "string" ? (item["display_name"] as string) : null,
-    shortDescription: typeof item["short_description"] === "string" ? (item["short_description"] as string) : null,
-    description: typeof item["description"] === "string" ? (item["description"] as string) : null,
-    createdBy: typeof item["created_by"] === "string" ? (item["created_by"] as string) : null,
-    released: typeof item["released"] === "string" ? (item["released"] as string) : null,
-    featured: item["featured"] === true,
-    curated: item["curated"] === true,
+    meta,
+    repos,
+    totalCount: total ? Number(total.replace(/,/g, "")) : null,
+    page: Math.max(1, parseInt(params.get("page") ?? "1", 10) || 1),
+    hasNext: main.querySelector('form.ajax-pagination-form input[name="page"]') !== null,
   };
 }
 
-async function fetchTopicRepos(slug: string, sort: string, order: string): Promise<{ repos: TopicRepo[]; totalCount: number }> {
-  const params = new URLSearchParams({
-    q: `topic:${slug}`,
-    per_page: "30",
-  });
-  if (sort && sort !== "best-match") params.set("sort", sort);
-  if (order) params.set("order", order);
-  const resp = await fetchApi(`https://api.github.com/search/repositories?${params.toString()}`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github.mercy-preview+json" },
-  });
-  if (!resp.ok) throw new AdapterFailure("getTopicRepos", `topic search responded ${resp.status}`);
-  const data = (await resp.json()) as Record<string, unknown>;
-  const items = Array.isArray(data["items"]) ? (data["items"] as unknown[]) : [];
-  const repos = items.map(parseRepo).filter((r): r is TopicRepo => r !== null);
-  // search api total_count is the real match count, not the capped per_page page
-  const totalCount = typeof data["total_count"] === "number" ? (data["total_count"] as number) : repos.length;
-  return { repos, totalCount };
-}
-
-function parseRepo(raw: unknown): TopicRepo | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const fullName = typeof r["full_name"] === "string" ? (r["full_name"] as string) : null;
-  if (!fullName) return null;
-  const ownerObj = r["owner"] && typeof r["owner"] === "object" ? (r["owner"] as Record<string, unknown>) : null;
-  return {
-    fullName,
-    ownerLogin: (ownerObj && typeof ownerObj["login"] === "string" ? (ownerObj["login"] as string) : fullName.split("/")[0]) ?? "",
-    ownerAvatar: (ownerObj && typeof ownerObj["avatar_url"] === "string" ? (ownerObj["avatar_url"] as string) : "") ?? "",
-    repoName: (typeof r["name"] === "string" ? (r["name"] as string) : fullName.split("/")[1]) ?? "",
-    description: typeof r["description"] === "string" ? (r["description"] as string) : null,
-    language: typeof r["language"] === "string" ? (r["language"] as string) : null,
-    stars: typeof r["stargazers_count"] === "number" ? (r["stargazers_count"] as number) : 0,
-    forks: typeof r["forks_count"] === "number" ? (r["forks_count"] as number) : 0,
-    updatedAt: typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : "",
-    htmlUrl: (typeof r["html_url"] === "string" ? (r["html_url"] as string) : `https://github.com/${fullName}`),
-    isPrivate: r["private"] === true,
-  };
+function text(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
 function renderShell(slug: string): string {
@@ -154,64 +131,66 @@ function renderShell(slug: string): string {
   `;
 }
 
-function renderHero(slug: string, meta: TopicMeta | null): string {
-  const displayName = meta?.displayName || slug;
-  const badges: string[] = [];
-  if (meta?.featured) badges.push(`<span class="oldgh-topic__badge oldgh-topic__badge--featured">${octicon("star", { size: 11 })} Featured</span>`);
-  if (meta?.curated) badges.push(`<span class="oldgh-topic__badge">Curated</span>`);
+function renderHero(slug: string, meta: TopicMeta): string {
+  const facts = meta.facts.map((f) => `<li>${escapeText(f.label)} <strong>${escapeText(f.value)}</strong></li>`).join("");
+  const related = meta.related.map((t) => `<li><a href="/topics/${escapeAttr(t)}">${escapeText(t)}</a></li>`).join("");
   return `
     <header class="oldgh-topic__hero-card">
+      ${meta.logoUrl ? `<img class="oldgh-topic__logo" src="${escapeAttr(meta.logoUrl)}" width="64" height="64" alt="" />` : ""}
       <div class="oldgh-topic__hero-main">
         <h1 class="oldgh-topic__title">
           ${octicon("tag", { size: 22 })}
-          ${escapeText(displayName)}
-          <code class="oldgh-topic__slug">${escapeText(slug)}</code>
+          ${escapeText(meta.displayName)}
+          ${meta.displayName.toLowerCase() !== slug.toLowerCase() ? `<code class="oldgh-topic__slug">${escapeText(slug)}</code>` : ""}
         </h1>
-        ${badges.length > 0 ? `<div class="oldgh-topic__badges">${badges.join("")}</div>` : ""}
-        ${meta?.shortDescription ? `<p class="oldgh-topic__short">${escapeText(meta.shortDescription)}</p>` : ""}
-        ${meta?.description && meta?.description !== meta?.shortDescription ? `<p class="oldgh-topic__desc">${escapeText(stripMarkup(meta.description).slice(0, 400))}</p>` : ""}
-        ${renderMeta(meta)}
+        ${meta.description ? `<p class="oldgh-topic__short">${escapeText(meta.description)}</p>` : ""}
+        ${facts ? `<ul class="oldgh-topic__meta">${facts}</ul>` : ""}
+        ${related ? `<ul class="oldgh-topic__meta"><li>Related</li>${related}</ul>` : ""}
       </div>
     </header>
   `;
 }
 
-function renderMeta(meta: TopicMeta | null): string {
-  if (!meta) return "";
-  const bits: string[] = [];
-  if (meta.createdBy) bits.push(`Created by <strong>${escapeText(meta.createdBy)}</strong>`);
-  if (meta.released) bits.push(`Released <strong>${escapeText(meta.released)}</strong>`);
-  if (bits.length === 0) return "";
-  return `<ul class="oldgh-topic__meta">${bits.map((b) => `<li>${b}</li>`).join("")}</ul>`;
-}
-
-function renderRepos(items: TopicRepo[], totalCount: number): string {
-  if (items.length === 0) {
+function renderRepos(slug: string, search: string, result: TopicPage): string {
+  const { repos, totalCount, page, hasNext } = result;
+  if (repos.length === 0) {
     return `
       <div class="oldgh-topic__empty">
         ${octicon("repo", { size: 36 })}
-        <p>No repositories found for this topic.</p>
+        <p>No public repositories use this topic${page > 1 ? " past this page" : ""}.</p>
       </div>
     `;
   }
-  const params = new URLSearchParams(window.location.search);
-  const sort = params.get("s") ?? params.get("sort") ?? "stars";
+  const sort = new URLSearchParams(search).get("s") ?? "best-match";
+  const pageHref = (n: number): string => {
+    const params = new URLSearchParams(search);
+    if (n > 1) params.set("page", String(n));
+    else params.delete("page");
+    const q = params.toString();
+    return `/topics/${encodeURIComponent(slug)}${q ? `?${q}` : ""}`;
+  };
   return `
     <div class="oldgh-topic__bar">
-      <div class="oldgh-topic__count"><strong>${formatCount(totalCount)}</strong> ${totalCount === 1 ? "repository" : "repositories"}</div>
+      <div class="oldgh-topic__count">${totalCount !== null ? `<strong>${formatCount(totalCount)}</strong> ${totalCount === 1 ? "repository" : "repositories"}` : ""}</div>
       <label class="oldgh-topic__sort">
         <span>Sort:</span>
         <select data-oldgh-topic-sort>
+          <option value="best-match"${sort === "best-match" ? " selected" : ""}>Best match</option>
           <option value="stars"${sort === "stars" ? " selected" : ""}>Most stars</option>
           <option value="forks"${sort === "forks" ? " selected" : ""}>Most forks</option>
           <option value="updated"${sort === "updated" ? " selected" : ""}>Recently updated</option>
-          <option value="best-match"${sort === "best-match" ? " selected" : ""}>Best match</option>
         </select>
       </label>
     </div>
     <ul class="oldgh-topic__repo-list">
-      ${items.map(renderRepoRow).join("")}
+      ${repos.map(renderRepoRow).join("")}
     </ul>
+    ${page > 1 || hasNext ? `
+      <nav class="oldgh-topic__pager">
+        ${page > 1 ? `<a href="${escapeAttr(pageHref(page - 1))}">‹ Previous</a>` : "<span></span>"}
+        <span>Page ${page}</span>
+        ${hasNext ? `<a href="${escapeAttr(pageHref(page + 1))}">Next ›</a>` : "<span></span>"}
+      </nav>` : ""}
   `;
 }
 
@@ -219,17 +198,15 @@ function renderRepoRow(r: TopicRepo): string {
   return `
     <li class="oldgh-topic__repo">
       <h2 class="oldgh-topic__repo-title">
-        <img class="oldgh-topic__repo-avatar" src="${escapeAttr(r.ownerAvatar)}" width="20" height="20" alt="" />
-        <a href="/${escapeAttr(r.ownerLogin)}">${escapeText(r.ownerLogin)}</a>
+        <a href="/${escapeAttr(r.owner)}">${escapeText(r.owner)}</a>
         <span class="oldgh-topic__repo-slash">/</span>
-        <a href="/${escapeAttr(r.ownerLogin)}/${escapeAttr(r.repoName)}"><strong>${escapeText(r.repoName)}</strong></a>
+        <a href="/${escapeAttr(r.owner)}/${escapeAttr(r.name)}"><strong>${escapeText(r.name)}</strong></a>
       </h2>
       ${r.description ? `<p class="oldgh-topic__repo-desc">${escapeText(r.description)}</p>` : ""}
       <ul class="oldgh-topic__repo-meta">
-        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${languageColor(r.language)}"></span>${escapeText(r.language)}</li>` : ""}
-        <li>${octicon("star", { size: 12 })} ${formatCount(r.stars)}</li>
-        <li>${octicon("repo-forked", { size: 12 })} ${formatCount(r.forks)}</li>
-        ${r.updatedAt ? `<li>Updated <time datetime="${escapeAttr(r.updatedAt)}" title="${escapeAttr(absoluteFromIso(r.updatedAt))}">${escapeText(relativeTime(r.updatedAt))}</time></li>` : ""}
+        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${escapeAttr(r.languageColor ?? languageColor(r.language))}"></span>${escapeText(r.language)}</li>` : ""}
+        ${r.stars !== null ? `<li>${octicon("star", { size: 12 })} ${formatCount(r.stars)}</li>` : ""}
+        ${r.updatedAt ? `<li>Updated <time datetime="${escapeAttr(r.updatedAt)}" title="${escapeAttr(absoluteTime(r.updatedAt))}">${escapeText(relativeTime(r.updatedAt))}</time></li>` : ""}
       </ul>
     </li>
   `;
@@ -241,6 +218,7 @@ function bindSort(root: HTMLElement): void {
   select.addEventListener("change", () => {
     const params = new URLSearchParams(window.location.search);
     const value = select.value;
+    params.delete("page");
     if (value === "best-match") {
       params.delete("s");
       params.delete("o");
@@ -252,16 +230,4 @@ function bindSort(root: HTMLElement): void {
     history.pushState({}, "", href);
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
-}
-
-import { formatCount } from "@/util/format";
-
-function absoluteFromIso(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function stripMarkup(s: string): string {
-  return s.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
