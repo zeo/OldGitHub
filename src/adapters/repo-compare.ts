@@ -1,6 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
-import { parsePatch, type DiffFile } from "@/util/diff";
+import { parsePatch, parseUnifiedDiff, type DiffFile } from "@/util/diff";
 
 export type CompareView = {
   owner: string;
@@ -13,6 +13,14 @@ export type CompareView = {
 
 export async function getCompare(owner: string, repo: string, range: string): Promise<CompareView> {
   const { base, head, threeDot } = parseRange(range);
+  // github.com serves the diff itself, cookie-authed and in either range form; the api only knows three dots
+  const side = (ref: string) => encodeURIComponent(ref).replace(/%2F/gi, "/").replace(/%3A/gi, ":");
+  const page = await fetch(`https://github.com/${owner}/${repo}/compare/${side(base)}${threeDot ? "..." : ".."}${side(head)}.diff`, {
+    credentials: "include",
+    headers: { Accept: "text/plain" },
+  }).catch(() => null);
+  if (page?.ok) return { owner, repo, base, head, threeDot, files: parseUnifiedDiff(await page.text()) };
+
   const basehead = `${encodeURIComponent(base)}...${encodeURIComponent(head)}`;
   const resp = await fetchApi(
     `https://api.github.com/repos/${owner}/${repo}/compare/${basehead}`,
