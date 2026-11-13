@@ -1,6 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
-import { fetchRepoPage, parseRepoPage } from "./_page";
+import { extractEmbeddedPayload, fetchRepoPage, parseRepoPage } from "./_page";
 
 export type RepoSummary = {
   owner: string;
@@ -91,6 +91,18 @@ export async function getRepoSummary(owner: string, repo: string): Promise<RepoS
   return summary;
 }
 
+// the repo home's sidebar data; other repo pages and an empty repo have none
+function readAbout(doc: Document): Record<string, unknown> {
+  try {
+    const about = (extractEmbeddedPayload(doc) as { payload?: { codeViewRepoRoute?: { overview?: { sidebarAboutData?: unknown } } } })
+      .payload?.codeViewRepoRoute?.overview?.sidebarAboutData;
+    return about && typeof about === "object" ? (about as Record<string, unknown>) : {};
+  } catch (err) {
+    if (err instanceof AdapterFailure) return {};
+    throw err;
+  }
+}
+
 async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSummary> {
   const html = await fetchRepoPage(owner, repo);
   const doc = parseRepoPage(html);
@@ -134,12 +146,21 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
     .replace(/^[\w.-]+\/[\w.-]+\s*:\s*/i, "")
     .trim();
 
-  const isPrivate = !!doc.querySelector('.octicon-lock, [aria-label="Private repository"]');
-  const isFork = !!doc.querySelector('.octicon-repo-forked + span, [data-pjax-replace] [aria-label*="forked"]')
+  const about = readAbout(doc);
+  const flags = (about["repo"] ?? {}) as Record<string, unknown>;
+  const count = (k: string): number | null => (typeof about[k] === "number" ? (about[k] as number) : null);
+  const aboutTopics = Array.isArray(about["topics"])
+    ? (about["topics"] as unknown[]).map((t) => (t && typeof t === "object" ? (t as Record<string, unknown>)["name"] : null)).filter((n): n is string => typeof n === "string")
+    : [];
+  // every page carries a hidden lock octicon in the command palette, so an icon can't tell visibility
+  const isPrivate = typeof flags["isPrivate"] === "boolean"
+    ? flags["isPrivate"]
+    : doc.querySelector<HTMLMetaElement>('meta[name="octolytics-dimension-repository_public"]')?.content === "false";
+  const isFork = flags["isFork"] === true || !!doc.querySelector('.octicon-repo-forked + span, [data-pjax-replace] [aria-label*="forked"]')
     || /^Forks /.test(titleMeta);
   // Archived repos render a "This repository has been archived" banner with a
   // specific aria-label, or a small .Label--inactive next to the title.
-  const isArchived =
+  const isArchived = flags["isArchived"] === true ||
     /This repository has been archived/i.test(doc.body.textContent || "") ||
     !!doc.querySelector('[aria-label*="archived" i]');
   const branch = doc.querySelector<HTMLMetaElement>('meta[name="octolytics-dimension-repository_default_branch"]')?.content
@@ -154,13 +175,13 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
     isFork,
     isArchived,
     parentNwo: null,
-    description,
-    homepage: null,
+    description: typeof about["description"] === "string" ? about["description"] : description,
+    homepage: typeof about["website"] === "string" && about["website"].trim() ? about["website"] : null,
     defaultBranch: branch,
-    stars: null,
-    forks: null,
-    watchers: null,
-    topics,
+    stars: count("stargazerCount"),
+    forks: count("forksCount"),
+    watchers: count("watcherCount"),
+    topics: aboutTopics.length ? aboutTopics : topics,
     primaryLanguage: null,
     license: null,
     hasIssues,
