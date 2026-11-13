@@ -34,37 +34,28 @@ export async function getRepoSummary(owner: string, repo: string): Promise<RepoS
   const cached = summaryCache.get(key);
   if (cached && cached.expires > now) return cached.value;
 
-  if (isApiRateLimited()) {
-    const scraped = await scrapeRepoSummary(owner, repo).catch(() => null);
-    if (scraped) {
-      summaryCache.set(key, { value: scraped, expires: now + TTL_MS });
-      return scraped;
-    }
-    throw new AdapterFailure("getRepoSummary", "API rate-limited; skipping");
-  }
+  // the repo home is fetched anyway for the star state, covers private repos and spends no api quota
+  const scraped = await scrapeRepoSummary(owner, repo).catch(() => null);
+  const summary = scraped?.stars != null ? scraped : (await apiRepoSummary(owner, repo).catch(() => null)) ?? scraped;
+  if (!summary) throw new AdapterFailure("getRepoSummary", `${owner}/${repo} page and api both failed`);
+  summaryCache.set(key, { value: summary, expires: now + TTL_MS });
+  return summary;
+}
 
+async function apiRepoSummary(owner: string, repo: string): Promise<RepoSummary> {
+  if (isApiRateLimited()) throw new AdapterFailure("getRepoSummary", "API rate-limited; skipping");
   const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}`, {
     credentials: "omit",
     headers: { Accept: "application/vnd.github+json" },
   });
-  if (!resp.ok) {
-    // Private repos return 404 to anonymous API calls, but the page itself
-    // renders fine when the user has a cookie. Fall back to scraping the
-    // page so we can still show description, topics, and feature flags.
-    const scraped = await scrapeRepoSummary(owner, repo).catch(() => null);
-    if (scraped) {
-      summaryCache.set(key, { value: scraped, expires: now + TTL_MS });
-      return scraped;
-    }
-    throw new AdapterFailure("getRepoSummary", `responded ${resp.status}`);
-  }
+  if (!resp.ok) throw new AdapterFailure("getRepoSummary", `responded ${resp.status}`);
   const data = (await resp.json()) as Record<string, unknown>;
 
   const fullName = typeof data["full_name"] === "string" ? (data["full_name"] as string) : `${owner}/${repo}`;
   const parent = data["parent"] && typeof data["parent"] === "object" ? (data["parent"] as Record<string, unknown>) : null;
   const license = data["license"] && typeof data["license"] === "object" ? (data["license"] as Record<string, unknown>) : null;
 
-  const summary: RepoSummary = {
+  return {
     owner,
     repo,
     nwo: fullName,
@@ -86,9 +77,6 @@ export async function getRepoSummary(owner: string, repo: string): Promise<RepoS
     hasProjects: data["has_projects"] !== false,
     hasDiscussions: data["has_discussions"] === true,
   };
-
-  summaryCache.set(key, { value: summary, expires: now + TTL_MS });
-  return summary;
 }
 
 // the repo home's sidebar data; other repo pages and an empty repo have none
