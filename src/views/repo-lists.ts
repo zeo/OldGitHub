@@ -258,7 +258,7 @@ async function renderMilestones(owner: string, repo: string, state: string, page
   if (nodes.length === 0) return `${switcher}${emptyHtml(validState === "open" ? "No open milestones." : "No closed milestones.")}`;
   const rows = nodes.map((r) => {
     const title = readString(r, "title") ?? "";
-    const number = (readString(r, "url") ?? "").split("/milestone/")[1] ?? "";
+    const milestoneQuery = new URLSearchParams({ q: `is:${validState} milestone:"${title}"` }).toString();
     const open = readNumber(r, "openIssueCount") ?? 0;
     const closed = readNumber(r, "closedIssueCount") ?? 0;
     const pct = Math.round(readNumber(r, "progressPercentage") ?? 0);
@@ -267,7 +267,7 @@ async function renderMilestones(owner: string, repo: string, state: string, page
     return `
       <li class="oldgh-repo-list__milestone">
         <h3 class="oldgh-repo-list__milestone-title">
-          <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?milestone=${encodeURIComponent(number)}">${escapeText(title)}</a>
+          <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?${escapeAttr(milestoneQuery)}">${escapeText(title)}</a>
         </h3>
         ${desc ? `<p class="oldgh-repo-list__milestone-desc">${escapeText(desc)}</p>` : ""}
         <div class="oldgh-repo-list__milestone-bar"><span style="width:${pct}%"></span></div>
