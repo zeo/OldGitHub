@@ -6940,56 +6940,6 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
   background: var(--gh-bg-subtle);
 }
 
-/* Network / forks list */
-.oldgh-network {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--gh-bg-elev);
-  border: 1px solid var(--gh-border);
-  border-radius: var(--gh-radius);
-  box-shadow: var(--gh-shadow-soft);
-}
-.oldgh-network__row {
-  display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--gh-border-faint);
-}
-.oldgh-network__row:last-child { border-bottom: 0; }
-.oldgh-network__avatar img {
-  border-radius: 3px;
-  border: 1px solid var(--gh-border);
-  display: block;
-}
-.oldgh-network__main { min-width: 0; flex: 1; }
-.oldgh-network__title {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: normal;
-}
-.oldgh-network__title strong { color: var(--gh-fg); }
-.oldgh-network__desc {
-  margin: 4px 0 0;
-  color: var(--gh-fg-muted);
-  font-size: var(--gh-size-md);
-}
-.oldgh-network__meta {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--gh-fg-muted);
-}
-.oldgh-network__meta li {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 /* Releases page */
 .oldgh-repo-releases { padding-top: 14px; }
 .oldgh-releases__header {

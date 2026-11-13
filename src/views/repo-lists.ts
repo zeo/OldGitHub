@@ -135,7 +135,7 @@ async function renderBranches(owner: string, repo: string, page: number): Promis
   return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "branches", page, payload["has_more"] === true)}`;
 }
 
-async function renderForks(owner: string, repo: string, page: number): Promise<string> {
+export async function renderForks(owner: string, repo: string, page: number): Promise<string> {
   const doc = await fetchPageDoc(`https://github.com/${owner}/${repo}/forks?page=${page}`);
   const rows = Array.from(doc.querySelectorAll(".Box-row")).map((row) => {
     const fullName = row.querySelector("h2 a.Link")?.getAttribute("href")?.slice(1) ?? "";

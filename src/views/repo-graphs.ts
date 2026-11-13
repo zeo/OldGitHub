@@ -3,20 +3,18 @@ import {
   getRepoCommitActivity,
   getRepoCodeFrequency,
   getCommunityProfile,
-  getRepoForks,
   type ContributorsView,
   type ContributorEntry,
   type CommitActivityView,
   type CodeFrequencyView,
   type CommunityView,
   type CommunityFile,
-  type NetworkView,
-  type NetworkFork,
 } from "@/adapters/repo-graphs";
 import { octicon } from "@/icons";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderInsightsNav } from "./repo-pulse";
+import { renderForks } from "./repo-lists";
 import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-graphs";
@@ -46,8 +44,7 @@ export async function mountRepoGraphs(owner: string, repo: string, subkind: Grap
       const view = await getCommunityProfile(owner, repo);
       main.innerHTML = renderCommunity(owner, repo, view);
     } else if (subkind === "network") {
-      const view = await getRepoForks(owner, repo);
-      main.innerHTML = renderNetwork(view);
+      main.innerHTML = `<header class="oldgh-graphs__header"><h1>Network</h1></header>${await renderForks(owner, repo, 1)}`;
     } else {
       main.innerHTML = `<div class="oldgh-graphs__empty">${escapeText(graphTitle(subkind))} view isn't built natively yet — open the modern GitHub page <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/graphs/${escapeAttr(subkind)}">here</a>.</div>`;
     }
@@ -317,47 +314,3 @@ function communitySetupHref(owner: string, repo: string, key: string): string | 
   }
 }
 
-function renderNetwork(v: NetworkView): string {
-  if (v.totalForks === 0 && v.forks.length === 0) {
-    return `
-      <header class="oldgh-graphs__header">
-        <h1>Network</h1>
-        <p class="oldgh-graphs__sub">No one has forked this repository yet.</p>
-      </header>
-    `;
-  }
-  return `
-    <header class="oldgh-graphs__header">
-      <h1>Network</h1>
-      <p class="oldgh-graphs__sub">
-        Showing <strong>${v.forks.length}</strong> of <strong>${v.totalForks.toLocaleString()}</strong>
-        ${v.totalForks === 1 ? "fork" : "forks"} of <strong>${escapeText(v.owner)}/${escapeText(v.repo)}</strong>.
-      </p>
-    </header>
-    <ul class="oldgh-network">
-      ${v.forks.map(renderNetworkRow).join("")}
-    </ul>
-  `;
-}
-
-function renderNetworkRow(f: NetworkFork): string {
-  return `
-    <li class="oldgh-network__row">
-      <a class="oldgh-network__avatar" href="/${escapeAttr(f.ownerLogin)}" aria-label="View ${escapeAttr(f.ownerLogin)}'s profile">
-        <img src="${escapeAttr(f.ownerAvatar)}" width="32" height="32" alt="" />
-      </a>
-      <div class="oldgh-network__main">
-        <h3 class="oldgh-network__title">
-          <a href="/${escapeAttr(f.ownerLogin)}/${escapeAttr(f.repoName)}">${escapeText(f.ownerLogin)}/<strong>${escapeText(f.repoName)}</strong></a>
-        </h3>
-        ${f.description ? `<p class="oldgh-network__desc">${escapeText(f.description)}</p>` : ""}
-        <ul class="oldgh-network__meta">
-          <li>${octicon("star", { size: 12 })} ${f.stars.toLocaleString()}</li>
-          <li>${octicon("repo-forked", { size: 12 })} ${f.forks.toLocaleString()}</li>
-          <li>${octicon("git-branch", { size: 12 })} ${escapeText(f.defaultBranch)}</li>
-          ${f.pushedAt ? `<li>Pushed <time datetime="${escapeAttr(f.pushedAt)}" title="${escapeAttr(absoluteTime(f.pushedAt))}">${escapeText(relativeTime(f.pushedAt))}</time></li>` : ""}
-        </ul>
-      </div>
-    </li>
-  `;
-}
