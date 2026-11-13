@@ -370,7 +370,10 @@ html[data-oldgh-hide-modern-header] header.AppHeader,
 html[data-oldgh-hide-modern-header] .AppHeader-globalBar,
 html[data-oldgh-hide-modern-header] header[role="banner"],
 html[data-oldgh-hide-modern-header] .Header,
-html[data-oldgh-hide-modern-header] body > header:not([data-oldgh]) {
+html[data-oldgh-hide-modern-header] body > header:not([data-oldgh]),
+html[data-oldgh-hide-modern-header] .header-wrapper,
+html[data-oldgh-hide-modern-header] react-partial[partial-name="global-nav-bar"],
+html[data-oldgh-hide-modern-header] header.GlobalNav {
   display: none !important;
 }
 
@@ -1218,21 +1221,9 @@ html[data-oldgh-hide-modern-repo-body] .application-main {
   display: none !important;
 }
 
-/* master hide rule — set by dispatcher eagerly to prevent flash during route transitions.
-   the :not([data-oldgh-host="gist"]) guard is load-bearing: on gist.github.com eagerStyle
-   sets data-oldgh-mounted at document_start and the gist branch keeps it as a passthrough
-   value, so without this guard the native gist body (.application-main) and footer would be
-   hidden forever, leaving our header floating over a blank page. */
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) .application-main,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) react-app[app-name="react-code-view"],
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) react-app[app-name="profile"],
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) [data-pjax-container] > main,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) [data-pjax-container] > .repository-content,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) turbo-frame#repo-content-turbo-frame,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) turbo-frame#user-profile-frame-wide,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body > .logged-in > footer.footer,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body > footer.footer,
-html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body > .logged-out > footer.footer {
+/* on pages we render, everything github put in body is hidden; whatever we add carries an
+   oldgh- class. gist keeps its native body under our header, hence the host guard */
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body > :not([class^="oldgh-"]):not([class*=" oldgh-"]) {
   display: none !important;
 }
 
