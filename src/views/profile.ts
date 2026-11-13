@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
-import { getProfile, type PinnedRepo, type ProfileView } from "@/adapters/profile";
+import { getProfile, type PinnedRepo, type ProfileReadme, type ProfileView } from "@/adapters/profile";
 import { setFollowing, type FollowForms } from "@/adapters/social";
 import { isLoggedIn } from "@/auth/session";
 import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/adapters/profile-repos";
@@ -53,15 +53,11 @@ export async function mountProfile(login: string, tab: string, query: string): P
     void hydrateScrapedTab(root, login, tab, query);
   }
   if (tab === "overview" && view.kind === "user") {
-    void hydrateProfileReadme(root, login);
     // public events API only goes back ~90 days; if the viewer is looking at
     // a prior year, the current activity list is misleading — hide it.
     if (!isViewingPastYear(query)) {
       void hydrateActivity(root, login);
     }
-  }
-  if (tab === "overview" && view.kind === "org") {
-    void hydrateOrgReadme(root, login);
   }
   decorateContributionCells(root);
   // tool-tip custom elements relocate themselves asynchronously; retry once they have
@@ -687,12 +683,12 @@ function renderTabBody(v: ProfileView, tab: string): string {
   }
   if (v.kind === "org") {
     return `
-      ${v.pinned.length > 0 ? renderPinned(v) : ""}
-      <div class="oldgh-profile__org-readme-slot">${v.pinned.length === 0 ? renderOrgEmptyState(v) : ""}</div>
+      ${v.readme ? renderReadme(v.readme) : ""}
+      ${v.pinned.length > 0 ? renderPinned(v) : v.readme ? "" : renderOrgEmptyState(v)}
     `;
   }
   return `
-    <div class="oldgh-profile__readme-slot"></div>
+    ${v.readme ? renderReadme(v.readme) : ""}
     ${v.pinned.length > 0 ? renderPinned(v) : ""}
     ${renderContributions(v)}
     <div class="oldgh-profile__activity-slot"></div>
@@ -700,8 +696,7 @@ function renderTabBody(v: ProfileView, tab: string): string {
 }
 
 // shown when an org overview has neither pinned repos nor a .github profile
-// readme, so the main column never renders empty. replaced wholesale by
-// hydrateOrgReadme when a readme is found
+// readme, so the main column never renders empty
 function renderOrgEmptyState(v: ProfileView): string {
   const links: string[] = [];
   links.push(`<a href="/${escapeAttr(v.login)}?tab=repositories">${octicon("repo", { size: 14 })}<span>Repositories${v.repoCountHint != null ? ` (${escapeText(String(v.repoCountHint))})` : ""}</span></a>`);
@@ -716,70 +711,14 @@ function renderOrgEmptyState(v: ProfileView): string {
   `;
 }
 
-async function hydrateOrgReadme(root: HTMLElement, login: string): Promise<void> {
-  const slot = root.querySelector<HTMLElement>(".oldgh-profile__org-readme-slot");
-  if (!slot) return;
-  const url = `https://api.github.com/repos/${encodeURIComponent(login)}/.github/readme`;
-  try {
-    const htmlResp = await fetchApi(url, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github.html" },
-    });
-    if (!htmlResp.ok) return;
-    const ct = htmlResp.headers.get("content-type") || "";
-    const text = await htmlResp.text();
-    const looksHtml = ct.includes("html") || /^\s*</.test(text);
-    if (!looksHtml || !text.trim()) return;
-    slot.innerHTML = `
-      <section class="oldgh-profile__readme">
-        <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${escapeText(login)}/<strong>.github</strong></h3>
-        <article class="oldgh-profile__readme-body markdown-body">${sanitizeHtml(text)}</article>
-      </section>
-    `;
-  } catch {
-    // silent — no readme is fine
-  }
-}
-
-async function hydrateProfileReadme(root: HTMLElement, login: string): Promise<void> {
-  const slot = root.querySelector<HTMLElement>(".oldgh-profile__readme-slot");
-  if (!slot) return;
-  const url = `https://api.github.com/repos/${encodeURIComponent(login)}/${encodeURIComponent(login)}/readme`;
-  try {
-    const htmlResp = await fetchApi(url, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github.html" },
-    });
-    if (htmlResp.ok) {
-      const ct = htmlResp.headers.get("content-type") || "";
-      const text = await htmlResp.text();
-      const looksHtml = ct.includes("html") || /^\s*</.test(text);
-      if (looksHtml && text.trim()) {
-        slot.innerHTML = `
-          <section class="oldgh-profile__readme">
-            <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${escapeText(login)}/<strong>${escapeText(login)}</strong></h3>
-            <article class="oldgh-profile__readme-body markdown-body">${sanitizeHtml(text)}</article>
-          </section>
-        `;
-        return;
-      }
-    } else if (htmlResp.status === 404) {
-      return;
-    }
-    const rawResp = await fetch(`https://raw.githubusercontent.com/${encodeURIComponent(login)}/${encodeURIComponent(login)}/HEAD/README.md`, {
-      credentials: "omit",
-    });
-    if (!rawResp.ok) return;
-    const md = await rawResp.text();
-    slot.innerHTML = `
-      <section class="oldgh-profile__readme">
-        <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${escapeText(login)}/<strong>${escapeText(login)}</strong></h3>
-        <article class="oldgh-profile__readme-body markdown-body"><pre style="white-space:pre-wrap">${escapeText(md.slice(0, 50000))}</pre></article>
-      </section>
-    `;
-  } catch {
-    // silent — no readme is fine
-  }
+function renderReadme(r: ProfileReadme): string {
+  const title = r.href ? `<a href="${escapeAttr(safeHref(r.href))}">${escapeText(r.title)}</a>` : escapeText(r.title);
+  return `
+    <section class="oldgh-profile__readme">
+      <h3 class="oldgh-profile__section-title">${octicon("book", { size: 14 })} ${title}</h3>
+      <article class="oldgh-profile__readme-body markdown-body">${sanitizeHtml(r.html)}</article>
+    </section>
+  `;
 }
 
 function renderReposLoading(): string {

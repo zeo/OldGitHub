@@ -38,6 +38,8 @@ export type ContributionYear = {
   isActive: boolean;
 };
 
+export type ProfileReadme = { title: string; href: string | null; html: string };
+
 export type ProfileView = {
   login: string;
   kind: ProfileKind;
@@ -53,6 +55,7 @@ export type ProfileView = {
   contributionGraphHtml: string | null;
   contributionYears: ContributionYear[];
   pinned: PinnedRepo[];
+  readme: ProfileReadme | null;
   orgs: ProfileOrg[];
   achievements: AchievementBadge[];
   highlights: ProfileHighlights;
@@ -132,6 +135,7 @@ export async function getProfile(login: string, query: string = ""): Promise<Pro
     contributionGraphHtml,
     contributionYears,
     pinned: readPinned(doc),
+    readme: readReadme(doc),
     orgs: readOrgs(doc),
     achievements: readAchievements(doc, profileUsername),
     highlights: readHighlights(doc),
@@ -221,6 +225,18 @@ async function fetchContributionFragment(login: string, from?: string | null, to
 
 function normalizeWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+// the user README and an org's .github README render into the same box on the profile page
+function readReadme(doc: Document): ProfileReadme | null {
+  const article = doc.querySelector<HTMLElement>("article.markdown-body");
+  if (!article?.innerHTML.trim()) return null;
+  const label = article.closest(".Box-body")?.querySelector<HTMLElement>(".text-mono");
+  return {
+    title: normalizeWhitespace(label?.textContent || "").replace(/\s*\/\s*/, " / ") || "README.md",
+    href: label?.querySelector("a")?.getAttribute("href") ?? null,
+    html: article.innerHTML,
+  };
 }
 
 function readHighlights(doc: Document): ProfileHighlights {
