@@ -6363,6 +6363,9 @@ html[data-oldgh-theme="dark"] .oldgh-search__topic:hover {
   font-size: 10px;
   font-weight: bold;
   border-radius: 3px;
+  background: var(--gh-bg-subtle);
+  box-shadow: inset 0 0 0 1px var(--gh-border);
+  color: var(--gh-fg-muted);
 }
 .oldgh-search__issue-meta {
   margin-top: 4px;
@@ -6383,6 +6386,10 @@ html[data-oldgh-theme="dark"] .oldgh-search__topic:hover {
 }
 .oldgh-search__user-main { flex: 1; min-width: 0; }
 .oldgh-search__user-name { font-size: var(--gh-size-lg); }
+.oldgh-search__user-fullname {
+  margin-left: 6px;
+  color: var(--gh-fg-muted);
+}
 .oldgh-search__user-type {
   display: block;
   font-size: 11px;
@@ -7332,7 +7339,8 @@ html[data-oldgh-theme="dark"] .oldgh-pulse__split-num--closed { color: #ff7b72; 
 
 .oldgh-repo-list__pager,
 .oldgh-topic__pager,
-.oldgh-stars__pager {
+.oldgh-stars__pager,
+.oldgh-search__pager {
   display: flex;
   justify-content: space-between;
   align-items: center;

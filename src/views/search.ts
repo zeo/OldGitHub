@@ -41,6 +41,7 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
   const type = mapSearchType(typeRaw);
   const sort = params.get("s") ?? params.get("sort") ?? "best-match";
   const order = (params.get("o") ?? params.get("order")) === "asc" ? "asc" : "desc";
+  const page = Math.max(1, Number.parseInt(params.get("p") ?? "", 10) || 1);
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
@@ -57,25 +58,33 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
   resultsEl.innerHTML = `<div class="oldgh-search__loading">Loading results…</div>`;
   const sortCtx: SortContext = { query, type, sort, order: order as SearchOrder };
   try {
+    let summary: SearchSummary;
     if (type === "repositories") {
-      const { summary, items } = await searchRepositories(query, sort, order as SearchOrder);
-      resultsEl.innerHTML = renderRepoResults(summary, items, sortCtx);
+      const found = await searchRepositories(query, sort, order as SearchOrder, page);
+      summary = found.summary;
+      resultsEl.innerHTML = renderRepoResults(summary, found.items, sortCtx);
     } else if (type === "issues" || type === "pullrequests") {
-      const { summary, items } = await searchIssues(query, sort, order as SearchOrder, type === "pullrequests");
-      resultsEl.innerHTML = renderIssueResults(summary, items, sortCtx);
+      const found = await searchIssues(query, sort, order as SearchOrder, type === "pullrequests", page);
+      summary = found.summary;
+      resultsEl.innerHTML = renderIssueResults(summary, found.items, sortCtx);
     } else if (type === "users") {
-      const { summary, items } = await searchUsers(query, sort, order as SearchOrder);
-      resultsEl.innerHTML = renderUserResults(summary, items, sortCtx);
+      const found = await searchUsers(query, sort, order as SearchOrder, page);
+      summary = found.summary;
+      resultsEl.innerHTML = renderUserResults(summary, found.items, sortCtx);
     } else if (type === "code") {
-      const { summary, html } = await searchCodePage(query, sort, order as SearchOrder);
-      resultsEl.innerHTML = `${renderResultBar(summary, sortCtx)}<div class="oldgh-search__web-results">${html}</div>`;
+      const found = await searchCodePage(query, sort, order as SearchOrder, page);
+      summary = found.summary;
+      resultsEl.innerHTML = `${renderResultBar(summary, sortCtx)}<div class="oldgh-search__web-results">${found.html}</div>`;
     } else if (type === "commits") {
-      const { summary, items } = await searchCommits(query, sort, order as SearchOrder);
-      resultsEl.innerHTML = renderCommitResults(summary, items, sortCtx);
-    } else if (type === "topics") {
-      const { summary, items } = await searchTopics(query);
-      resultsEl.innerHTML = renderTopicResults(summary, items, sortCtx);
+      const found = await searchCommits(query, sort, order as SearchOrder, page);
+      summary = found.summary;
+      resultsEl.innerHTML = renderCommitResults(summary, found.items, sortCtx);
+    } else {
+      const found = await searchTopics(query, page);
+      summary = found.summary;
+      resultsEl.innerHTML = renderTopicResults(summary, found.items, sortCtx);
     }
+    resultsEl.insertAdjacentHTML("beforeend", renderPager(summary, params));
     bindSortControl(resultsEl);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -178,7 +187,7 @@ function renderRepoRow(r: RepoResult): string {
       <ul class="oldgh-search__meta">
         ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${langColor}"></span>${escapeText(r.language)}</li>` : ""}
         <li>${octicon("star", { size: 12 })} ${formatCount(r.stargazers)}</li>
-        <li>${octicon("repo-forked", { size: 12 })} ${formatCount(r.forks)}</li>
+        ${r.forks != null ? `<li>${octicon("repo-forked", { size: 12 })} ${formatCount(r.forks)}</li>` : ""}
         ${r.license ? `<li>${octicon("law", { size: 12 })} ${escapeText(r.license)}</li>` : ""}
         <li>Updated ${relativeTimeSpan(r.updatedAt)}</li>
       </ul>
@@ -209,7 +218,7 @@ function renderIssueRow(it: IssueResult): string {
     stateClass = "oldgh-search__state--closed";
   }
   const labels = it.labels
-    .map((l) => `<span class="oldgh-search__label" style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};">${escapeText(emojify(l.name))}</span>`)
+    .map((l) => `<span class="oldgh-search__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};"` : ""}>${escapeText(emojify(l.name))}</span>`)
     .join(" ");
   return `
     <li class="oldgh-search__row oldgh-search__row--issue">
@@ -232,17 +241,26 @@ function renderUserResults(summary: SearchSummary, items: UserResult[], ctx: Sor
   return `
     ${renderResultBar(summary, ctx)}
     <ul class="oldgh-search__list oldgh-search__list--users">
-      ${items.map((u) => `
+      ${items.map((u) => {
+        const meta = [
+          u.type,
+          u.location,
+          u.followers != null ? `${formatCount(u.followers)} ${u.followers === 1 ? "follower" : "followers"}` : null,
+          u.repos != null ? `${formatCount(u.repos)} ${u.repos === 1 ? "repository" : "repositories"}` : null,
+        ].filter(Boolean).join(" · ");
+        return `
         <li class="oldgh-search__row oldgh-search__row--user">
           <a href="/${escapeAttr(u.login)}" class="oldgh-search__user-avatar" aria-label="View ${escapeAttr(u.login)}'s profile">
             <img src="${escapeAttr(u.avatarUrl)}" width="48" height="48" alt="" />
           </a>
           <div class="oldgh-search__user-main">
             <a class="oldgh-search__user-name" href="/${escapeAttr(u.login)}"><strong>${escapeText(u.login)}</strong></a>
-            <span class="oldgh-search__user-type">${escapeText(u.type)}</span>
+            ${u.name && u.name !== u.login ? `<span class="oldgh-search__user-fullname">${escapeText(u.name)}</span>` : ""}
+            ${meta ? `<span class="oldgh-search__user-type">${escapeText(meta)}</span>` : ""}
           </div>
         </li>
-      `).join("")}
+      `;
+      }).join("")}
     </ul>
   `;
 }
@@ -365,6 +383,7 @@ function bindSortControl(root: HTMLElement): void {
   select.addEventListener("change", () => {
     const params = new URLSearchParams(window.location.search);
     const value = select.value;
+    params.delete("p");
     if (value === "best-match") {
       params.delete("s");
       params.delete("o");
@@ -376,6 +395,23 @@ function bindSortControl(root: HTMLElement): void {
     history.pushState({}, "", href);
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
+}
+
+function renderPager(s: SearchSummary, params: URLSearchParams): string {
+  if (s.pageCount <= 1) return "";
+  const href = (p: number): string => {
+    const next = new URLSearchParams(params);
+    if (p > 1) next.set("p", String(p));
+    else next.delete("p");
+    return `/search?${next}`;
+  };
+  return `
+    <nav class="oldgh-search__pager">
+      ${s.page > 1 ? `<a href="${escapeAttr(href(s.page - 1))}">‹ Previous</a>` : "<span></span>"}
+      <span>Page ${s.page} of ${s.pageCount}</span>
+      ${s.page < s.pageCount ? `<a href="${escapeAttr(href(s.page + 1))}">Next ›</a>` : "<span></span>"}
+    </nav>
+  `;
 }
 
 function renderEmpty(_s: SearchSummary): string {
