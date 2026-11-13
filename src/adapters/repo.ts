@@ -107,7 +107,6 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
   const html = await fetchRepoPage(owner, repo);
   const doc = parseRepoPage(html);
 
-  const titleMeta = doc.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.content || "";
   const descMeta = doc.querySelector<HTMLMetaElement>('meta[name="description"], meta[property="og:description"]')?.content?.trim() || "";
 
   // Walk every anchor with an href in the same repo namespace; modern GitHub
@@ -152,17 +151,14 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
   const aboutTopics = Array.isArray(about["topics"])
     ? (about["topics"] as unknown[]).map((t) => (t && typeof t === "object" ? (t as Record<string, unknown>)["name"] : null)).filter((n): n is string => typeof n === "string")
     : [];
+  const repoMeta = (name: string): string | undefined =>
+    doc.querySelector<HTMLMetaElement>(`meta[name="octolytics-dimension-repository_${name}"]`)?.content;
   // every page carries a hidden lock octicon in the command palette, so an icon can't tell visibility
-  const isPrivate = typeof flags["isPrivate"] === "boolean"
-    ? flags["isPrivate"]
-    : doc.querySelector<HTMLMetaElement>('meta[name="octolytics-dimension-repository_public"]')?.content === "false";
-  const isFork = flags["isFork"] === true || !!doc.querySelector('.octicon-repo-forked + span, [data-pjax-replace] [aria-label*="forked"]')
-    || /^Forks /.test(titleMeta);
-  // Archived repos render a "This repository has been archived" banner with a
-  // specific aria-label, or a small .Label--inactive next to the title.
-  const isArchived = flags["isArchived"] === true ||
-    /This repository has been archived/i.test(doc.body.textContent || "") ||
-    !!doc.querySelector('[aria-label*="archived" i]');
+  const isPrivate = typeof flags["isPrivate"] === "boolean" ? flags["isPrivate"] : repoMeta("public") === "false";
+  const isFork = typeof flags["isFork"] === "boolean" ? flags["isFork"] : repoMeta("is_fork") === "true";
+  const isArchived = typeof flags["isArchived"] === "boolean"
+    ? flags["isArchived"]
+    : /This repository (?:was|has been) archived/i.test(doc.querySelector(".flash-warn")?.textContent ?? "");
   const branch = doc.querySelector<HTMLMetaElement>('meta[name="octolytics-dimension-repository_default_branch"]')?.content
     || doc.querySelector<HTMLElement>('[data-test-selector="branch-name"]')?.textContent?.trim()
     || "main";
@@ -174,7 +170,7 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
     isPrivate,
     isFork,
     isArchived,
-    parentNwo: null,
+    parentNwo: isFork ? repoMeta("parent_nwo") || null : null,
     description: typeof about["description"] === "string" ? about["description"] : description,
     homepage: typeof about["website"] === "string" && about["website"].trim() ? about["website"] : null,
     defaultBranch: branch,
