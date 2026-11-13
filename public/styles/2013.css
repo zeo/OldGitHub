@@ -3035,6 +3035,8 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="4
   border: 1px solid var(--gh-border);
   border-radius: var(--gh-radius);
   padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
   transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
 }
 .oldgh-profile__pinned-card:hover {
@@ -3065,7 +3067,7 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="4
   line-height: 1.4;
 }
 .oldgh-profile__pinned-meta {
-  margin: 0;
+  margin: auto 0 0;
   display: flex;
   gap: 14px;
   font-size: var(--gh-size-xs);
