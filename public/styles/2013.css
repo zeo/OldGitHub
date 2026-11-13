@@ -3001,7 +3001,7 @@ html[data-oldgh-hide-modern-profile] [data-pjax-container] > main {
 .oldgh-profile__contribs-legend-cell[data-level="2"] { background: #8cc665; }
 .oldgh-profile__contribs-legend-cell[data-level="3"] { background: #44a340; }
 .oldgh-profile__contribs-legend-cell[data-level="4"] { background: #1e6823; }
-html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell { background: #2a2a2a; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell { background: #383838; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="1"] { background: #0e4429; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="2"] { background: #006d32; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="3"] { background: #26a641; }
@@ -3282,7 +3282,7 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="4
 .oldgh-profile__contribs-graph [data-level="2"] { background: #8cc665 !important; fill: #8cc665 !important; }
 .oldgh-profile__contribs-graph [data-level="3"] { background: #44a340 !important; fill: #44a340 !important; }
 .oldgh-profile__contribs-graph [data-level="4"] { background: #1e6823 !important; fill: #1e6823 !important; }
-html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="0"] { background: #2a2a2a !important; fill: #2a2a2a !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="0"] { background: #383838 !important; fill: #383838 !important; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="1"] { background: #0e4429 !important; fill: #0e4429 !important; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="2"] { background: #006d32 !important; fill: #006d32 !important; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="3"] { background: #26a641 !important; fill: #26a641 !important; }
@@ -3294,7 +3294,7 @@ html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="4"] { 
 }
 
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day,
-html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day { background: #2a2a2a; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day { background: #383838; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="1"],
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="1"] { background: #0e4429; }
 html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="2"],
