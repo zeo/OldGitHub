@@ -10890,6 +10890,14 @@ html[data-oldgh-theme="dark"] .oldgh-actions-run__job-header:hover {
   font-size: 11px;
   font-weight: bold;
   line-height: 16px;
+  background: var(--gh-bg-subtle);
+  box-shadow: inset 0 0 0 1px var(--gh-border);
+  color: var(--gh-fg-muted);
+}
+.oldgh-me-issues__more {
+  margin: 0;
+  padding: 10px;
+  text-align: center;
 }
 .oldgh-me-issues__row2 {
   display: flex;

@@ -1,5 +1,6 @@
 import { octicon } from "@/icons";
-import { getMeIssues, type MeIssueFilter, type MeIssueItem, type MeIssueKind, type MeIssuesPage } from "@/adapters/me-issues";
+import { getMeIssues, type MeIssueFilter, type MeIssueKind, type MeIssuesPage } from "@/adapters/me-issues";
+import type { IssueResult } from "@/adapters/search";
 import { currentUserLogin } from "@/auth/session";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
@@ -8,10 +9,11 @@ import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-me-issues";
 
-export async function mountMeIssues(kind: MeIssueKind, _pathname: string, search: string): Promise<void> {
+export async function mountMeIssues(kind: MeIssueKind, pathname: string, search: string): Promise<void> {
   const nav = navigationToken();
   const login = currentUserLogin();
-  const filter = parseFilter(search, kind);
+  // github redirects /issues?filter=assigned to /issues/assigned
+  const filter = parseFilter(pathname.split("/")[2] ?? new URLSearchParams(search).get("filter"), kind);
 
   const root = document.createElement("div");
   root.className = `${ROOT_CLASS} ${ROOT_CLASS}--${kind}`;
@@ -28,9 +30,7 @@ export async function mountMeIssues(kind: MeIssueKind, _pathname: string, search
   root.innerHTML = renderShell(page);
 }
 
-function parseFilter(search: string, kind: MeIssueKind): MeIssueFilter {
-  const params = new URLSearchParams(search);
-  const f = params.get("filter");
+function parseFilter(f: string | null, kind: MeIssueKind): MeIssueFilter {
   if (f === "assigned") return "assigned";
   if (f === "mentioned") return "mentioned";
   if (f === "review-requested" && kind === "pull") return "review-requested";
@@ -67,6 +67,7 @@ function renderShell(p: MeIssuesPage): string {
               ${p.items.map(renderItem).join("")}
             </ul>
           `}
+          ${p.totalCount > p.items.length ? `<p class="oldgh-me-issues__more"><a href="${escapeAttr(searchHref(p))}">View all ${formatCount(p.totalCount)} in search</a></p>` : ""}
         </div>
       </div>
     </div>
@@ -113,23 +114,28 @@ function renderError(kind: MeIssueKind, filter: MeIssueFilter, _login: string | 
   `;
 }
 
-function renderItem(it: MeIssueItem): string {
+function searchHref(p: MeIssuesPage): string {
+  return `/search?${new URLSearchParams({ q: p.query, type: p.kind === "issue" ? "issues" : "pullrequests", s: "updated", o: "desc" })}`;
+}
+
+function renderItem(it: IssueResult): string {
   const icon = stateIcon(it);
-  const labels = it.labels.slice(0, 6).map((l) => `<span class="oldgh-me-issues__label" style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)}">${escapeText(emojify(l.name))}</span>`).join("");
+  const [repoOwner, repoName] = it.repoFullName.split("/");
+  const labels = it.labels.slice(0, 6).map((l) => `<span class="oldgh-me-issues__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)}"` : ""}>${escapeText(emojify(l.name))}</span>`).join("");
   return `
     <li class="oldgh-me-issues__item">
       <span class="oldgh-me-issues__icon oldgh-me-issues__icon--${itemStateClass(it)}">${icon}</span>
       <div class="oldgh-me-issues__body">
         <div class="oldgh-me-issues__row1">
-          <a class="oldgh-me-issues__repo" href="${escapeAttr(it.repoUrl)}">${escapeText(it.repoOwner)}/${escapeText(it.repoName)}</a>
-          <a class="oldgh-me-issues__title" href="${escapeAttr(it.url)}">${escapeText(it.title)}</a>
+          <a class="oldgh-me-issues__repo" href="/${escapeAttr(it.repoFullName)}">${escapeText(repoOwner ?? "")}/${escapeText(repoName ?? "")}</a>
+          <a class="oldgh-me-issues__title" href="${escapeAttr(it.htmlUrl.replace(/^https:\/\/github\.com/, ""))}">${escapeText(it.title)}</a>
           ${labels ? `<span class="oldgh-me-issues__labels">${labels}</span>` : ""}
         </div>
         <div class="oldgh-me-issues__row2">
           <span>#${it.number}</span>
-          ${it.author ? `· opened by <a href="/${escapeAttr(it.author.login)}">${escapeText(it.author.login)}</a>` : ""}
-          ${it.updatedAt ? `· <span title="${escapeAttr(absoluteTime(it.updatedAt))}">updated ${escapeText(relativeTime(it.updatedAt))}</span>` : ""}
-          ${it.comments ? `· <span>${octicon("comment", { size: 12 })} ${formatCount(it.comments)}</span>` : ""}
+          ${it.user ? `· opened by <a href="/${escapeAttr(it.user.login)}">${escapeText(it.user.login)}</a>` : ""}
+          ${it.createdAt ? `<span title="${escapeAttr(absoluteTime(it.createdAt))}">${escapeText(relativeTime(it.createdAt))}</span>` : ""}
+          ${it.commentCount ? `· <span>${octicon("comment", { size: 12 })} ${formatCount(it.commentCount)}</span>` : ""}
         </div>
       </div>
     </li>
@@ -158,7 +164,8 @@ function tabLinks(kind: MeIssueKind, active: MeIssueFilter): { label: string; hr
   if (kind === "pull") tabs.push({ label: "Review requests", filter: "review-requested" });
   return tabs.map((t) => ({
     label: t.label,
-    href: t.filter === "created" ? base : `${base}?filter=${t.filter}`,
+    // github keeps /issues on the last view a user opened, so issue tabs use its path urls
+    href: kind === "issue" ? `${base}/${t.filter}` : t.filter === "created" ? base : `${base}?filter=${t.filter}`,
     active: t.filter === active,
   }));
 }
@@ -172,21 +179,14 @@ function filterLabel(f: MeIssueFilter, kind: MeIssueKind): string {
   }
 }
 
-function stateIcon(it: MeIssueItem): string {
-  if (it.isPull) {
-    if (it.pullState === "merged") return octicon("git-merge", { size: 14 });
-    if (it.pullState === "draft") return octicon("git-pull-request", { size: 14 });
-    if (it.pullState === "closed") return octicon("git-pull-request", { size: 14 });
-    return octicon("git-pull-request", { size: 14 });
-  }
-  return it.state === "closed" ? octicon("issue-closed", { size: 14 }) : octicon("issue-opened", { size: 14 });
+function stateIcon(it: IssueResult): string {
+  if (it.isPull) return octicon(it.merged ? "git-merge" : "git-pull-request", { size: 14 });
+  return octicon(it.state === "closed" ? "issue-closed" : "issue-opened", { size: 14 });
 }
 
-function itemStateClass(it: MeIssueItem): string {
-  if (it.isPull) {
-    return it.pullState ?? "open";
-  }
-  return it.state;
+function itemStateClass(it: IssueResult): string {
+  if (!it.isPull) return it.state;
+  return it.merged ? "merged" : it.state === "closed" ? "closed" : it.draft ? "draft" : "open";
 }
 
 function labelTextColor(hex: string): string {
