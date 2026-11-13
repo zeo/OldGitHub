@@ -8,6 +8,7 @@ import {
   getPullFiles,
   getPullCommits,
   getPullChecks,
+  getReviewThreads,
   type IssueDetail,
   type PullDetail,
   type TimelineNode,
@@ -40,13 +41,13 @@ export async function mountRepoIssue(
   tab: IssueTab = "conversation",
 ): Promise<void> {
   const nav = navigationToken();
-  const view = kind === "pull" ? await loadPull(owner, repo, number) : await loadIssue(owner, repo, number);
+  const view = kind === "pull" ? await loadPull(owner, repo, number, tab) : await loadIssue(owner, repo, number);
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
   root.innerHTML = renderShell(view, kind, tab);
   if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
   if (kind === "pull" && tab !== "conversation") {
-    void hydrateSubTab(root, owner, repo, number, tab, (view as PullDetail).reviewThreads);
+    void hydrateSubTab(root, view as PullDetail, tab);
   }
 }
 
@@ -60,7 +61,16 @@ async function loadIssue(owner: string, repo: string, number: number): Promise<I
   }
 }
 
-async function loadPull(owner: string, repo: string, number: number): Promise<PullDetail> {
+// only the conversation needs the api's labels, comments and reviews; the other tabs' headers come from the page
+async function loadPull(owner: string, repo: string, number: number, tab: IssueTab): Promise<PullDetail> {
+  if (tab !== "conversation") {
+    try {
+      return await getPullFromPage(owner, repo, number, tab);
+    } catch (err) {
+      if (!(err instanceof AdapterFailure)) throw err;
+      return getPull(owner, repo, number);
+    }
+  }
   try {
     return await getPull(owner, repo, number);
   } catch (err) {
@@ -69,20 +79,23 @@ async function loadPull(owner: string, repo: string, number: number): Promise<Pu
   }
 }
 
-async function hydrateSubTab(
-  root: HTMLElement,
-  owner: string,
-  repo: string,
-  number: number,
-  tab: IssueTab,
-  threads: ReviewThread[],
-): Promise<void> {
+async function hydrateSubTab(root: HTMLElement, pull: PullDetail, tab: IssueTab): Promise<void> {
+  const { owner, repo, number } = pull;
   const container = root.querySelector<HTMLElement>(".oldgh-issue__subtab");
   if (!container) return;
   try {
     if (tab === "files") {
-      const files = await getPullFiles(owner, repo, number);
+      const [files, threads] = await Promise.all([
+        getPullFiles(pull),
+        pull.metadataHidden ? getReviewThreads(owner, repo, number).catch((err: unknown) => {
+          if (err instanceof AdapterFailure) return [];
+          throw err;
+        }) : pull.reviewThreads,
+      ]);
       container.innerHTML = renderPullFiles(files, threads, `/${owner}/${repo}/pull/${number}`);
+      if (pull.changedFiles == null) {
+        root.querySelector(".oldgh-issue__pr-tabs .is-active a")?.insertAdjacentHTML("beforeend", `<span class="oldgh-issue__pr-tab-count">${files.length}</span>`);
+      }
       return;
     }
     if (tab === "commits") {
@@ -91,7 +104,7 @@ async function hydrateSubTab(
       return;
     }
     if (tab === "checks") {
-      const checks = await getPullChecks(owner, repo, number);
+      const checks = await getPullChecks(owner, repo, pull.headSha);
       container.innerHTML = renderPullChecks(checks);
       return;
     }
@@ -130,8 +143,8 @@ function renderPullFile(f: PullFile, threads: ReviewThread[], pullPath: string):
   const statusLabel = f.status === "renamed" && f.previousFilename
     ? `${escapeText(f.previousFilename)} → ${escapeText(f.filename)}`
     : escapeText(f.filename);
-  const hunk = f.patch
-    ? renderHunks(parsePatch(f.patch), threadsAfter)
+  const hunk = f.hunks.length
+    ? renderHunks(f.hunks, threadsAfter)
     : `<div class="oldgh-pr-file__nopatch">Binary or large file — view on <a href="${escapeAttr(f.blobUrl)}">GitHub</a>.</div>`;
   const unplaced = threads.filter((t) => !placed.has(t));
   return `

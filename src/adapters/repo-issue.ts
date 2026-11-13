@@ -2,6 +2,7 @@ import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
 import { loadPagePayload, parseRepoPage } from "./_page";
 import { escapeText } from "@/util/html";
+import { parsePatch, parseUnifiedDiff, type DiffHunk } from "@/util/diff";
 
 export type IssueState = "OPEN" | "CLOSED";
 export type PullState = "OPEN" | "CLOSED" | "MERGED";
@@ -85,6 +86,8 @@ export type PullDetail = Omit<IssueDetail, "state"> & {
   headRefName: string;
   baseRefName: string;
   headRepoOwner: string | null;
+  baseSha: string;
+  headSha: string;
   commitsCount: number;
   changedFiles: number | null;
   additions: number;
@@ -124,25 +127,18 @@ export type PullFile = {
   status: "added" | "removed" | "modified" | "renamed" | "copied" | "changed" | "unchanged";
   additions: number;
   deletions: number;
-  changes: number;
-  patch: string | null;
+  hunks: DiffHunk[];
   blobUrl: string;
-  rawUrl: string;
-  sha: string;
 };
 
 export type PullCommit = {
   sha: string;
   abbrevSha: string;
-  message: string;
   headline: string;
-  body: string;
   authorName: string;
   authorLogin: string | null;
   authorAvatarUrl: string;
-  authorDate: string;
   committerDate: string;
-  commentCount: number;
 };
 
 export type CheckRun = {
@@ -159,9 +155,27 @@ export type CheckRun = {
   outputSummary: string | null;
 };
 
-export async function getPullFiles(owner: string, repo: string, number: number): Promise<PullFile[]> {
-  const pages = await apiFetchAll(`/repos/${owner}/${repo}/pulls/${number}/files`);
-  return pages.map((r) => parsePullFile(r)).filter((f): f is PullFile => f !== null);
+// a pull's diff is its base...head compare, which github.com serves itself; pull/N.diff redirects to a host without cors
+export async function getPullFiles(p: PullDetail): Promise<PullFile[]> {
+  const resp = p.baseSha && p.headSha
+    ? await fetch(`https://github.com/${p.owner}/${p.repo}/compare/${p.baseSha}...${p.headSha}.diff`, {
+      credentials: "include",
+      headers: { Accept: "text/plain" },
+    }).catch(() => null)
+    : null;
+  if (!resp?.ok) {
+    const pages = await apiFetchAll(`/repos/${p.owner}/${p.repo}/pulls/${p.number}/files`);
+    return pages.map((r) => parsePullFile(r)).filter((f): f is PullFile => f !== null);
+  }
+  return parseUnifiedDiff(await resp.text()).map((f) => ({
+    filename: f.path,
+    previousFilename: f.status === "renamed" ? f.oldPath : null,
+    status: f.status === "deleted" ? "removed" : f.status === "binary" ? "modified" : f.status,
+    additions: f.additions,
+    deletions: f.deletions,
+    hunks: f.hunks,
+    blobUrl: `https://github.com/${p.owner}/${p.repo}/blob/${p.headSha}/${f.path.split("/").map(encodeURIComponent).join("/")}`,
+  }));
 }
 
 // replies point at the thread's first comment, so grouping by that id rebuilds each conversation
@@ -198,20 +212,31 @@ export async function getReviewThreads(owner: string, repo: string, number: numb
 }
 
 export async function getPullCommits(owner: string, repo: string, number: number): Promise<PullCommit[]> {
+  const route = readPath(await loadPagePayload(`https://github.com/${owner}/${repo}/pull/${number}/commits`).catch(() => null), ["payload", "pullRequestsCommitsRoute"]);
+  if (route && route["truncated"] !== true && Array.isArray(route["commitGroups"])) {
+    return readArray(route["commitGroups"]).flatMap((g) => readArray(readObj(g)?.["commits"])).flatMap((raw) => {
+      const c = readObj(raw);
+      const sha = c && readString(c, "oid");
+      if (!c || !sha) return [];
+      const author = readObj(readArray(c["authors"])[0]);
+      const login = author && readString(author, "login");
+      return [{
+        sha,
+        abbrevSha: sha.slice(0, 7),
+        headline: readString(c, "shortMessage") ?? "",
+        authorName: (author && readString(author, "displayName")) ?? "",
+        authorLogin: login,
+        authorAvatarUrl: (author && readString(author, "avatarUrl")) || (login ? `https://github.com/${login}.png?size=40` : ""),
+        committerDate: readString(c, "committedDate") ?? "",
+      }];
+    });
+  }
   const pages = await apiFetchAll(`/repos/${owner}/${repo}/pulls/${number}/commits`);
   return pages.map((r) => parsePullCommit(r)).filter((c): c is PullCommit => c !== null);
 }
 
-export async function getPullChecks(owner: string, repo: string, number: number): Promise<CheckRun[]> {
-  const prRaw = await apiFetch(`/repos/${owner}/${repo}/pulls/${number}`);
-  if (!prRaw || typeof prRaw !== "object") {
-    throw new AdapterFailure("getPullChecks", "pull request not found");
-  }
-  const head = readObj((prRaw as Record<string, unknown>)["head"]);
-  const sha = head ? readString(head, "sha") : null;
-  if (!sha) {
-    throw new AdapterFailure("getPullChecks", "head sha missing");
-  }
+export async function getPullChecks(owner: string, repo: string, sha: string): Promise<CheckRun[]> {
+  if (!sha) throw new AdapterFailure("getPullChecks", "head sha missing");
   const resp = await fetchApi(`${API}/repos/${owner}/${repo}/commits/${sha}/check-runs?per_page=100`, {
     credentials: "omit",
     headers: { Accept: HTML_ACCEPT },
@@ -264,11 +289,8 @@ function parsePullFile(raw: unknown): PullFile | null {
     status,
     additions: readNumber(f, "additions") ?? 0,
     deletions: readNumber(f, "deletions") ?? 0,
-    changes: readNumber(f, "changes") ?? 0,
-    patch: readString(f, "patch"),
+    hunks: parsePatch(readString(f, "patch") ?? ""),
     blobUrl: readString(f, "blob_url") ?? "",
-    rawUrl: readString(f, "raw_url") ?? "",
-    sha: readString(f, "sha") ?? "",
   };
 }
 
@@ -279,30 +301,18 @@ function parsePullCommit(raw: unknown): PullCommit | null {
   if (!sha) return null;
   const commitObj = readObj(c["commit"]);
   const message = (commitObj && readString(commitObj, "message")) ?? "";
-  const lines = message.split("\n");
-  const headline = lines[0] ?? "";
-  const body = lines.slice(1).join("\n").trim();
   const authorObj = commitObj ? readObj(commitObj["author"]) : null;
-  const authorName = (authorObj && readString(authorObj, "name")) ?? "";
-  const authorDate = (authorObj && readString(authorObj, "date")) ?? "";
   const committerObj = commitObj ? readObj(commitObj["committer"]) : null;
-  const committerDate = (committerObj && readString(committerObj, "date")) ?? authorDate;
   const ghAuthor = readObj(c["author"]);
   const authorLogin = ghAuthor ? readString(ghAuthor, "login") : null;
-  const authorAvatarUrl = (ghAuthor && readString(ghAuthor, "avatar_url")) || (authorLogin ? `https://github.com/${authorLogin}.png?size=40` : "");
-  const commentCount = (commitObj && readNumber(commitObj, "comment_count")) ?? 0;
   return {
     sha,
     abbrevSha: sha.slice(0, 7),
-    message,
-    headline,
-    body,
-    authorName,
+    headline: message.split("\n")[0] ?? "",
+    authorName: (authorObj && readString(authorObj, "name")) ?? "",
     authorLogin,
-    authorAvatarUrl,
-    authorDate,
-    committerDate,
-    commentCount,
+    authorAvatarUrl: (ghAuthor && readString(ghAuthor, "avatar_url")) || (authorLogin ? `https://github.com/${authorLogin}.png?size=40` : ""),
+    committerDate: (committerObj && readString(committerObj, "date")) ?? (authorObj && readString(authorObj, "date")) ?? "",
   };
 }
 
@@ -390,12 +400,12 @@ export async function fillTimelineGap(v: IssueDetail): Promise<IssueDetail> {
   }
 }
 
-// signed in, the pull page carries the header and description but loads comments and reviews separately
-export async function getPullFromPage(owner: string, repo: string, number: number): Promise<PullDetail> {
-  const payload = await loadPagePayload(`https://github.com/${owner}/${repo}/pull/${number}`);
+// signed in, every pull tab carries the header and the conversation tab the description; comments and reviews load separately
+export async function getPullFromPage(owner: string, repo: string, number: number, tab = ""): Promise<PullDetail> {
+  const payload = await loadPagePayload(`https://github.com/${owner}/${repo}/pull/${number}${tab ? `/${tab}` : ""}`);
   const pr = readPath(payload, ["payload", "pullRequestsLayoutRoute", "pullRequest"]);
   const overview = readPath(payload, ["payload", "pullRequestsOverviewIndexRoute"]);
-  if (!pr || !overview || readNumber(pr, "number") !== number) {
+  if (!pr || readNumber(pr, "number") !== number) {
     throw new AdapterFailure("getPullFromPage", `pull ${owner}/${repo}#${number} not in page payload`);
   }
   const author = readObj(pr["author"]);
@@ -405,7 +415,7 @@ export async function getPullFromPage(owner: string, repo: string, number: numbe
   const rawState = readString(pr, "state");
   const headOwner = readString(pr, "headRepositoryOwnerLogin");
   const title = readString(pr, "title") ?? "";
-  const reactions = readArray(overview["reactionGroups"]).flatMap((g) => {
+  const reactions = readArray(overview?.["reactionGroups"]).flatMap((g) => {
     const o = readObj(g);
     const content = readNestedString(o, ["reaction", "content"]);
     const count = o ? readNumber(o, "totalCount") ?? 0 : 0;
@@ -420,7 +430,7 @@ export async function getPullFromPage(owner: string, repo: string, number: numbe
     titleHtml: readString(pr, "titleHtml") ?? escapeText(title),
     state: mergedAt ? "MERGED" : rawState === "CLOSED" ? "CLOSED" : "OPEN",
     stateReason: null,
-    bodyHtml: readString(overview, "description") ?? "",
+    bodyHtml: (overview && readString(overview, "description")) ?? "",
     author: login ? { login, avatarUrl: readString(author, "avatarUrl") ?? `https://github.com/${login}.png?size=64`, isAgent: author["isAgent"] === true } : null,
     createdAt: readString(pr, "createdTime") ?? "",
     labels: [],
@@ -434,6 +444,8 @@ export async function getPullFromPage(owner: string, repo: string, number: numbe
     headRefName: readString(pr, "headBranch") ?? "",
     baseRefName: readString(pr, "baseBranch") ?? "",
     headRepoOwner: headOwner && headOwner.toLowerCase() !== owner.toLowerCase() ? headOwner : null,
+    baseSha: readString(pr, "baseSha") ?? "",
+    headSha: readString(pr, "headSha") ?? "",
     commitsCount: readNumber(pr, "commitsCount") ?? 0,
     changedFiles: null,
     additions: 0,
@@ -616,6 +628,8 @@ function restToPull(base: IssueDetail, pr: Record<string, unknown>): Omit<PullDe
     headRefName,
     baseRefName,
     headRepoOwner: headRepoOwnerNorm,
+    baseSha: (baseObj && readString(baseObj, "sha")) ?? "",
+    headSha: (head && readString(head, "sha")) ?? "",
     commitsCount: readNumber(pr, "commits") ?? 0,
     changedFiles: readNumber(pr, "changed_files") ?? 0,
     additions: readNumber(pr, "additions") ?? 0,
