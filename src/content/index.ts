@@ -1,5 +1,5 @@
 import { killTurbo, mountRouter } from "@/router";
-import { resolveRoute } from "@/router/resolve";
+import { isFullyCoveredUrl, resolveRoute } from "@/router/resolve";
 import { keepFirstLoad } from "@/adapters/_page";
 import { bindShortcuts } from "@/router/shortcuts";
 import { isLoggedIn } from "@/auth/session";
@@ -86,9 +86,38 @@ function undoEagerStyle(): void {
   document.querySelectorAll("link[data-oldgh-stylesheet]").forEach((n) => n.remove());
 }
 
+const GITHUB_ASSETS = "https://github.githubassets.com/assets/";
+const assetState = { loaded: false, blocked: false, armed: false, healing: false };
+
+function noteAsset(e: Event): void {
+  const el = e.target;
+  const url = el instanceof HTMLLinkElement ? el.href : el instanceof HTMLScriptElement ? el.src : "";
+  if (!url.startsWith(GITHUB_ASSETS)) return;
+  if (e.type === "load") assetState.loaded = true;
+  else assetState.blocked = true;
+  if (assetState.armed) void healLoadState();
+}
+
+// the rules arm on tabs.onUpdated, which can lose the race with a hard load's first requests
+async function healLoadState(): Promise<boolean> {
+  const search = location.search.slice(1);
+  const covered = isFullyCoveredUrl(location.pathname, search);
+  if (assetState.healing || !(covered ? assetState.loaded : assetState.blocked)) return false;
+  assetState.healing = true;
+  document.removeEventListener("load", noteAsset, true);
+  document.removeEventListener("error", noteAsset, true);
+  console.warn(`[oldgh] github assets were ${covered ? "loaded on a page we render" : "blocked on a native page"}, reloading once`);
+  await chrome.runtime.sendMessage({ type: "oldgh:route-change", pathname: location.pathname, search }).catch(() => undefined);
+  return reloadOnce();
+}
+
 async function boot(): Promise<void> {
   const early = eagerMode();
   if (early === "on") eagerStyle();
+  if (!IS_GIST) {
+    document.addEventListener("load", noteAsset, true);
+    document.addEventListener("error", noteAsset, true);
+  }
   chrome.runtime.onMessage.addListener((msg: { type?: unknown; enabled?: unknown }, _sender, sendResponse) => {
     if (msg?.type !== "oldgh:set-enabled") return undefined;
     writeLocal(DISABLED_CACHE_KEY, msg.enabled === false);
@@ -105,6 +134,8 @@ async function boot(): Promise<void> {
   const mode: PageMode = !enabled ? "off" : isNativeTab() ? "native" : isLoggedIn() ? "on" : "signed-out";
   writeLocal(SIGNED_OUT_CACHE_KEY, mode === "signed-out");
   if (mode !== "on") {
+    document.removeEventListener("load", noteAsset, true);
+    document.removeEventListener("error", noteAsset, true);
     undoEagerStyle();
     if (await reportPageMode(mode) && reloadOnce()) return;
     if (mode === "native") mountNativePill();
@@ -118,6 +149,8 @@ async function boot(): Promise<void> {
   } else {
     void reportPageMode("on").then((reload) => reload && reloadOnce());
   }
+  assetState.armed = true;
+  if (await healLoadState()) return;
   await run();
 }
 
