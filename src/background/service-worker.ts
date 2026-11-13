@@ -1,8 +1,6 @@
 import { isFullyCoveredUrl } from "@/router/resolve";
+import { blockRules } from "./block-rules";
 import { allowedProxyUrl, allowedRedirectTarget, readProxyText } from "./proxy-policy";
-
-const ResourceType = chrome.declarativeNetRequest.ResourceType;
-const RuleActionType = chrome.declarativeNetRequest.RuleActionType;
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
@@ -10,22 +8,29 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
-type BlockState = { enabled: boolean; signedOut: boolean; nativeTabs: number[] };
+type BlockState = { enabled: boolean; signedOut: boolean; nativeTabs: number[]; blockedTabs: number[] };
+
+const tabList = (v: unknown): number[] => (Array.isArray(v) ? v.filter((n): n is number => typeof n === "number") : []);
 
 const stateReady: Promise<BlockState> = Promise.all([
   chrome.storage.local.get("enabled"),
-  chrome.storage.session.get(["oldgh:signed-out", "oldgh:native-tabs"]),
+  chrome.storage.session.get(["oldgh:signed-out", "oldgh:native-tabs", "oldgh:blocked-tabs"]),
 ]).then(([local, session]) => ({
   enabled: local["enabled"] !== false,
   signedOut: session["oldgh:signed-out"] === true,
-  nativeTabs: Array.isArray(session["oldgh:native-tabs"]) ? (session["oldgh:native-tabs"] as number[]) : [],
+  nativeTabs: tabList(session["oldgh:native-tabs"]),
+  blockedTabs: tabList(session["oldgh:blocked-tabs"]),
 }));
 
 async function saveState(patch: Partial<BlockState>): Promise<BlockState> {
   const state = Object.assign(await stateReady, patch);
   if ("enabled" in patch) await chrome.storage.local.set({ enabled: state.enabled });
-  if ("signedOut" in patch || "nativeTabs" in patch) {
-    await chrome.storage.session.set({ "oldgh:signed-out": state.signedOut, "oldgh:native-tabs": state.nativeTabs });
+  if ("signedOut" in patch || "nativeTabs" in patch || "blockedTabs" in patch) {
+    await chrome.storage.session.set({
+      "oldgh:signed-out": state.signedOut,
+      "oldgh:native-tabs": state.nativeTabs,
+      "oldgh:blocked-tabs": state.blockedTabs,
+    });
   }
   return state;
 }
@@ -48,10 +53,7 @@ chrome.action.onClicked.addListener(() => {
   void (async () => {
     const state = await saveState({ enabled: !(await stateReady).enabled });
     showBadge(state.enabled);
-    if (!state.enabled) {
-      const rules = await chrome.declarativeNetRequest.getSessionRules();
-      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: rules.map((r) => r.id) });
-    }
+    if (!state.enabled) await setBlocked(() => []);
     const tabs = await chrome.tabs.query({ url: ["https://github.com/*", "https://gist.github.com/*"] });
     for (const tab of tabs) {
       if (tab.id === undefined) continue;
@@ -61,69 +63,33 @@ chrome.action.onClicked.addListener(() => {
   })();
 });
 
-type RuleSpec = {
-  urlFilter: string;
-  resourceType: chrome.declarativeNetRequest.ResourceType;
-};
+let ruleQueue: Promise<void> = Promise.resolve();
 
-const BLOCK_SPECS: readonly RuleSpec[] = [
-  { urlFilter: "||github.githubassets.com/assets/", resourceType: ResourceType.STYLESHEET },
-  { urlFilter: "||github.githubassets.com/assets/react-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/wp-runtime-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/app_assets_modules_", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/environment-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/behaviors-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/vendors-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/chunk-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/notifications-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/webpack_", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/primer-", resourceType: ResourceType.SCRIPT },
-  { urlFilter: "||github.githubassets.com/assets/element-", resourceType: ResourceType.SCRIPT },
-];
-
-const RULES_PER_TAB = BLOCK_SPECS.length;
-const RULE_ID_BASE = 1000;
-const MAX_RULE_ID = 1_000_000_000;
-
-function ruleIdsFor(tabId: number): number[] {
-  const base = RULE_ID_BASE + tabId * RULES_PER_TAB;
-  if (base + RULES_PER_TAB >= MAX_RULE_ID) return [];
-  return Array.from({ length: RULES_PER_TAB }, (_, i) => base + i);
+// rules change one at a time so two tabs updating together can't drop each other's id
+function setBlocked(update: (tabs: number[]) => number[], force = false): Promise<void> {
+  ruleQueue = ruleQueue
+    .then(async () => {
+      const state = await stateReady;
+      const next = update(state.blockedTabs);
+      if (!force && next.length === state.blockedTabs.length && next.every((id) => state.blockedTabs.includes(id))) return;
+      const current = await chrome.declarativeNetRequest.getSessionRules();
+      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: current.map((r) => r.id), addRules: blockRules(next) });
+      await saveState({ blockedTabs: next });
+    })
+    .catch((err: unknown) => console.debug("[oldgh] block rules update failed:", err));
+  return ruleQueue;
 }
+
+// also clears rules left by the per-tab id scheme of earlier versions
+void setBlocked((tabs) => tabs, true);
 
 async function enableForTab(tabId: number): Promise<void> {
   if (!(await mayBlock(tabId))) return disableForTab(tabId);
-  const ids = ruleIdsFor(tabId);
-  if (ids.length === 0) return;
-  const addRules: chrome.declarativeNetRequest.Rule[] = BLOCK_SPECS.map((spec, i) => ({
-    id: ids[i]!,
-    priority: 1,
-    action: { type: RuleActionType.BLOCK },
-    condition: {
-      urlFilter: spec.urlFilter,
-      resourceTypes: [spec.resourceType],
-      tabIds: [tabId],
-      initiatorDomains: ["github.com"],
-    },
-  }));
-  try {
-    await chrome.declarativeNetRequest.updateSessionRules({
-      removeRuleIds: ids,
-      addRules,
-    });
-  } catch (err) {
-    console.debug("[oldgh] enableForTab failed:", err);
-  }
+  return setBlocked((tabs) => (tabs.includes(tabId) ? tabs : [...tabs, tabId]));
 }
 
-async function disableForTab(tabId: number): Promise<void> {
-  const ids = ruleIdsFor(tabId);
-  if (ids.length === 0) return;
-  try {
-    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ids });
-  } catch (err) {
-    console.debug("[oldgh] disableForTab failed:", err);
-  }
+function disableForTab(tabId: number): Promise<void> {
+  return setBlocked((tabs) => tabs.filter((id) => id !== tabId));
 }
 
 async function reconcile(tabId: number, url: string | undefined): Promise<void> {
@@ -165,10 +131,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
+// prerender and instant pages swap the tab id under a loaded page
+chrome.tabs.onReplaced.addListener((added, removed) => {
+  void setBlocked((tabs) => (tabs.includes(removed) ? [...tabs.filter((id) => id !== removed), added] : tabs));
+});
+
 async function tabWasBlocked(tabId: number): Promise<boolean> {
-  const ids = new Set(ruleIdsFor(tabId));
-  const rules = await chrome.declarativeNetRequest.getSessionRules();
-  return rules.some((r) => ids.has(r.id));
+  await ruleQueue;
+  return (await stateReady).blockedTabs.includes(tabId);
 }
 
 type PageMode = "on" | "native" | "signed-out" | "off";
@@ -269,12 +239,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (m.type === "oldgh:route-change") {
     if (typeof m.pathname !== "string") return undefined;
     const search = typeof m.search === "string" ? m.search : "";
-    if (isFullyCoveredUrl(m.pathname, search)) {
-      void enableForTab(tabId);
-    } else {
-      void disableForTab(tabId);
-    }
-    return undefined;
+    const applied = isFullyCoveredUrl(m.pathname, search) ? enableForTab(tabId) : disableForTab(tabId);
+    void applied.then(() => sendResponse({ ok: true }));
+    return true;
   }
 
   if (m.type === "oldgh:page-mode") {
