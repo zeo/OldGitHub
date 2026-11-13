@@ -12,20 +12,20 @@ export async function mountRepoActions(owner: string, repo: string, query: strin
 
   const root = document.createElement("div");
   root.className = ROOT_CLASS;
-  root.innerHTML = renderShell(view);
+  root.innerHTML = renderShell(view, query);
   adoptBodyRoot(root, ".oldgh-repo-header", nav);
 }
 
-function renderShell(v: ActionsView): string {
+function renderShell(v: ActionsView, query: string): string {
   return `
     <div class="oldgh-page oldgh-actions">
       <div class="oldgh-actions__layout">
         <aside class="oldgh-actions__sidebar">
           <h3>${octicon("github-action", { size: 12 })} Workflows</h3>
           <ul class="oldgh-actions__workflows">
-            <li><a href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/actions" class="oldgh-actions__wf-all${v.selectedWorkflowId ? "" : " oldgh-actions__wf--selected"}"><strong>All workflows</strong></a></li>
+            <li><a href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/actions" class="oldgh-actions__wf-all${v.selectedWorkflowFilePath ? "" : " oldgh-actions__wf--selected"}"><strong>All workflows</strong></a></li>
             ${v.workflows.map((w) => `
-              <li><a href="${escapeAttr(w.href)}" title="${escapeAttr(w.filePath)}" class="${String(w.id) === v.selectedWorkflowId ? "oldgh-actions__wf--selected" : ""}">${escapeText(w.name)}</a></li>
+              <li><a href="${escapeAttr(w.href)}" title="${escapeAttr(w.filePath)}" class="${w.filePath === v.selectedWorkflowFilePath ? "oldgh-actions__wf--selected" : ""}">${escapeText(w.name)}</a></li>
             `).join("")}
           </ul>
         </aside>
@@ -35,16 +35,17 @@ function renderShell(v: ActionsView): string {
               <h2>${escapeText(v.selectedWorkflowName || basename(v.selectedWorkflowFilePath))}</h2>
               <p class="oldgh-actions__sub">
                 <a href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/blob/HEAD/${escapeAttr(v.selectedWorkflowFilePath)}"><code>${escapeText(v.selectedWorkflowFilePath)}</code></a> ·
-                ${formatCount(v.totalCount)} workflow ${v.totalCount === 1 ? "run" : "runs"}
+                ${runCount(v)}
               </p>
             ` : `
-              <h2>${formatCount(v.totalCount)} workflow ${v.totalCount === 1 ? "run" : "runs"}</h2>
+              <h2>${runCount(v)}</h2>
             `}
           </header>
           ${v.runs.length === 0 ? `<p class="oldgh-actions__empty">No workflow runs match the current filter.</p>` : `
             <ul class="oldgh-actions__runs">
               ${v.runs.map((r) => renderRun(r)).join("")}
             </ul>
+            ${renderPager(v, query)}
           `}
         </div>
       </div>
@@ -64,8 +65,8 @@ function renderRun(r: WorkflowRun): string {
         <div class="oldgh-actions__run-meta">
           <span>${escapeText(r.workflowName)}</span>
           ${r.branch ? `· <a href="${escapeAttr(r.branchUrl || "#")}"><code>${escapeText(r.branch)}</code></a>` : ""}
-          ${r.commitSha ? `· <a href="${escapeAttr(r.commitUrl || "#")}"><code>${escapeText(r.commitSha)}</code></a>` : ""}
-          ${r.actor ? `· <a href="/${escapeAttr(r.actor.login)}">${escapeText(r.actor.login)}</a>` : ""}
+          ${r.event ? `· ${escapeText(r.event)}${r.eventLink ? ` <a href="${escapeAttr(r.eventLink.url)}">${escapeText(r.eventLink.text)}</a>` : ""}` : ""}
+          ${r.actor ? `· <a href="${escapeAttr(r.actor.url)}">${escapeText(r.actor.login)}</a>` : ""}
           ${r.startedAt ? `· <span title="${escapeAttr(absoluteTime(r.startedAt))}">${escapeText(relativeTime(r.startedAt))}</span>` : ""}
           ${r.duration ? `· ${escapeText(r.duration)}` : ""}
         </div>
@@ -91,8 +92,24 @@ function statusIcon(s: WorkflowRun["status"]): string {
   }
 }
 
-function formatCount(n: number): string {
-  return new Intl.NumberFormat().format(n);
+function runCount(v: ActionsView): string {
+  return `${new Intl.NumberFormat().format(v.totalCount)}${v.countIsCapped ? "+" : ""} workflow ${v.totalCount === 1 ? "run" : "runs"}`;
+}
+
+function renderPager(v: ActionsView, query: string): string {
+  if (v.totalPages <= 1) return "";
+  const href = (page: number) => {
+    const params = new URLSearchParams(query);
+    params.set("page", String(page));
+    return `?${escapeAttr(params.toString())}`;
+  };
+  return `
+    <nav class="oldgh-actions__pager">
+      ${v.page > 1 ? `<a href="${href(v.page - 1)}">‹ Newer</a>` : "<span></span>"}
+      <span>Page ${v.page} of ${v.totalPages}</span>
+      ${v.page < v.totalPages ? `<a href="${href(v.page + 1)}">Older ›</a>` : "<span></span>"}
+    </nav>
+  `;
 }
 
 function basename(path: string): string {

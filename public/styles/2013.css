@@ -4320,6 +4320,14 @@ html[data-oldgh-theme="dark"] .oldgh-actions__wf--selected {
   font-style: italic;
   margin: 12px 0;
 }
+.oldgh-actions__pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
 
 /* ===== generic scraped section (pulse/graphs/projects/security) ===== */
 .oldgh-section__header {
@@ -10550,11 +10558,6 @@ html[data-oldgh-theme="dark"] .oldgh-actions-run__header {
   vertical-align: middle;
   margin-right: 4px;
 }
-.oldgh-actions-run__commit-msg {
-  color: var(--gh-fg);
-  margin-left: 6px;
-  font-size: 12px;
-}
 .oldgh-actions-run__state-pill {
   display: inline-flex;
   align-items: center;
@@ -10744,10 +10747,6 @@ html[data-oldgh-theme="dark"] .oldgh-actions-run__state-pill--action_required {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.oldgh-actions-run__job-nav-time {
-  font-size: 11px;
-  color: var(--gh-fg-faint);
-}
 .oldgh-actions-run__job-nav-status {
   width: 14px;
   height: 14px;
@@ -10819,16 +10818,6 @@ html[data-oldgh-theme="dark"] .oldgh-actions-run__job-header:hover {
 }
 .oldgh-actions-run__job-body {
   padding: 0;
-}
-.oldgh-actions-run__job-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 8px 14px;
-  background: var(--gh-bg-subtle);
-  border-bottom: 1px solid var(--gh-border-faint);
-  font-size: 11px;
-  color: var(--gh-fg-muted);
 }
 .oldgh-actions-run__steps {
   list-style: none;

@@ -1,26 +1,24 @@
 import { AdapterFailure } from "./index";
-import { fetchApi } from "./rate-limit";
+import { loadPagePayload } from "./_page";
 
 export type WorkflowRunStatus = "success" | "failure" | "pending" | "queued" | "in_progress" | "cancelled" | "skipped" | "neutral" | "action_required" | "timed_out" | "stale" | "unknown";
 
 export type WorkflowRun = {
-  id: string;
   url: string;
   title: string;
   workflowName: string;
   runNumber: number | null;
   status: WorkflowRunStatus;
+  event: string;
+  eventLink: { text: string; url: string } | null;
   branch: string | null;
   branchUrl: string | null;
-  commitSha: string | null;
-  commitUrl: string | null;
-  actor: { login: string; avatarUrl: string } | null;
+  actor: { login: string; url: string } | null;
   startedAt: string | null;
   duration: string | null;
 };
 
 export type WorkflowFile = {
-  id: number;
   name: string;
   filePath: string;
   href: string;
@@ -29,148 +27,86 @@ export type WorkflowFile = {
 export type ActionsView = {
   owner: string;
   repo: string;
-  query: string;
   workflows: WorkflowFile[];
   runs: WorkflowRun[];
   totalCount: number;
-  selectedWorkflowId: string;
+  countIsCapped: boolean;
+  page: number;
+  totalPages: number;
   selectedWorkflowName: string | null;
   selectedWorkflowFilePath: string | null;
 };
 
-const API = "https://api.github.com";
-
+// github's own actions page carries the runs and the workflow list in its react payload
 export async function getActions(owner: string, repo: string, query: string, workflowPath: string | null = null): Promise<ActionsView> {
-  const params = new URLSearchParams(query);
-  const queryWorkflowId = params.get("workflow") ?? "";
-  const page = Math.max(1, parseInt(params.get("page") ?? "1", 10) || 1);
+  const file = workflowPath?.replace(/^\.github\/workflows\//, "") ?? "";
+  const base = `https://github.com/${owner}/${repo}/actions${file ? `/workflows/${file}` : ""}`;
+  const payload = readObj(readObj(await loadPagePayload(query ? `${base}?${query}` : base))?.["payload"]);
+  const runsRoute = payload && Object.values(payload).map(readObj).find((r) => Array.isArray(r?.["workflowRuns"]));
+  if (!runsRoute) throw new AdapterFailure("getActions", `${owner}/${repo} actions payload missing`);
 
-  const workflowsResp = await fetchApi(`${API}/repos/${owner}/${repo}/actions/workflows?per_page=100`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github+json" },
+  const workflows = readArray(readObj(payload["workflowsLayoutRoute"])?.["workflows"]).flatMap((raw) => {
+    const w = readObj(raw);
+    const filePath = w ? readString(w, "path") : "";
+    if (!w || !filePath) return [];
+    return [{ name: readString(w, "name") || filePath, filePath, href: `/${owner}/${repo}/actions/workflows/${filePath.replace(/^\.github\/workflows\//, "")}` }];
   });
-  if (!workflowsResp.ok) {
-    throw new AdapterFailure("getActions", `workflows responded ${workflowsResp.status}`);
-  }
-  const workflowsData = (await workflowsResp.json()) as { workflows?: unknown[] };
-  const workflows: WorkflowFile[] = [];
-  for (const w of workflowsData.workflows ?? []) {
-    if (!w || typeof w !== "object") continue;
-    const r = w as Record<string, unknown>;
-    const id = typeof r["id"] === "number" ? (r["id"] as number) : null;
-    const name = typeof r["name"] === "string" ? (r["name"] as string) : null;
-    if (id == null || !name) continue;
-    const filePath = typeof r["path"] === "string" ? (r["path"] as string) : "";
-    workflows.push({
-      id,
-      name,
-      filePath,
-      href: filePath ? `/${owner}/${repo}/actions/workflows/${filePath.replace(/^\.github\/workflows\//, "")}` : `/${owner}/${repo}/actions?workflow=${id}`,
-    });
-  }
-
-  let workflowId = queryWorkflowId;
-  let selectedWorkflowFilePath: string | null = null;
-  let selectedWorkflowName: string | null = null;
-  if (workflowPath) {
-    const normalized = workflowPath.startsWith(".github/workflows/") ? workflowPath : `.github/workflows/${workflowPath}`;
-    const match = workflows.find((w) => w.filePath === normalized);
-    if (match) {
-      workflowId = String(match.id);
-      selectedWorkflowFilePath = match.filePath;
-      selectedWorkflowName = match.name;
-    } else {
-      selectedWorkflowFilePath = normalized;
-    }
-  } else if (queryWorkflowId) {
-    const match = workflows.find((w) => String(w.id) === queryWorkflowId);
-    if (match) {
-      selectedWorkflowName = match.name;
-      selectedWorkflowFilePath = match.filePath;
-    }
-  }
-
-  const runsPath = workflowId
-    ? `/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(workflowId)}/runs`
-    : `/repos/${owner}/${repo}/actions/runs`;
-  const runsResp = await fetchApi(`${API}${runsPath}?per_page=30&page=${page}`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github+json" },
+  const selectedWorkflowFilePath = file ? `.github/workflows/${file}` : null;
+  const header = readObj(runsRoute["header"]);
+  const runs = readArray(runsRoute["workflowRuns"]).flatMap((raw) => {
+    const r = readObj(raw);
+    return r ? [parseRun(r)] : [];
   });
-  if (!runsResp.ok) {
-    throw new AdapterFailure("getActions", `runs responded ${runsResp.status}`);
-  }
-  const runsData = (await runsResp.json()) as { workflow_runs?: unknown[]; total_count?: number };
-  const runs: WorkflowRun[] = [];
-  for (const raw of runsData.workflow_runs ?? []) {
-    const parsed = parseRun(raw, owner, repo);
-    if (parsed) runs.push(parsed);
-  }
-  const totalCount = typeof runsData.total_count === "number" ? runsData.total_count : runs.length;
 
   return {
     owner,
     repo,
-    query,
     workflows,
     runs,
-    totalCount,
-    selectedWorkflowId: workflowId,
-    selectedWorkflowName,
+    totalCount: readNumber(runsRoute, "totalCount") ?? runs.length,
+    countIsCapped: runsRoute["countIsCapped"] === true,
+    page: Math.max(1, parseInt(new URLSearchParams(query).get("page") ?? "1", 10) || 1),
+    totalPages: readNumber(runsRoute, "totalPages") ?? 1,
+    selectedWorkflowName: selectedWorkflowFilePath
+      ? (workflows.find((w) => w.filePath === selectedWorkflowFilePath)?.name ?? (header ? readString(header, "title") : "")) || null
+      : null,
     selectedWorkflowFilePath,
   };
 }
 
-function parseRun(raw: unknown, owner: string, repo: string): WorkflowRun | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const id = typeof r["id"] === "number" ? String(r["id"] as number) : "";
-  if (!id) return null;
-  const url = (typeof r["html_url"] === "string" ? (r["html_url"] as string) : "").replace(/^https:\/\/github\.com/, "");
-  const workflowName = typeof r["name"] === "string" ? (r["name"] as string) : "Workflow";
-  const displayTitle = typeof r["display_title"] === "string" ? (r["display_title"] as string) : workflowName;
-  const runNumber = typeof r["run_number"] === "number" ? (r["run_number"] as number) : null;
-  const branch = typeof r["head_branch"] === "string" ? (r["head_branch"] as string) : null;
-  const headSha = typeof r["head_sha"] === "string" ? (r["head_sha"] as string) : null;
-  const status = resolveStatus(typeof r["status"] === "string" ? (r["status"] as string) : "", typeof r["conclusion"] === "string" ? (r["conclusion"] as string) : null);
-  const actorRaw = r["actor"];
-  let actor: WorkflowRun["actor"] = null;
-  if (actorRaw && typeof actorRaw === "object") {
-    const a = actorRaw as Record<string, unknown>;
-    const login = typeof a["login"] === "string" ? (a["login"] as string) : null;
-    if (login) {
-      actor = {
-        login,
-        avatarUrl: typeof a["avatar_url"] === "string" ? (a["avatar_url"] as string) : `https://github.com/${login}.png?size=40`,
-      };
-    }
-  }
-  const runStartedAt = typeof r["run_started_at"] === "string" ? (r["run_started_at"] as string) : null;
-  const updatedAt = typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : null;
-  const duration = computeDuration(runStartedAt, updatedAt);
-
+function parseRun(r: Record<string, unknown>): WorkflowRun {
+  const state = readObj(r["state"]);
+  const branch = readObj(r["branch"]);
+  const desc = readObj(r["description"]);
+  const actorName = desc ? readString(desc, "actorName") : "";
+  const linkText = desc ? readString(desc, "linkText") : "";
+  const startedAt = readString(readObj(r["createdAt"]) ?? {}, "timestamp");
   return {
-    id,
-    url,
-    title: displayTitle,
-    workflowName,
-    runNumber,
-    status,
-    branch,
-    branchUrl: branch ? `/${owner}/${repo}/tree/${encodeURIComponent(branch)}` : null,
-    commitSha: headSha ? headSha.slice(0, 7) : null,
-    commitUrl: headSha ? `/${owner}/${repo}/commit/${headSha}` : null,
-    actor,
-    startedAt: runStartedAt,
-    duration,
+    url: readString(r, "runUrl").replace(/^https:\/\/github\.com/, ""),
+    title: readString(r, "title"),
+    workflowName: readString(r, "workflowName") || readString(r, "name") || "Workflow",
+    runNumber: readNumber(r, "runNumber"),
+    status: state ? resolveStatus(enumTail(readString(state, "status")), enumTail(readString(state, "conclusion")) || null) : "unknown",
+    event: desc ? readString(desc, "primaryText") : "",
+    eventLink: desc && linkText ? { text: linkText, url: readString(desc, "linkUrl") } : null,
+    branch: branch ? readString(branch, "title") || null : null,
+    branchUrl: branch ? readString(branch, "url") || null : null,
+    actor: desc && actorName ? { login: actorName, url: readString(desc, "actorUrl") || `/${actorName}` } : null,
+    startedAt: startedAt || null,
+    duration: readString(readObj(r["timing"]) ?? {}, "text") || null,
   };
 }
 
-function resolveStatus(status: string, conclusion: string | null): WorkflowRunStatus {
+// the payload spells states as WORKFLOW_RUN_STATUS_IN_PROGRESS and WORKFLOW_RUN_CONCLUSION_TIMED_OUT
+function enumTail(value: string): string {
+  return value.replace(/^WORKFLOW_RUN_(STATUS|CONCLUSION)_/, "").toLowerCase();
+}
+
+export function resolveStatus(status: string, conclusion: string | null): WorkflowRunStatus {
   if (status !== "completed") {
     if (status === "queued") return "queued";
     if (status === "in_progress") return "in_progress";
-    if (status === "pending" || status === "waiting") return "pending";
+    if (status === "") return "unknown";
     return "pending";
   }
   switch (conclusion) {
@@ -186,7 +122,7 @@ function resolveStatus(status: string, conclusion: string | null): WorkflowRunSt
   }
 }
 
-function computeDuration(startIso: string | null, endIso: string | null): string | null {
+export function computeDuration(startIso: string | null, endIso: string | null): string | null {
   if (!startIso || !endIso) return null;
   const start = new Date(startIso).getTime();
   const end = new Date(endIso).getTime();
@@ -198,4 +134,20 @@ function computeDuration(startIso: string | null, endIso: string | null): string
   if (min < 60) return `${min}m ${rest}s`;
   const hr = Math.floor(min / 60);
   return `${hr}h ${min % 60}m`;
+}
+
+function readObj(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function readArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : [];
+}
+
+function readString(o: Record<string, unknown>, key: string): string {
+  return typeof o[key] === "string" ? (o[key] as string) : "";
+}
+
+function readNumber(o: Record<string, unknown>, key: string): number | null {
+  return typeof o[key] === "number" ? (o[key] as number) : null;
 }

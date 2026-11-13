@@ -1,30 +1,21 @@
 import { AdapterFailure } from "./index";
-import { fetchApi } from "./rate-limit";
-import type { WorkflowRunStatus } from "./repo-actions";
+import { fetchPageDoc } from "./_page";
+import { computeDuration, resolveStatus, type WorkflowRunStatus } from "./repo-actions";
 
 export type RunDetail = {
-  id: number;
-  url: string;
   workflowName: string;
-  workflowId: number | null;
   workflowUrl: string | null;
   displayTitle: string;
   runNumber: number | null;
   runAttempt: number | null;
   event: string;
   status: WorkflowRunStatus;
-  rawStatus: string;
-  rawConclusion: string | null;
   branch: string | null;
   branchUrl: string | null;
-  commitSha: string | null;
   commitShortSha: string | null;
   commitUrl: string | null;
-  commitMessage: string | null;
-  triggeringActor: { login: string; avatarUrl: string } | null;
-  actor: { login: string; avatarUrl: string } | null;
+  actor: { login: string; url: string; avatarUrl: string } | null;
   startedAt: string | null;
-  updatedAt: string | null;
   duration: string | null;
   htmlUrl: string;
 };
@@ -33,8 +24,6 @@ export type JobStep = {
   name: string;
   status: WorkflowRunStatus;
   number: number;
-  startedAt: string | null;
-  completedAt: string | null;
   duration: string | null;
 };
 
@@ -42,15 +31,7 @@ export type JobDetail = {
   id: number;
   name: string;
   status: WorkflowRunStatus;
-  rawStatus: string;
-  rawConclusion: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  duration: string | null;
-  url: string;
-  runnerName: string | null;
-  labels: string[];
-  steps: JobStep[];
+  href: string;
 };
 
 export type RunPage = {
@@ -60,201 +41,117 @@ export type RunPage = {
   jobs: JobDetail[];
 };
 
-const API = "https://api.github.com";
-
+// the run page is server-rendered; jobs come from the same json endpoint github's own sidebar pages through
 export async function getRunPage(owner: string, repo: string, runId: string): Promise<RunPage> {
-  const [runResp, jobsResp] = await Promise.all([
-    fetchApi(`${API}/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    }),
-    fetchApi(`${API}/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}/jobs?per_page=100`, {
-      credentials: "omit",
-      headers: { Accept: "application/vnd.github+json" },
-    }),
-  ]);
+  const htmlUrl = `https://github.com/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}`;
+  const doc = await fetchPageDoc(htmlUrl);
+  const summary = doc.querySelector('[aria-label="Workflow run summary"]');
+  const title = doc.querySelector("h1.PageHeader-title");
+  if (!summary || !title) throw new AdapterFailure("getRunPage", `run ${runId} not found on the page`);
 
-  if (!runResp.ok) {
-    throw new AdapterFailure("getRunPage", `run responded ${runResp.status}`);
-  }
-  if (!jobsResp.ok) {
-    throw new AdapterFailure("getRunPage", `jobs responded ${jobsResp.status}`);
-  }
+  const jobsUrl = Array.from(doc.querySelectorAll('script[type="application/json"]'))
+    .map((s) => s.textContent?.match(/"jobGroupsFetchUrl":"([^"]+)"/)?.[1])
+    .find(Boolean) ?? `/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}/job_groups_batch?attempt=1`;
+  const trigger = summary.querySelector(".col-triggered-content");
+  const actorLink = trigger?.querySelector<HTMLAnchorElement>("a:has(img.avatar)");
+  const commit = trigger?.querySelector('a[href*="/commit/"]')?.getAttribute("href") ?? "";
+  const branch = trigger?.querySelector("a.branch-name");
+  const parent = doc.querySelector(".PageHeader-parentLink a");
+  const startedAt = summary.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? null;
+  const triggerLabel = summary.querySelector("relative-time")?.parentElement;
+  const attempt = Number(new URLSearchParams(jobsUrl.split("?")[1] ?? "").get("attempt")) || null;
 
-  const runRaw = (await runResp.json()) as Record<string, unknown>;
-  const jobsRaw = (await jobsResp.json()) as { jobs?: unknown[] };
-
-  const run = parseRun(runRaw, owner, repo);
-  const jobs: JobDetail[] = [];
-  for (const j of jobsRaw.jobs ?? []) {
-    const parsed = parseJob(j);
-    if (parsed) jobs.push(parsed);
-  }
-
-  return { owner, repo, run, jobs };
-}
-
-function parseRun(r: Record<string, unknown>, owner: string, repo: string): RunDetail {
-  const id = typeof r["id"] === "number" ? (r["id"] as number) : 0;
-  const htmlUrl = typeof r["html_url"] === "string" ? (r["html_url"] as string) : "";
-  const workflowName = typeof r["name"] === "string" ? (r["name"] as string) : "Workflow";
-  const workflowId = typeof r["workflow_id"] === "number" ? (r["workflow_id"] as number) : null;
-  const workflowUrl = workflowId != null ? `/${owner}/${repo}/actions?workflow=${workflowId}` : null;
-  const displayTitle = typeof r["display_title"] === "string" ? (r["display_title"] as string) : workflowName;
-  const runNumber = typeof r["run_number"] === "number" ? (r["run_number"] as number) : null;
-  const runAttempt = typeof r["run_attempt"] === "number" ? (r["run_attempt"] as number) : null;
-  const event = typeof r["event"] === "string" ? (r["event"] as string) : "";
-  const rawStatus = typeof r["status"] === "string" ? (r["status"] as string) : "";
-  const rawConclusion = typeof r["conclusion"] === "string" ? (r["conclusion"] as string) : null;
-  const status = resolveStatus(rawStatus, rawConclusion);
-  const branch = typeof r["head_branch"] === "string" ? (r["head_branch"] as string) : null;
-  const headSha = typeof r["head_sha"] === "string" ? (r["head_sha"] as string) : null;
-  const commitRaw = r["head_commit"];
-  const commitMessage = commitRaw && typeof commitRaw === "object"
-    ? (typeof (commitRaw as Record<string, unknown>)["message"] === "string"
-        ? ((commitRaw as Record<string, unknown>)["message"] as string).split("\n")[0]!
-        : null)
-    : null;
-
-  const startedAt = typeof r["run_started_at"] === "string" ? (r["run_started_at"] as string) : null;
-  const updatedAt = typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : null;
-  const duration = computeDuration(startedAt, updatedAt);
-
-  return {
-    id,
-    url: htmlUrl,
-    workflowName,
-    workflowId,
-    workflowUrl,
-    displayTitle,
-    runNumber,
-    runAttempt,
-    event,
-    status,
-    rawStatus,
-    rawConclusion,
-    branch,
-    branchUrl: branch ? `/${owner}/${repo}/tree/${encodeURIComponent(branch)}` : null,
-    commitSha: headSha,
-    commitShortSha: headSha ? headSha.slice(0, 7) : null,
-    commitUrl: headSha ? `/${owner}/${repo}/commit/${headSha}` : null,
-    commitMessage: commitMessage ?? null,
-    triggeringActor: parseUser(r["triggering_actor"]),
-    actor: parseUser(r["actor"]),
+  const run: RunDetail = {
+    workflowName: text(parent?.querySelector(".PageHeader-parentLink-label")) || "Workflow",
+    workflowUrl: parent?.getAttribute("href") ?? null,
+    displayTitle: text(title.querySelector(".markdown-title")),
+    runNumber: Number(text(title.querySelector(".color-fg-muted")).replace("#", "")) || null,
+    runAttempt: attempt,
+    event: triggerLabel ? ownText(triggerLabel).replace(/^Triggered via\s*/, "") : "",
+    status: statusFromLabel(statValue(summary, "Status")),
+    branch: text(branch) || null,
+    branchUrl: branch?.getAttribute("href") ?? null,
+    commitShortSha: commit ? (commit.split("/commit/")[1] ?? "").slice(0, 7) || null : null,
+    commitUrl: commit || null,
+    actor: actorLink ? {
+      login: text(actorLink),
+      url: actorLink.getAttribute("href") ?? "",
+      avatarUrl: actorLink.querySelector("img")?.getAttribute("src") ?? "",
+    } : null,
     startedAt,
-    updatedAt,
-    duration,
+    duration: statValue(summary, "Total duration") || null,
     htmlUrl,
   };
+  return { owner, repo, run, jobs: await getRunJobs(jobsUrl) };
 }
 
-function parseUser(raw: unknown): { login: string; avatarUrl: string } | null {
-  if (!raw || typeof raw !== "object") return null;
-  const a = raw as Record<string, unknown>;
-  const login = typeof a["login"] === "string" ? (a["login"] as string) : null;
-  if (!login) return null;
-  const avatarUrl = typeof a["avatar_url"] === "string"
-    ? (a["avatar_url"] as string)
-    : `https://github.com/${login}.png?size=40`;
-  return { login, avatarUrl };
-}
-
-function parseJob(raw: unknown): JobDetail | null {
-  if (!raw || typeof raw !== "object") return null;
-  const j = raw as Record<string, unknown>;
-  const id = typeof j["id"] === "number" ? (j["id"] as number) : 0;
-  if (!id) return null;
-  const name = typeof j["name"] === "string" ? (j["name"] as string) : "Job";
-  const rawStatus = typeof j["status"] === "string" ? (j["status"] as string) : "";
-  const rawConclusion = typeof j["conclusion"] === "string" ? (j["conclusion"] as string) : null;
-  const status = resolveStatus(rawStatus, rawConclusion);
-  const startedAt = typeof j["started_at"] === "string" ? (j["started_at"] as string) : null;
-  const completedAt = typeof j["completed_at"] === "string" ? (j["completed_at"] as string) : null;
-  const url = typeof j["html_url"] === "string" ? (j["html_url"] as string) : "";
-  const runnerName = typeof j["runner_name"] === "string" ? (j["runner_name"] as string) : null;
-  const labelsRaw = j["labels"];
-  const labels: string[] = [];
-  if (Array.isArray(labelsRaw)) {
-    for (const l of labelsRaw) {
-      if (typeof l === "string") labels.push(l);
-    }
+async function getRunJobs(jobsUrl: string): Promise<JobDetail[]> {
+  const jobs: JobDetail[] = [];
+  // same batch size github's own sidebar asks for; the cap stops a runaway loop
+  for (let batch = 0; batch < 20; batch++) {
+    const resp = await fetch(new URL(`${jobsUrl}&batch=${batch}&size=200`, "https://github.com").href, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    if (!resp.ok) throw new AdapterFailure("getRunPage", `job list responded ${resp.status}`);
+    const data = (await resp.json()) as { jobGroups?: unknown; hasMore?: unknown };
+    collectJobs(data.jobGroups, jobs);
+    if (data.hasMore !== true) break;
   }
-  const stepsRaw = j["steps"];
-  const steps: JobStep[] = [];
-  if (Array.isArray(stepsRaw)) {
-    for (const s of stepsRaw) {
-      const parsed = parseStep(s);
-      if (parsed) steps.push(parsed);
-    }
-  }
-  return {
-    id,
-    name,
-    status,
-    rawStatus,
-    rawConclusion,
-    startedAt,
-    completedAt,
-    duration: computeDuration(startedAt, completedAt),
-    url,
-    runnerName,
-    labels,
-    steps,
-  };
+  return jobs;
 }
 
-function parseStep(raw: unknown): JobStep | null {
-  if (!raw || typeof raw !== "object") return null;
-  const s = raw as Record<string, unknown>;
-  const name = typeof s["name"] === "string" ? (s["name"] as string) : null;
-  if (!name) return null;
-  const number = typeof s["number"] === "number" ? (s["number"] as number) : 0;
-  const rawStatus = typeof s["status"] === "string" ? (s["status"] as string) : "";
-  const rawConclusion = typeof s["conclusion"] === "string" ? (s["conclusion"] as string) : null;
-  const status = resolveStatus(rawStatus, rawConclusion);
-  const startedAt = typeof s["started_at"] === "string" ? (s["started_at"] as string) : null;
-  const completedAt = typeof s["completed_at"] === "string" ? (s["completed_at"] as string) : null;
-  return {
-    name,
-    number,
-    status,
-    startedAt,
-    completedAt,
-    duration: computeDuration(startedAt, completedAt),
-  };
+// matrix groups nest their jobs a level deeper than plain ones, so walk the whole group
+function collectJobs(node: unknown, into: JobDetail[]): void {
+  if (Array.isArray(node)) {
+    for (const n of node) collectJobs(n, into);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const o = node as Record<string, unknown>;
+  if (typeof o["id"] === "number" && typeof o["displayName"] === "string" && typeof o["href"] === "string") {
+    const status = typeof o["status"] === "string" ? o["status"] : "";
+    into.push({ id: o["id"], name: o["displayName"], href: o["href"], status: resolveStatus(status, typeof o["conclusion"] === "string" ? o["conclusion"] : null) });
+    return;
+  }
+  for (const v of Object.values(o)) collectJobs(v, into);
 }
 
-function resolveStatus(status: string, conclusion: string | null): WorkflowRunStatus {
-  if (status !== "completed") {
-    if (status === "queued") return "queued";
-    if (status === "in_progress") return "in_progress";
-    if (status === "pending" || status === "waiting") return "pending";
-    if (status === "") return "unknown";
-    return "pending";
-  }
-  switch (conclusion) {
-    case "success": return "success";
-    case "failure": return "failure";
-    case "timed_out": return "timed_out";
-    case "action_required": return "action_required";
-    case "cancelled": return "cancelled";
-    case "skipped": return "skipped";
-    case "neutral": return "neutral";
-    case "stale": return "stale";
-    default: return "unknown";
-  }
+export async function getJobSteps(href: string): Promise<{ steps: JobStep[]; duration: string | null }> {
+  const doc = await fetchPageDoc(new URL(href, "https://github.com").href);
+  const nodes = Array.from(doc.querySelectorAll("check-step[data-name]"));
+  const steps = nodes.map((s) => {
+    const conclusion = s.getAttribute("data-conclusion") ?? "";
+    const startedAt = s.getAttribute("data-started-at") || null;
+    return {
+      name: s.getAttribute("data-name") ?? "",
+      number: Number(s.getAttribute("data-number")) || 0,
+      status: conclusion ? resolveStatus("completed", conclusion) : startedAt ? "in_progress" : "queued",
+      duration: computeDuration(startedAt, s.getAttribute("data-completed-at") || null),
+    };
+  });
+  const starts = nodes.map((s) => s.getAttribute("data-started-at")).filter(Boolean).sort();
+  const ends = nodes.map((s) => s.getAttribute("data-completed-at")).filter(Boolean).sort();
+  return { steps, duration: computeDuration(starts[0] ?? null, ends.at(-1) ?? null) };
 }
 
-function computeDuration(startIso: string | null, endIso: string | null): string | null {
-  if (!startIso || !endIso) return null;
-  const start = new Date(startIso).getTime();
-  const end = new Date(endIso).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  const sec = Math.round((end - start) / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const rest = sec % 60;
-  if (min < 60) return `${min}m ${rest}s`;
-  const hr = Math.floor(min / 60);
-  return `${hr}h ${min % 60}m`;
+function text(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function ownText(el: Element): string {
+  return Array.from(el.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
+}
+
+// each summary stat is a muted label span followed by its value
+function statValue(summary: Element, label: string): string {
+  const name = Array.from(summary.querySelectorAll("span.text-small")).find((s) => text(s) === label);
+  return text(name?.nextElementSibling);
+}
+
+function statusFromLabel(label: string): WorkflowRunStatus {
+  const key = label.toLowerCase().replace(/\s+/g, "_");
+  if (key === "in_progress" || key === "queued") return key;
+  if (key === "waiting" || key === "pending" || key === "requested") return "pending";
+  return resolveStatus("completed", key);
 }
