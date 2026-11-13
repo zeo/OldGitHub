@@ -57,14 +57,25 @@ async function loadRepoPage(owner: string, repo: string): Promise<string> {
   return resp.text();
 }
 
-export async function loadPagePayload(url: string): Promise<unknown> {
+export async function fetchPageDoc(url: string): Promise<Document> {
   let html = takeFirstLoad(url);
   if (html === null) {
     const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
-    if (!resp.ok) throw new AdapterFailure("loadPagePayload", `${new URL(url).pathname} responded ${resp.status}`);
+    if (!resp.ok) throw new AdapterFailure("fetchPageDoc", `${new URL(url).pathname} responded ${resp.status}`);
     html = await resp.text();
   }
-  return extractEmbeddedPayload(parseRepoPage(html));
+  return parseRepoPage(html);
+}
+
+export async function loadPagePayload(url: string): Promise<unknown> {
+  return extractEmbeddedPayload(await fetchPageDoc(url));
+}
+
+// github's own previous and next links keep its cursor, which for tags is ?after=<tag>
+export function pageLinks(doc: ParentNode): { prev: string | null; next: string | null } {
+  const links = Array.from(doc.querySelectorAll(".pagination a[href]"));
+  const find = (label: string): string | null => links.find((a) => a.textContent?.trim() === label)?.getAttribute("href") ?? null;
+  return { prev: find("Previous"), next: find("Next") };
 }
 
 export function parseRepoPage(html: string): Document {

@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
+import { fetchPageDoc, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
@@ -25,7 +26,7 @@ export async function mountRepoList(owner: string, repo: string, kind: RepoListK
 
   try {
     let html = "";
-    if (kind === "tags") html = await renderTags(owner, repo, page);
+    if (kind === "tags") html = await renderTags(owner, repo, search);
     else if (kind === "branches") html = await renderBranches(owner, repo, page);
     else if (kind === "forks") html = await renderForks(owner, repo, page);
     else if (kind === "stargazers") html = await renderStargazers(owner, repo, page);
@@ -70,22 +71,24 @@ async function fetchPage(url: string): Promise<unknown[]> {
   return Array.isArray(data) ? data : [];
 }
 
-async function renderTags(owner: string, repo: string, page: number): Promise<string> {
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/tags?per_page=30&page=${page}`);
-  if (data.length === 0) return emptyHtml("No tags published.");
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
-    const name = readString(r, "name") ?? "";
-    const commit = readObj(r["commit"]);
-    const sha = commit ? (readString(commit, "sha") ?? "") : "";
-    const zipUrl = readString(r, "zipball_url") ?? "";
-    const tarUrl = readString(r, "tarball_url") ?? "";
+async function renderTags(owner: string, repo: string, search: string): Promise<string> {
+  const query = search.replace(/^\?/, "");
+  const doc = await fetchPageDoc(`https://github.com/${owner}/${repo}/tags${query ? `?${query}` : ""}`);
+  const repoPath = `/${escapeAttr(owner)}/${escapeAttr(repo)}`;
+  const rows = Array.from(doc.querySelectorAll(".Box-row")).map((row) => {
+    const name = row.querySelector("h2 a")?.textContent?.trim() ?? "";
+    if (!name) return "";
+    const sha = row.querySelector('a[href*="/commit/"]')?.textContent?.trim() ?? "";
+    const date = row.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? "";
+    const archives = Array.from(row.querySelectorAll('a[href*="/archive/"]'), (a) => a.getAttribute("href") ?? "");
+    const zipUrl = archives.find((h) => h.endsWith(".zip")) ?? "";
+    const tarUrl = archives.find((h) => h.endsWith(".tar.gz")) ?? "";
     return `
       <li class="oldgh-repo-list__row">
         <div class="oldgh-repo-list__main-cell">
-          <a class="oldgh-repo-list__tag" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/releases/tag/${encodeURIComponent(name)}">${octicon("tag", { size: 14 })} <strong>${escapeText(name)}</strong></a>
-          ${sha ? `<code class="oldgh-repo-list__sha"><a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/commit/${escapeAttr(sha)}">${escapeText(sha.slice(0, 7))}</a></code>` : ""}
+          <a class="oldgh-repo-list__tag" href="${repoPath}/releases/tag/${encodeURIComponent(name)}">${octicon("tag", { size: 14 })} <strong>${escapeText(name)}</strong></a>
+          ${sha ? `<code class="oldgh-repo-list__sha"><a href="${repoPath}/commit/${escapeAttr(sha)}">${escapeText(sha)}</a></code>` : ""}
+          ${date ? `<span class="oldgh-repo-list__muted" title="${escapeAttr(absoluteTime(date))}">${escapeText(relativeTime(date))}</span>` : ""}
         </div>
         <div class="oldgh-repo-list__actions">
           ${zipUrl ? `<a class="oldgh-btn" href="${escapeAttr(zipUrl)}">${octicon("cloud-download", { size: 12 })} zip</a>` : ""}
@@ -94,7 +97,12 @@ async function renderTags(owner: string, repo: string, page: number): Promise<st
       </li>
     `;
   }).join("");
-  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "tags", page, data.length === 30)}`;
+  if (!rows) return emptyHtml("No tags published.");
+  const { prev, next } = pageLinks(doc);
+  const pager = prev || next
+    ? `<nav class="oldgh-repo-list__pager">${prev ? `<a href="${escapeAttr(prev)}">‹ Newer</a>` : "<span></span>"}${next ? `<a href="${escapeAttr(next)}">Older ›</a>` : "<span></span>"}</nav>`
+    : "";
+  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pager}`;
 }
 
 async function renderBranches(owner: string, repo: string, page: number): Promise<string> {
