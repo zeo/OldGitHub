@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { fetchApi } from "@/adapters/rate-limit";
-import { fetchPageDoc, pageLinks } from "@/adapters/_page";
+import { fetchPageDoc, loadPagePayload, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
@@ -106,44 +106,44 @@ async function renderTags(owner: string, repo: string, search: string): Promise<
 }
 
 async function renderBranches(owner: string, repo: string, page: number): Promise<string> {
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=30&page=${page}`);
-  if (data.length === 0) return emptyHtml("No branches.");
-  // also fetch default branch
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
-    const name = readString(r, "name") ?? "";
-    const commit = readObj(r["commit"]);
-    const sha = commit ? (readString(commit, "sha") ?? "") : "";
-    const isProtected = r["protected"] === true;
+  const payload = readObj(readObj(await loadPagePayload(`https://github.com/${owner}/${repo}/branches/all?page=${page}`))?.["payload"]) ?? {};
+  const branches = Array.isArray(payload["branches"]) ? payload["branches"] : [];
+  const repoPath = `/${escapeAttr(owner)}/${escapeAttr(repo)}`;
+  const rows = branches.map((raw) => {
+    const r = readObj(raw);
+    const name = r ? readString(r, "name") ?? "" : "";
+    if (!r || !name) return "";
+    const isDefault = r["isDefault"] === true;
+    const author = readObj(r["author"]);
+    const login = author ? readString(author, "login") ?? "" : "";
+    const date = readString(r, "authoredDate") ?? "";
     return `
       <li class="oldgh-repo-list__row">
         <div class="oldgh-repo-list__main-cell">
-          <a class="oldgh-repo-list__branch" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/tree/${encodeURIComponent(name)}">${octicon("git-branch", { size: 14 })} <strong>${escapeText(name)}</strong></a>
-          ${isProtected ? `<span class="oldgh-repo-list__tag-badge">Protected</span>` : ""}
-          ${sha ? `<code class="oldgh-repo-list__sha"><a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/commit/${escapeAttr(sha)}">${escapeText(sha.slice(0, 7))}</a></code>` : ""}
+          <a class="oldgh-repo-list__branch" href="${repoPath}/tree/${encodeURIComponent(name)}">${octicon("git-branch", { size: 14 })} <strong>${escapeText(name)}</strong></a>
+          ${isDefault ? `<span class="oldgh-repo-list__tag-badge">Default</span>` : ""}
+          ${r["protectedByBranchProtections"] === true ? `<span class="oldgh-repo-list__tag-badge">Protected</span>` : ""}
+          ${date ? `<span class="oldgh-repo-list__muted" title="${escapeAttr(absoluteTime(date))}">updated ${escapeText(relativeTime(date))}${login ? ` by <a href="/${escapeAttr(login)}">${escapeText(login)}</a>` : ""}</span>` : ""}
         </div>
         <div class="oldgh-repo-list__actions">
-          <a class="oldgh-btn" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/compare/${encodeURIComponent(name)}">Compare</a>
+          ${isDefault ? "" : `<a class="oldgh-btn" href="${repoPath}/compare/${encodeURIComponent(name)}">Compare</a>`}
         </div>
       </li>
     `;
   }).join("");
-  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "branches", page, data.length === 30)}`;
+  if (!rows) return emptyHtml("No branches.");
+  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "branches", page, payload["has_more"] === true)}`;
 }
 
 async function renderForks(owner: string, repo: string, page: number): Promise<string> {
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/forks?per_page=30&page=${page}&sort=stargazers`);
-  if (data.length === 0) return emptyHtml("This repository has no forks yet.");
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
-    const fullName = readString(r, "full_name") ?? "";
-    const ownerObj = readObj(r["owner"]);
-    const avatar = ownerObj ? (readString(ownerObj, "avatar_url") ?? "") : "";
-    const stars = readNumber(r, "stargazers_count") ?? 0;
-    const forks = readNumber(r, "forks_count") ?? 0;
-    const updated = readString(r, "pushed_at") ?? readString(r, "updated_at") ?? "";
+  const doc = await fetchPageDoc(`https://github.com/${owner}/${repo}/forks?page=${page}`);
+  const rows = Array.from(doc.querySelectorAll(".Box-row")).map((row) => {
+    const fullName = row.querySelector("h2 a.Link")?.getAttribute("href")?.slice(1) ?? "";
+    if (!fullName.includes("/")) return "";
+    const avatar = row.querySelector("h2 img")?.getAttribute("src") ?? "";
+    const count = (list: string): string => row.querySelector(`a[href$="/${list}"]`)?.textContent?.trim() || "0";
+    const times = row.querySelectorAll("relative-time[datetime]");
+    const updated = times[times.length - 1]?.getAttribute("datetime") ?? "";
     return `
       <li class="oldgh-repo-list__row">
         <div class="oldgh-repo-list__main-cell">
@@ -152,13 +152,14 @@ async function renderForks(owner: string, repo: string, page: number): Promise<s
           ${updated ? `<span class="oldgh-repo-list__muted">updated ${escapeText(relativeTime(updated))}</span>` : ""}
         </div>
         <div class="oldgh-repo-list__counters">
-          <span>${octicon("star", { size: 12 })} ${formatCount(stars)}</span>
-          <span>${octicon("repo-forked", { size: 12 })} ${formatCount(forks)}</span>
+          <span>${octicon("star", { size: 12 })} ${escapeText(count("stargazers"))}</span>
+          <span>${octicon("repo-forked", { size: 12 })} ${escapeText(count("forks"))}</span>
         </div>
       </li>
     `;
   }).join("");
-  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "forks", page, data.length === 30)}`;
+  if (!rows) return emptyHtml("This repository has no forks yet.");
+  return `<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "forks", page, pageLinks(doc).next !== null)}`;
 }
 
 async function renderStargazers(owner: string, repo: string, page: number): Promise<string> {
@@ -210,12 +211,23 @@ async function renderWatchers(owner: string, repo: string, page: number): Promis
   return `<ul class="oldgh-repo-list__star-grid">${rows}</ul>${pagerHtml(owner, repo, "watchers", page, data.length === 60)}`;
 }
 
+// labels and milestones pages embed the graphql connection they render
+async function routeConnection(url: string, route: string, field: string): Promise<{ nodes: Record<string, unknown>[]; total: number }> {
+  const payload = readObj(readObj(await loadPagePayload(url))?.["payload"]);
+  const connection = readObj(readObj(readObj(readObj(payload?.[route])?.["data"])?.["repository"])?.[field]);
+  if (!connection) throw new AdapterFailure("repoList", `${new URL(url).pathname} holds no ${field}`);
+  const edges = Array.isArray(connection["edges"]) ? connection["edges"] : [];
+  const nodes = edges.map((e) => readObj(readObj(e)?.["node"])).filter((n): n is Record<string, unknown> => n !== null);
+  return { nodes, total: readNumber(connection, "totalCount") ?? nodes.length };
+}
+
+const LABELS_PER_PAGE = 30;
+const MILESTONES_PER_PAGE = 50;
+
 async function renderLabels(owner: string, repo: string, page: number): Promise<string> {
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/labels?per_page=100&page=${page}`);
-  if (data.length === 0) return emptyHtml("No labels.");
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
+  const { nodes, total } = await routeConnection(`https://github.com/${owner}/${repo}/labels?page=${page}`, "labelsRoute", "labels");
+  if (nodes.length === 0) return emptyHtml("No labels.");
+  const rows = nodes.map((r) => {
     const name = readString(r, "name") ?? "";
     const color = (readString(r, "color") ?? "ccc").replace(/^#/, "");
     const desc = readString(r, "description") ?? "";
@@ -227,34 +239,35 @@ async function renderLabels(owner: string, repo: string, page: number): Promise<
       </li>
     `;
   }).join("");
-  return `<ul class="oldgh-repo-list__label-list">${rows}</ul>${pagerHtml(owner, repo, "labels", page, data.length === 100)}`;
+  return `<ul class="oldgh-repo-list__label-list">${rows}</ul>${pagerHtml(owner, repo, "labels", page, page * LABELS_PER_PAGE < total)}`;
 }
 
 async function renderMilestones(owner: string, repo: string, state: string, page: number): Promise<string> {
   const validState = state === "closed" ? "closed" : "open";
-  const data = await fetchPage(`https://api.github.com/repos/${owner}/${repo}/milestones?per_page=30&page=${page}&state=${validState}&sort=due_on&direction=asc`);
+  const { nodes, total } = await routeConnection(
+    `https://github.com/${owner}/${repo}/milestones?state=${validState}&page=${page}`,
+    "milestonesRoute",
+    "milestones",
+  );
   const switcher = `
     <div class="oldgh-repo-list__switch">
       <a class="${validState === "open" ? "is-active" : ""}" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/milestones?state=open">Open</a>
       <a class="${validState === "closed" ? "is-active" : ""}" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/milestones?state=closed">Closed</a>
     </div>
   `;
-  if (data.length === 0) return `${switcher}${emptyHtml(validState === "open" ? "No open milestones." : "No closed milestones.")}`;
-  const rows = data.map((raw) => {
-    if (!raw || typeof raw !== "object") return "";
-    const r = raw as Record<string, unknown>;
+  if (nodes.length === 0) return `${switcher}${emptyHtml(validState === "open" ? "No open milestones." : "No closed milestones.")}`;
+  const rows = nodes.map((r) => {
     const title = readString(r, "title") ?? "";
-    const number = readNumber(r, "number") ?? 0;
-    const open = readNumber(r, "open_issues") ?? 0;
-    const closed = readNumber(r, "closed_issues") ?? 0;
-    const total = open + closed;
-    const pct = total > 0 ? Math.round((closed / total) * 100) : 0;
-    const due = readString(r, "due_on");
+    const number = (readString(r, "url") ?? "").split("/milestone/")[1] ?? "";
+    const open = readNumber(r, "openIssueCount") ?? 0;
+    const closed = readNumber(r, "closedIssueCount") ?? 0;
+    const pct = Math.round(readNumber(r, "progressPercentage") ?? 0);
+    const due = readString(r, "dueOn");
     const desc = readString(r, "description") ?? "";
     return `
       <li class="oldgh-repo-list__milestone">
         <h3 class="oldgh-repo-list__milestone-title">
-          <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?milestone=${encodeURIComponent(String(number))}">${escapeText(title)}</a>
+          <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?milestone=${encodeURIComponent(number)}">${escapeText(title)}</a>
         </h3>
         ${desc ? `<p class="oldgh-repo-list__milestone-desc">${escapeText(desc)}</p>` : ""}
         <div class="oldgh-repo-list__milestone-bar"><span style="width:${pct}%"></span></div>
@@ -267,7 +280,7 @@ async function renderMilestones(owner: string, repo: string, state: string, page
       </li>
     `;
   }).join("");
-  return `${switcher}<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "milestones", page, data.length === 30, validState)}`;
+  return `${switcher}<ul class="oldgh-repo-list__list">${rows}</ul>${pagerHtml(owner, repo, "milestones", page, page * MILESTONES_PER_PAGE < total, validState)}`;
 }
 
 function pagerHtml(owner: string, repo: string, kind: string, page: number, hasMore: boolean, state?: string): string {
@@ -292,8 +305,6 @@ function dueByLabel(iso: string): string {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
-
-import { formatCount } from "@/util/format";
 
 function labelTextColor(hex: string): string {
   const m = /^([\da-f]{6})$/i.exec(hex);
