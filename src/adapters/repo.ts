@@ -191,59 +191,43 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
   };
 }
 
-export async function getRepoLanguages(owner: string, repo: string): Promise<Array<{ name: string; bytes: number; percent: number }>> {
-  // try the anonymous API first — fastest path for public repos
+export type RepoLanguage = { name: string; bytes: number; percent: number };
+export type RepoSidebar = { languages: RepoLanguage[]; contributorCount: number | null };
+
+// json endpoints github's own repo home reads: cookie-authed, so they cover private repos and spend no api quota
+export async function getRepoPageJson(owner: string, repo: string, path: string): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch(`https://github.com/${owner}/${repo}/${path}`, { credentials: "include", headers: { Accept: "application/json" } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as unknown;
+    return j && typeof j === "object" && !Array.isArray(j) ? (j as Record<string, unknown>) : null;
+  } catch (err) {
+    if (err instanceof TypeError || err instanceof SyntaxError) return null;
+    throw err;
+  }
+}
+
+export async function getRepoSidebar(owner: string, repo: string): Promise<RepoSidebar | null> {
+  const j = await getRepoPageJson(owner, repo, "_sidebar");
+  if (!j) return null;
+  const langs = (j["languages"] as { languages?: unknown } | null)?.languages;
+  const count = (j["contributors"] as { contributorCount?: unknown } | null)?.contributorCount;
+  const languages = (Array.isArray(langs) ? langs : []).flatMap((l: { name?: unknown; percentage?: unknown }) =>
+    typeof l?.name === "string" && typeof l.percentage === "number" ? [{ name: l.name, bytes: Math.round(l.percentage * 100), percent: l.percentage }] : []);
+  return { languages, contributorCount: typeof count === "number" ? count : null };
+}
+
+export async function getRepoLanguages(owner: string, repo: string): Promise<RepoLanguage[]> {
   const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/languages`, {
     credentials: "omit",
     headers: { Accept: "application/vnd.github+json" },
   });
-  if (resp.ok) {
-    const data = (await resp.json()) as Record<string, unknown>;
-    const entries: Array<[string, number]> = [];
-    for (const [k, v] of Object.entries(data)) {
-      if (typeof v === "number") entries.push([k, v]);
-    }
-    const total = entries.reduce((s, e) => s + e[1], 0);
-    if (total > 0) {
-      entries.sort((a, b) => b[1] - a[1]);
-      return entries.map(([name, bytes]) => ({ name, bytes, percent: (bytes / total) * 100 }));
-    }
-  }
-  // fall back to scraping the cookie-authed repo page (covers private repos)
-  return scrapeRepoLanguages(owner, repo);
-}
-
-async function scrapeRepoLanguages(owner: string, repo: string): Promise<Array<{ name: string; bytes: number; percent: number }>> {
-  let html: string;
-  try {
-    const r = await fetch(`https://github.com/${owner}/${repo}`, {
-      credentials: "include",
-      headers: { Accept: "text/html" },
-    });
-    if (!r.ok) return [];
-    html = await r.text();
-  } catch {
-    return [];
-  }
-  // language section is anchored on links to /owner/repo/search?l=Lang. The
-  // language name comes from the l= query param (more reliable than inner
-  // spans, whose order varies); the percent is the inner span ending in %.
-  const out: Array<{ name: string; percent: number }> = [];
-  const linkRe = /<a[^>]+href="\/[^/]+\/[^/]+\/search\?l=([^"&]+)[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
-  let m: RegExpExecArray | null;
-  while ((m = linkRe.exec(html))) {
-    const rawName = decodeURIComponent(m[1]!.replace(/\+/g, " "));
-    const inner = m[2] ?? "";
-    const pctMatch = inner.match(/(\d+(?:\.\d+)?)\s*%/);
-    if (!pctMatch) continue;
-    const percent = parseFloat(pctMatch[1]!);
-    if (!rawName || !Number.isFinite(percent)) continue;
-    if (out.some((e) => e.name === rawName)) continue;
-    out.push({ name: rawName, percent });
-    if (out.length >= 12) break;
-  }
-  if (out.length === 0) return [];
-  return out.map((e) => ({ name: e.name, bytes: Math.round(e.percent * 100), percent: e.percent }));
+  if (!resp.ok) return [];
+  const entries = Object.entries((await resp.json()) as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === "number");
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  if (total === 0) return [];
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries.map(([name, bytes]) => ({ name, bytes, percent: (bytes / total) * 100 }));
 }
 
 export { formatCount } from "@/util/format";

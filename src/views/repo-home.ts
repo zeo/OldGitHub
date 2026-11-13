@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { getRepoOverview, type RepoOverview } from "@/adapters/repo-overview";
-import { getRepoLanguages } from "@/adapters/repo";
+import { getRepoLanguages, getRepoPageJson, getRepoSidebar, type RepoLanguage, type RepoSidebar } from "@/adapters/repo";
 import { fetchApi } from "@/adapters/rate-limit";
 import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
@@ -35,9 +35,10 @@ export async function mountRepoHome(owner: string, repo: string): Promise<void> 
     basePath: "",
   });
 
-  void hydrateLanguagesBar(root, owner, repo);
+  const sidebar = getRepoSidebar(owner, repo);
+  void hydrateLanguagesBar(root, owner, repo, sidebar);
   void hydrateLatestCommit(root, { owner, repo, branch: overview.branch });
-  void hydrateRepoNumbers(root, owner, repo, overview.tagCount);
+  void hydrateRepoNumbers(root, owner, repo, overview.tagCount, sidebar);
   if (overview.releaseCount !== 0) void hydrateLatestRelease(root, owner, repo);
 }
 
@@ -168,13 +169,15 @@ function renderEmptyShell(o: RepoOverview): string {
 }
 
 // 2013's numbers strip used commits, branches, tags, and contributors
-// counts come from the REST API's last page or the returned array length
-async function hydrateRepoNumbers(root: HTMLElement, owner: string, repo: string, tagCount: number | null): Promise<void> {
+// the api counts (last page or array length) only stand in when github's page endpoints fail
+async function hydrateRepoNumbers(root: HTMLElement, owner: string, repo: string, tagCount: number | null, sidebar: Promise<RepoSidebar | null>): Promise<void> {
   const base = `https://api.github.com/repos/${owner}/${repo}`;
+  const [refs, side] = await Promise.all([getRepoPageJson(owner, repo, "branch-and-tag-count"), sidebar]);
+  const pageCount = (key: string): number | null => (typeof refs?.[key] === "number" ? (refs[key] as number) : null);
   const [branches, tags, contributors] = await Promise.all([
-    fetchCount(`${base}/branches?per_page=1`),
-    tagCount ?? fetchCount(`${base}/tags?per_page=1`),
-    fetchCount(`${base}/contributors?per_page=1&anon=1`),
+    pageCount("branches") ?? fetchCount(`${base}/branches?per_page=1`),
+    tagCount ?? pageCount("tags") ?? fetchCount(`${base}/tags?per_page=1`),
+    side?.contributorCount ?? fetchCount(`${base}/contributors?per_page=1&anon=1`),
   ]);
   setNumber(root, "branches", branches, "branch", "branches");
   setNumber(root, "tags", tags, "tag", "tags");
@@ -226,6 +229,12 @@ async function hydrateLatestCommit(
   const slot = root.querySelector<HTMLElement>(".oldgh-repo-home__latest-slot");
   if (!slot) return;
   try {
+    const page = await getRepoPageJson(ctx.owner, ctx.repo, `latest-commit/${ctx.branch.split("/").map(encodeURIComponent).join("/")}`);
+    const fromPage = page && parsePageLatestCommit(page);
+    if (fromPage) {
+      slot.innerHTML = renderLatestCommit(ctx, fromPage);
+      return;
+    }
     const url = `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/commits?sha=${encodeURIComponent(ctx.branch)}&per_page=1`;
     // omit, not include: api.github.com returns Access-Control-Allow-Origin:*,
     // which the browser rejects for a credentialed request — include throws on
@@ -240,6 +249,28 @@ async function hydrateLatestCommit(
   } catch (err) {
     console.debug("[oldgh] latest commit fetch failed:", err);
   }
+}
+
+function parsePageLatestCommit(j: Record<string, unknown>): LatestCommitData | null {
+  const sha = typeof j["oid"] === "string" ? j["oid"] : "";
+  if (!sha) return null;
+  const author = j["author"] as { login?: unknown; displayName?: unknown; avatarUrl?: unknown } | null;
+  const text = (key: string): string => {
+    const html = j[key];
+    return typeof html === "string" ? new DOMParser().parseFromString(html, "text/html").body.textContent ?? "" : "";
+  };
+  // github clips a long subject with an ellipsis and carries the rest at the start of the body
+  const short = text("shortMessageHtmlLink").trim();
+  const rest = text("bodyMessageHtml");
+  const message = short.endsWith("…") && rest.startsWith("…") ? short.slice(0, -1) + (rest.slice(1).split("\n")[0] ?? "") : short;
+  return {
+    sha,
+    message,
+    date: typeof j["date"] === "string" ? j["date"] : "",
+    authorLogin: typeof author?.login === "string" ? author.login : null,
+    authorName: typeof author?.displayName === "string" ? author.displayName : "unknown",
+    authorAvatarUrl: typeof author?.avatarUrl === "string" ? author.avatarUrl : null,
+  };
 }
 
 function parseLatestCommit(raw: unknown): LatestCommitData | null {
@@ -290,9 +321,10 @@ function renderLatestCommit(ctx: { owner: string; repo: string }, c: LatestCommi
   `;
 }
 
-async function hydrateLanguagesBar(root: HTMLElement, owner: string, repo: string): Promise<void> {
+async function hydrateLanguagesBar(root: HTMLElement, owner: string, repo: string, sidebar: Promise<RepoSidebar | null>): Promise<void> {
   try {
-    const langs = await getRepoLanguages(owner, repo);
+    const side = await sidebar;
+    const langs = side ? side.languages : await getRepoLanguages(owner, repo);
     if (langs.length === 0) return;
     const slot = root.querySelector<HTMLElement>(".oldgh-repo-home__langs-slot");
     if (!slot) return;
@@ -302,9 +334,11 @@ async function hydrateLanguagesBar(root: HTMLElement, owner: string, repo: strin
   }
 }
 
-function renderLanguageBar(langs: Array<{ name: string; bytes: number; percent: number }>): string {
-  const top = langs.slice(0, 8).map((l) => ({ ...l, display: canonicalLanguageName(l.name) }));
-  const restPercent = langs.slice(8).reduce((s, l) => s + l.percent, 0);
+function renderLanguageBar(langs: RepoLanguage[]): string {
+  // github's sidebar already folds its small languages into an "Other" entry
+  const shown = langs.filter((l) => l.name !== "Other").slice(0, 8);
+  const top = shown.map((l) => ({ ...l, display: canonicalLanguageName(l.name) }));
+  const restPercent = langs.filter((l) => !shown.includes(l)).reduce((s, l) => s + l.percent, 0);
   const segs = top.map((l) => `<span class="oldgh-repo-home__lang-seg" style="width:${l.percent.toFixed(2)}%;background:${languageColor(l.name)}" title="${escapeAttr(l.display)} ${l.percent.toFixed(1)}%"></span>`).join("");
   const otherSeg = restPercent > 0.1 ? `<span class="oldgh-repo-home__lang-seg oldgh-repo-home__lang-seg--other" style="width:${restPercent.toFixed(2)}%" title="Other ${restPercent.toFixed(1)}%"></span>` : "";
   const labels = top.map((l) => `<span class="oldgh-repo-home__lang-label"><span class="oldgh-repo-home__lang-dot" style="background:${languageColor(l.name)}"></span>${escapeText(l.display)} <strong>${l.percent.toFixed(1)}%</strong></span>`).join(" ");
