@@ -96,6 +96,8 @@ export type PullDetail = Omit<IssueDetail, "state"> & {
   mergedAt: string | null;
   mergedBy: Actor | null;
   reviewThreads: ReviewThread[];
+  // the page held only some threads, the api has the rest
+  threadsMissing?: boolean;
   // built from the page alone: labels, assignees, comments and reviews were not available
   metadataHidden?: boolean;
 };
@@ -204,7 +206,7 @@ export async function getReviewThreads(owner: string, repo: string, number: numb
       line,
       side: readString(r, "side") === "LEFT" ? "LEFT" : "RIGHT",
       diffHunk: readString(r, "diff_hunk") ?? "",
-      outdated: line == null,
+      outdated: line == null && readString(r, "subject_type") !== "file",
       comments: [comment],
     });
   }
@@ -453,7 +455,7 @@ export async function getPullFromPage(owner: string, repo: string, number: numbe
     merged: mergedAt !== null,
     mergedAt,
     mergedBy: mergedLogin ? { login: mergedLogin, avatarUrl: readString(pr, "mergedByAvatarUrl") ?? `https://github.com/${mergedLogin}.png?size=64` } : null,
-    reviewThreads: [],
+    ...pageReviewThreads(readPath(payload, ["payload", "pullRequestsChangesRoute"])),
     metadataHidden: true,
   };
 }
@@ -467,9 +469,7 @@ function pageTimelineItem(n: Record<string, unknown>): TimelineNode | null {
       kind: "comment",
       id: String(n["databaseId"] ?? n["id"]),
       author: pageActor(n["author"]),
-      bodyHtml: n["isMinimized"] === true
-        ? `<p><em>This comment was hidden${reason ? ` as ${escapeText(reason.toLowerCase().replace(/[_-]/g, " "))}` : ""}.</em></p>`
-        : readString(n, "bodyHTML") ?? "",
+      bodyHtml: n["isMinimized"] === true ? hiddenBody(reason) : readString(n, "bodyHTML") ?? "",
       createdAt,
       authorAssociation: readString(n, "authorAssociation"),
       reactions: pageReactions(n["reactionGroups"]),
@@ -497,6 +497,57 @@ function pageTimelineItem(n: Record<string, unknown>): TimelineNode | null {
     if (num != null) base.ref = `#${num}`;
   }
   return base;
+}
+
+function hiddenBody(reason: string | null): string {
+  return `<p><em>This comment was hidden${reason ? ` as ${escapeText(reason.toLowerCase().replace(/[_-]/g, " "))}` : ""}.</em></p>`;
+}
+
+// the files page keys each file's threads by side and line (R130, L12) or FILE; it has no place for outdated threads and cuts long ones short
+function pageReviewThreads(route: Record<string, unknown> | null): Pick<PullDetail, "reviewThreads" | "threadsMissing"> {
+  const markers = readObj(route?.["markers"]);
+  const byId = readObj(markers?.["threads"]) ?? {};
+  const reviewThreads: ReviewThread[] = [];
+  let threadsMissing = readObj(markers?.["threadsPageInfo"])?.["hasNextPage"] !== false;
+  for (const raw of readArray(route?.["diffSummaries"])) {
+    const summary = readObj(raw);
+    const path = summary && readString(summary, "path");
+    for (const [key, marker] of Object.entries(readObj(summary?.["markersMap"]) ?? {})) {
+      const at = /^([LR])(\d+)$/.exec(key);
+      for (const ref of readArray(readObj(marker)?.["threads"])) {
+        const t = readObj(byId[String(readObj(ref)?.["id"])]);
+        const comments = readArray(readObj(t?.["commentsData"])?.["comments"]).flatMap(pageReviewComment);
+        if (!path || !t || !comments[0] || (!at && key !== "FILE")) {
+          threadsMissing = true;
+          continue;
+        }
+        if (t["reviewCommentsLimitExceeded"] === true) threadsMissing = true;
+        reviewThreads.push({
+          id: comments[0].id,
+          reviewId: readNumber(t, "pullRequestReviewId"),
+          path,
+          line: at ? Number(at[2]) : null,
+          side: at?.[1] === "L" ? "LEFT" : "RIGHT",
+          diffHunk: "",
+          outdated: false,
+          comments,
+        });
+      }
+    }
+  }
+  return { reviewThreads, threadsMissing: threadsMissing || reviewThreads.length < Object.keys(byId).length };
+}
+
+function pageReviewComment(raw: unknown): ReviewComment[] {
+  const c = readObj(raw);
+  const id = c && readNumber(c, "databaseId");
+  if (!c || id == null) return [];
+  return [{
+    id,
+    author: pageActor(c["author"]),
+    bodyHtml: c["isHidden"] === true ? hiddenBody(readString(c, "minimizedReason")) : readString(c, "bodyHTML") ?? "",
+    createdAt: readString(c, "createdAt") ?? "",
+  }];
 }
 
 function pageActor(raw: unknown): Actor | null {

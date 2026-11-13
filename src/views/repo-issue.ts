@@ -87,8 +87,8 @@ async function hydrateSubTab(root: HTMLElement, pull: PullDetail, tab: IssueTab)
     if (tab === "files") {
       const [files, threads] = await Promise.all([
         getPullFiles(pull),
-        pull.metadataHidden ? getReviewThreads(owner, repo, number).catch((err: unknown) => {
-          if (err instanceof AdapterFailure) return [];
+        pull.threadsMissing ? getReviewThreads(owner, repo, number).catch((err: unknown) => {
+          if (err instanceof AdapterFailure) return pull.reviewThreads;
           throw err;
         }) : pull.reviewThreads,
       ]);

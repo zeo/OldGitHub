@@ -5960,7 +5960,8 @@ html[data-oldgh-theme="dark"] .oldgh-pr-file__del { color: #ff7b72; }
   font-size: 12px;
   line-height: 18px;
 }
-.oldgh-diff td {
+.oldgh-diff__row > td,
+.oldgh-diff__hunk-header > td {
   vertical-align: top;
   padding: 0 8px;
   white-space: pre;
