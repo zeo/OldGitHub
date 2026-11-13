@@ -1,51 +1,45 @@
 import { octicon } from "@/icons";
-import { AdapterFailure } from "@/adapters";
-import { fetchApi } from "@/adapters/rate-limit";
+import { fetchPageDoc } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { cleanScrapedPage, escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-discussion";
+const COMMENT = ".discussions-timeline-scroll-target[id^='discussioncomment-']";
 
 type Reaction = { content: string; count: number };
 
-type DiscussionActor = {
-  login: string;
-  avatarUrl: string;
-};
-
-type DiscussionDetail = {
-  owner: string;
-  repo: string;
-  number: number;
-  title: string;
-  bodyHtml: string;
-  state: "open" | "closed";
-  stateReason: string | null;
-  categoryName: string | null;
-  categoryEmoji: string | null;
-  author: DiscussionActor | null;
-  createdAt: string;
-  commentsCount: number;
-  isAnswered: boolean;
-  answerHtmlUrl: string | null;
-  answerChosenBy: string | null;
-  htmlUrl: string;
-  reactions: Reaction[];
-  labels: Array<{ name: string; color: string }>;
-};
-
 type DiscussionComment = {
   id: number;
-  parentId: number | null;
-  author: DiscussionActor | null;
-  authorAssociation: string | null;
+  login: string;
+  avatarUrl: string;
   bodyHtml: string;
   createdAt: string;
-  htmlUrl: string;
+  upvotes: number | null;
   reactions: Reaction[];
-  childCount: number;
+};
+
+type Replies = { items: DiscussionComment[]; earlier: { url: string; label: string } | null };
+
+type TimelineEntry =
+  | { kind: "comment"; comment: DiscussionComment; replies: Replies }
+  | { kind: "more"; url: string; label: string };
+
+type DiscussionDetail = {
+  number: number;
+  title: string;
+  opener: DiscussionComment;
+  asked: boolean;
+  state: "open" | "closed";
+  isAnswered: boolean;
+  answerId: number | null;
+  answerChosenBy: string | null;
+  categoryName: string | null;
+  categoryEmoji: string | null;
+  countLine: string;
+  labels: Array<{ name: string; color: string | null }>;
+  timeline: TimelineEntry[];
 };
 
 export async function mountRepoDiscussion(owner: string, repo: string, number: number): Promise<void> {
@@ -55,159 +49,143 @@ export async function mountRepoDiscussion(owner: string, repo: string, number: n
   root.innerHTML = renderShell(number);
   if (!adoptBodyRoot(root, ".oldgh-repo-header", nav)) return;
 
+  let detail: DiscussionDetail;
   try {
-    const [detail, comments] = await Promise.all([
-      fetchDiscussion(owner, repo, number),
-      fetchComments(owner, repo, number),
-    ]);
-    root.innerHTML = renderBody(detail, comments);
+    detail = parseDiscussion(await fetchPageDoc(`https://github.com/${owner}/${repo}/discussions/${number}`), number);
   } catch (err) {
-    // anonymous REST returns 404 for private/access-gated discussions and 403
-    // when rate-limited; fall back to the cookie-authed HTML page scrape
-    const scraped = await fetchScrapedDiscussion(owner, repo, number);
-    if (scraped) {
-      root.innerHTML = scraped;
-      return;
-    }
     const main = root.querySelector(".oldgh-discussion__main");
     if (main) {
       main.innerHTML = `<p class="oldgh-discussion__empty">Couldn't load discussion: ${escapeText(err instanceof Error ? err.message : String(err))}</p>`;
     }
+    return;
   }
+  root.innerHTML = renderBody(detail);
+  bindLoadMore(root, detail);
 }
 
-async function fetchScrapedDiscussion(owner: string, repo: string, number: number): Promise<string | null> {
-  try {
-    const resp = await fetch(`https://github.com/${owner}/${repo}/discussions/${number}`, {
-      credentials: "include",
-      headers: { Accept: "text/html" },
-    });
-    if (!resp.ok) return null;
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const inner =
-      doc.querySelector("turbo-frame#repo-content-turbo-frame") ||
-      doc.querySelector("[data-pjax-container]") ||
-      doc.querySelector(".application-main") ||
-      doc.querySelector("main");
-    if (!inner) return null;
-    cleanScrapedPage(inner, ["[class*='PageLayout-Header-']", "[class*='PageHeader-']", ".tabnav", ".UnderlineNav"]);
-    const title = (doc.querySelector("title")?.textContent || "").trim();
-    return `
-      <div class="oldgh-page oldgh-discussion">
-        ${title ? `<header class="oldgh-discussion__header"><h1 class="oldgh-discussion__title">${escapeText(title)} <span class="oldgh-discussion__number">#${number}</span></h1></header>` : ""}
-        <div class="oldgh-discussion__main">${inner.innerHTML}</div>
-      </div>
-    `;
-  } catch {
-    return null;
-  }
+function text(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
-async function fetchDiscussion(owner: string, repo: string, number: number): Promise<DiscussionDetail> {
-  const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}/discussions/${number}`, {
-    credentials: "omit",
-    headers: { Accept: "application/vnd.github.html+json" },
-  });
-  if (!resp.ok) throw new AdapterFailure("getDiscussion", `responded ${resp.status}`);
-  const d = (await resp.json()) as Record<string, unknown>;
-  return parseDiscussion(owner, repo, number, d);
+function parseDiscussion(doc: Document, number: number): DiscussionDetail {
+  const header = doc.querySelector(".gh-header-show");
+  const title = text(header?.querySelector(".js-issue-title"));
+  const openerEl = doc.querySelector(".TimelineItem[data-url$='/body'] .timeline-comment");
+  if (!header || !title || !openerEl) throw new Error("the discussion page has no discussion in it");
+
+  const stateText = text(header.querySelector(".State"));
+  const answerHref = doc.querySelector("a.js-discussions-goto-answer-button[href*='#discussioncomment-']")?.getAttribute("href") ?? "";
+  const answerId = Number(/#discussioncomment-(\d+)/.exec(answerHref)?.[1]) || null;
+  const chosenBy = Array.from(doc.querySelectorAll("span"))
+    .find((s) => text(s) === "Answer selected by")
+    ?.parentElement?.querySelector("a[href^='/']");
+  const categoryName = text(header.querySelector("a[href*='/discussions/categories/']")) || null;
+  const sidebarCategory = text(doc.querySelector(".discussion-sidebar-item a[href*='/discussions/categories/']"));
+  const categoryEmoji = categoryName && sidebarCategory.endsWith(categoryName) ? sidebarCategory.slice(0, -categoryName.length).trim() || null : null;
+
+  return {
+    number,
+    title,
+    opener: parseComment(openerEl, 0),
+    asked: /\basked\b/.test(text(header)),
+    state: stateText.startsWith("Closed") ? "closed" : "open",
+    isAnswered: answerId != null || stateText.startsWith("Answered"),
+    answerId,
+    answerChosenBy: chosenBy ? loginOf(chosenBy) : null,
+    categoryName,
+    categoryEmoji,
+    countLine: text(doc.querySelector("#discussion-comment-count")).replace(/^Replies:\s*/, ""),
+    labels: Array.from(doc.querySelectorAll(".discussion-sidebar-item .IssueLabel"), (l) => ({ name: text(l), color: labelColor(l.getAttribute("style") ?? "") })),
+    timeline: parseTimeline(doc),
+  };
 }
 
-async function fetchComments(owner: string, repo: string, number: number): Promise<DiscussionComment[]> {
-  const out: DiscussionComment[] = [];
-  let url: string | null = `https://api.github.com/repos/${owner}/${repo}/discussions/${number}/comments?per_page=100`;
-  let attempts = 0;
-  while (url && attempts < 5) {
-    attempts++;
-    const resp = await fetchApi(url, { credentials: "omit", headers: { Accept: "application/vnd.github.html+json" } });
-    if (!resp.ok) break;
-    const arr = (await resp.json()) as unknown;
-    if (!Array.isArray(arr)) break;
-    for (const raw of arr) {
-      const parsed = parseComment(raw);
-      if (parsed) out.push(parsed);
+// a pages fragment carries the next hidden range as its own load-more form
+function parseTimeline(doc: Document): TimelineEntry[] {
+  const seen = new Set<number>();
+  const out: TimelineEntry[] = [];
+  for (const el of doc.querySelectorAll(`${COMMENT}, form[action*='/pages?']`)) {
+    if (el.tagName === "FORM") {
+      out.push({ kind: "more", url: el.getAttribute("action")!, label: text(el) || "Load more…" });
+      continue;
     }
-    const link = resp.headers.get("link") || "";
-    const m = /<([^>]+)>;\s*rel="next"/.exec(link);
-    url = m && m[1] ? m[1] : null;
+    if (el.closest("[id^='child-comments-']")) continue;
+    const id = idOf(el);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ kind: "comment", comment: parseComment(el, id), replies: parseReplies(doc.getElementById(`child-comments-${el.id}`)) });
   }
   return out;
 }
 
-function parseDiscussion(owner: string, repo: string, number: number, d: Record<string, unknown>): DiscussionDetail {
-  const user = readObj(d["user"]);
-  const chosenBy = readObj(d["answer_chosen_by"]);
-  const category = readObj(d["category"]);
-  const labelsRaw = Array.isArray(d["labels"]) ? d["labels"] : [];
+function parseReplies(box: Element | null): Replies {
+  if (!box) return { items: [], earlier: null };
+  const form = box.querySelector("form[action$='/threads']");
+  const params = new URLSearchParams(Array.from(form?.querySelectorAll("input[name]") ?? [], (i) => [i.getAttribute("name")!, i.getAttribute("value") ?? ""]));
   return {
-    owner,
-    repo,
-    number,
-    title: readString(d, "title") ?? "",
-    bodyHtml: readString(d, "body_html") ?? "",
-    state: readString(d, "state") === "closed" ? "closed" : "open",
-    stateReason: readString(d, "state_reason"),
-    categoryName: category ? readString(category, "name") : null,
-    categoryEmoji: category ? readString(category, "emoji") : null,
-    author: user ? { login: readString(user, "login") ?? "", avatarUrl: readString(user, "avatar_url") ?? "" } : null,
-    createdAt: readString(d, "created_at") ?? "",
-    commentsCount: readNumber(d, "comments") ?? 0,
-    isAnswered: readString(d, "answer_chosen_at") !== null,
-    answerHtmlUrl: readString(d, "answer_html_url"),
-    answerChosenBy: chosenBy ? readString(chosenBy, "login") : null,
-    htmlUrl: readString(d, "html_url") ?? `https://github.com/${owner}/${repo}/discussions/${number}`,
-    reactions: parseReactions(d["reactions"]),
-    labels: labelsRaw
-      .map((l) => {
-        if (!l || typeof l !== "object") return null;
-        const o = l as Record<string, unknown>;
-        const n = readString(o, "name");
-        if (!n) return null;
-        return { name: n, color: (readString(o, "color") ?? "ccc").replace(/^#/, "") };
-      })
-      .filter((x): x is { name: string; color: string } => x !== null),
+    items: Array.from(box.querySelectorAll(COMMENT), (el) => parseComment(el, idOf(el))),
+    earlier: form ? { url: `${form.getAttribute("action")}?${params}`, label: text(form) || "Show previous replies" } : null,
   };
 }
 
-function parseComment(raw: unknown): DiscussionComment | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const id = readNumber(r, "id");
-  if (id == null) return null;
-  const user = readObj(r["user"]);
+function parseComment(el: Element, id: number): DiscussionComment {
+  const card = el.matches(".timeline-comment") ? el : el.querySelector(".timeline-comment") ?? el;
+  const authorLink = card.querySelector(".timeline-comment-header-text a[href^='/'], a.author[href^='/']");
+  const login = authorLink ? loginOf(authorLink) : "ghost";
+  const avatar = card.querySelector(".timeline-comment-header-text img")?.getAttribute("src")
+    ?? el.closest(".TimelineItem")?.querySelector(":scope > .TimelineItem-avatar img")?.getAttribute("src");
+  const reactions = Array.from(card.querySelector(".js-comment-reactions-options")?.querySelectorAll("button[value]") ?? []).flatMap((b) => {
+    const count = Number(/(\d[\d,]*)\s*$/.exec(text(b))?.[1]?.replace(/,/g, ""));
+    return count ? [{ content: b.getAttribute("value")!.split(" ")[0]!, count }] : [];
+  });
+  const upvotes = /(\d+)/.exec(card.querySelector(".js-upvote-button")?.getAttribute("aria-label") ?? "")?.[1];
   return {
     id,
-    parentId: readNumber(r, "parent_id"),
-    author: user ? { login: readString(user, "login") ?? "", avatarUrl: readString(user, "avatar_url") ?? "" } : null,
-    authorAssociation: readString(r, "author_association"),
-    bodyHtml: readString(r, "body_html") ?? "",
-    createdAt: readString(r, "created_at") ?? "",
-    htmlUrl: readString(r, "html_url") ?? "",
-    reactions: parseReactions(r["reactions"]),
-    childCount: readNumber(r, "child_comment_count") ?? 0,
+    login,
+    avatarUrl: avatar || `https://github.com/${login}.png?size=64`,
+    bodyHtml: card.querySelector(".js-comment-body")?.innerHTML ?? "",
+    createdAt: card.querySelector("relative-time")?.getAttribute("datetime") ?? "",
+    upvotes: upvotes ? Number(upvotes) : null,
+    reactions,
   };
 }
 
-function parseReactions(raw: unknown): Reaction[] {
-  if (!raw || typeof raw !== "object") return [];
-  const r = raw as Record<string, unknown>;
-  const map: Array<[string, string]> = [
-    ["+1", "THUMBS_UP"],
-    ["-1", "THUMBS_DOWN"],
-    ["laugh", "LAUGH"],
-    ["hooray", "HOORAY"],
-    ["confused", "CONFUSED"],
-    ["heart", "HEART"],
-    ["rocket", "ROCKET"],
-    ["eyes", "EYES"],
-  ];
-  const out: Reaction[] = [];
-  for (const [k, c] of map) {
-    const v = r[k];
-    if (typeof v === "number" && v > 0) out.push({ content: c, count: v });
-  }
-  return out;
+function idOf(el: Element): number {
+  return Number(el.id.replace("discussioncomment-", ""));
+}
+
+function loginOf(a: Element): string {
+  return a.getAttribute("href")!.split("/").filter(Boolean).pop() ?? "ghost";
+}
+
+function labelColor(style: string): string | null {
+  const hex = /#([\da-f]{6})\b/i.exec(style)?.[1];
+  if (hex) return hex;
+  const rgb = /--label-r:\s*(\d+);\s*--label-g:\s*(\d+);\s*--label-b:\s*(\d+)/.exec(style);
+  return rgb ? rgb.slice(1).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
+}
+
+function bindLoadMore(root: HTMLElement, d: DiscussionDetail): void {
+  root.addEventListener("click", async (e) => {
+    const button = (e.target as Element).closest<HTMLButtonElement>("button[data-oldgh-more]");
+    if (!button || button.disabled) return;
+    const slot = button.closest(".oldgh-discussion__more-slot");
+    if (!slot) return;
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = "Loading…";
+    try {
+      const doc = await fetchPageDoc(new URL(button.dataset["oldghMore"]!, "https://github.com").href);
+      if (slot.classList.contains("oldgh-discussion__replies")) {
+        slot.outerHTML = renderReplies(parseReplies(doc.querySelector("[id^='child-comments-']")));
+      } else {
+        slot.outerHTML = parseTimeline(doc).map((entry) => renderEntry(entry, d)).join("");
+      }
+    } catch {
+      button.disabled = false;
+      button.textContent = `${label} (couldn't load, try again)`;
+    }
+  });
 }
 
 function renderShell(number: number): string {
@@ -218,21 +196,7 @@ function renderShell(number: number): string {
   `;
 }
 
-function renderBody(d: DiscussionDetail, comments: DiscussionComment[]): string {
-  const stateBadge = renderStateBadge(d);
-  const opener = renderOpener(d);
-  const answerComment = findAnswerComment(d, comments);
-  // the answer renders in its own card, so drop it from the flat list to avoid showing it twice
-  const listed = answerComment ? comments.filter((c) => c.id !== answerComment.id) : comments;
-  const topLevel = listed.filter((c) => c.parentId == null);
-  const replies = listed.filter((c) => c.parentId != null);
-  const repliesByParent = new Map<number, DiscussionComment[]>();
-  for (const r of replies) {
-    if (r.parentId == null) continue;
-    const list = repliesByParent.get(r.parentId) ?? [];
-    list.push(r);
-    repliesByParent.set(r.parentId, list);
-  }
+function renderBody(d: DiscussionDetail): string {
   return `
     <div class="oldgh-page oldgh-discussion">
       <header class="oldgh-discussion__header">
@@ -241,29 +205,63 @@ function renderBody(d: DiscussionDetail, comments: DiscussionComment[]): string 
           <span class="oldgh-discussion__number">#${d.number}</span>
         </h1>
         <div class="oldgh-discussion__meta">
-          ${stateBadge}
+          ${renderStateBadge(d)}
           ${d.categoryName ? `<span class="oldgh-discussion__category">${renderCategoryIcon(d.categoryEmoji)}<span>${escapeText(d.categoryName)}</span></span>` : ""}
           <span class="oldgh-discussion__byline">
-            ${d.author ? `<a href="/${escapeAttr(d.author.login)}">${escapeText(d.author.login)}</a>` : "ghost"}
-            asked ${relativeTimeLink(d.createdAt)}
-            · ${d.commentsCount} ${d.commentsCount === 1 ? "comment" : "comments"}
+            <a href="/${escapeAttr(d.opener.login)}">${escapeText(d.opener.login)}</a>
+            ${d.asked ? "asked" : "started this conversation"} ${relativeTimeLink(d.opener.createdAt)}
           </span>
         </div>
-        ${d.labels.length > 0 ? `<div class="oldgh-discussion__labels">${d.labels.map((l) => `<span class="oldgh-issue__label" style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};">${escapeText(emojify(l.name))}</span>`).join(" ")}</div>` : ""}
+        ${d.labels.length > 0 ? `<div class="oldgh-discussion__labels">${d.labels.map((l) => `<span class="oldgh-issue__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};"` : ""}>${escapeText(emojify(l.name))}</span>`).join(" ")}</div>` : ""}
       </header>
 
       <div class="oldgh-discussion__main">
-        ${opener}
-        ${answerComment ? renderAnswer(answerComment, d.answerChosenBy) : ""}
-        ${topLevel.length === 0 ? `<p class="oldgh-discussion__empty">No comments yet.</p>` : `
-          <h2 class="oldgh-discussion__section">${topLevel.length} top-level ${topLevel.length === 1 ? "comment" : "comments"}</h2>
+        ${renderCommentBlock(d.opener, "oldgh-discussion__opener")}
+        ${d.timeline.length === 0 ? `<p class="oldgh-discussion__empty">No comments yet.</p>` : `
+          ${d.countLine ? `<h2 class="oldgh-discussion__section">${escapeText(d.countLine)}</h2>` : ""}
           <div class="oldgh-discussion__comments">
-            ${topLevel.map((c) => renderComment(c, repliesByParent.get(c.id) ?? [])).join("")}
+            ${d.timeline.map((entry) => renderEntry(entry, d)).join("")}
           </div>
         `}
       </div>
     </div>
   `;
+}
+
+function renderEntry(entry: TimelineEntry, d: DiscussionDetail): string {
+  if (entry.kind === "more") {
+    return `<div class="oldgh-discussion__more-slot">${moreButton(entry.url, entry.label)}</div>`;
+  }
+  const group = `
+    <div class="oldgh-discussion__comment-group">
+      ${renderCommentBlock(entry.comment, "")}
+      ${renderReplies(entry.replies)}
+    </div>
+  `;
+  if (entry.comment.id !== d.answerId) return group;
+  const markedBy = d.answerChosenBy
+    ? `marked by <a href="/${escapeAttr(d.answerChosenBy)}">${escapeText(d.answerChosenBy)}</a>`
+    : "marked as answer";
+  return `
+    <div class="oldgh-discussion__answer-card">
+      <header class="oldgh-discussion__answer-head">${octicon("check", { size: 14 })} <strong>Answer</strong> · ${markedBy}</header>
+      ${group}
+    </div>
+  `;
+}
+
+function renderReplies(r: Replies): string {
+  if (r.items.length === 0 && !r.earlier) return "";
+  return `
+    <div class="oldgh-discussion__replies oldgh-discussion__more-slot">
+      ${r.earlier ? moreButton(r.earlier.url, r.earlier.label) : ""}
+      ${r.items.map((c) => renderCommentBlock(c, "oldgh-discussion__reply")).join("")}
+    </div>
+  `;
+}
+
+function moreButton(url: string, label: string): string {
+  return `<button type="button" class="oldgh-btn oldgh-discussion__more" data-oldgh-more="${escapeAttr(url)}">${escapeText(label)}</button>`;
 }
 
 function renderCategoryIcon(emoji: string | null): string {
@@ -278,16 +276,6 @@ function renderCategoryIcon(emoji: string | null): string {
   return octicon("comment-discussion", { size: 14 });
 }
 
-function findAnswerComment(d: DiscussionDetail, comments: DiscussionComment[]): DiscussionComment | null {
-  if (!d.answerHtmlUrl) return null;
-  // answer_html_url ends with #discussioncomment-<id> matching a comment's id/htmlUrl
-  const m = /#discussioncomment-(\d+)/.exec(d.answerHtmlUrl);
-  const answerId = m && m[1] ? Number(m[1]) : null;
-  return (
-    comments.find((c) => (answerId != null && c.id === answerId) || c.htmlUrl === d.answerHtmlUrl) ?? null
-  );
-}
-
 function renderStateBadge(d: DiscussionDetail): string {
   if (d.isAnswered) {
     return `<span class="oldgh-discussion__state oldgh-discussion__state--answered">${octicon("check", { size: 14 })}<span>Answered</span></span>`;
@@ -298,111 +286,32 @@ function renderStateBadge(d: DiscussionDetail): string {
   return `<span class="oldgh-discussion__state oldgh-discussion__state--open">${octicon("comment-discussion", { size: 14 })}<span>Open</span></span>`;
 }
 
-function renderOpener(d: DiscussionDetail): string {
-  return renderCommentBlock({
-    avatar: d.author?.avatarUrl || (d.author ? `https://github.com/${d.author.login}.png?size=64` : ""),
-    login: d.author?.login || "ghost",
-    createdAt: d.createdAt,
-    bodyHtml: d.bodyHtml,
-    reactions: d.reactions,
-    authorAssociation: null,
-    cls: "oldgh-discussion__opener",
-  });
-}
-
-function renderAnswer(c: DiscussionComment, chosenBy: string | null): string {
-  const markedBy = chosenBy
-    ? `marked by <a href="/${escapeAttr(chosenBy)}">${escapeText(chosenBy)}</a>`
-    : "marked as answer";
+function renderCommentBlock(c: DiscussionComment, cls: string): string {
   return `
-    <div class="oldgh-discussion__answer-card">
-      <header class="oldgh-discussion__answer-head">${octicon("check", { size: 14 })} <strong>Answer</strong> · ${markedBy}</header>
-      ${renderCommentBlock({
-        avatar: c.author?.avatarUrl || (c.author ? `https://github.com/${c.author.login}.png?size=64` : ""),
-        login: c.author?.login || "ghost",
-        createdAt: c.createdAt,
-        bodyHtml: c.bodyHtml,
-        reactions: c.reactions,
-        authorAssociation: c.authorAssociation,
-        cls: "oldgh-discussion__answer",
-      })}
-    </div>
-  `;
-}
-
-function renderComment(c: DiscussionComment, replies: DiscussionComment[]): string {
-  return `
-    <div class="oldgh-discussion__comment-group">
-      ${renderCommentBlock({
-        avatar: c.author?.avatarUrl || (c.author ? `https://github.com/${c.author.login}.png?size=64` : ""),
-        login: c.author?.login || "ghost",
-        createdAt: c.createdAt,
-        bodyHtml: c.bodyHtml,
-        reactions: c.reactions,
-        authorAssociation: c.authorAssociation,
-        cls: "",
-      })}
-      ${replies.length > 0 ? `<div class="oldgh-discussion__replies">${replies.map((r) => renderCommentBlock({
-        avatar: r.author?.avatarUrl || (r.author ? `https://github.com/${r.author.login}.png?size=64` : ""),
-        login: r.author?.login || "ghost",
-        createdAt: r.createdAt,
-        bodyHtml: r.bodyHtml,
-        reactions: r.reactions,
-        authorAssociation: r.authorAssociation,
-        cls: "oldgh-discussion__reply",
-      })).join("")}</div>` : ""}
-      ${renderMoreReplies(c, replies.length)}
-    </div>
-  `;
-}
-
-function renderMoreReplies(c: DiscussionComment, rendered: number): string {
-  // child_comment_count is the true reply total; nested replies aren't inlined
-  // here, so link out for any that weren't rendered instead of dropping them
-  const missing = c.childCount - rendered;
-  if (missing <= 0 || !c.htmlUrl) return "";
-  return `<a class="oldgh-discussion__more-replies" href="${escapeAttr(c.htmlUrl)}">${octicon("reply", { size: 14 })} ${missing} more ${missing === 1 ? "reply" : "replies"}</a>`;
-}
-
-type CommentBlockArgs = {
-  avatar: string;
-  login: string;
-  createdAt: string;
-  bodyHtml: string;
-  reactions: Reaction[];
-  authorAssociation: string | null;
-  cls: string;
-};
-
-function renderCommentBlock(c: CommentBlockArgs): string {
-  const association = c.authorAssociation && c.authorAssociation !== "NONE" && c.authorAssociation !== "MEMBER"
-    ? `<span class="oldgh-issue__association">${escapeText(formatAssociation(c.authorAssociation))}</span>`
-    : "";
-  return `
-    <article class="oldgh-issue__comment ${c.cls}">
+    <article class="oldgh-issue__comment ${cls}"${c.id ? ` id="discussioncomment-${c.id}"` : ""}>
       <a class="oldgh-issue__avatar" href="/${escapeAttr(c.login)}" aria-label="View ${escapeAttr(c.login)}'s profile">
-        <img src="${escapeAttr(c.avatar)}" alt="" width="44" height="44" />
+        <img src="${escapeAttr(c.avatarUrl)}" alt="" width="44" height="44" />
       </a>
       <div class="oldgh-issue__comment-card">
         <header class="oldgh-issue__comment-head">
           <a href="/${escapeAttr(c.login)}" class="oldgh-issue__comment-author">${escapeText(c.login)}</a>
           <span class="oldgh-issue__comment-time">commented ${relativeTimeLink(c.createdAt)}</span>
-          ${association}
         </header>
         <div class="oldgh-issue__body markdown-body">
           ${sanitizeHtml(c.bodyHtml) || `<p class="oldgh-issue__empty">No description provided.</p>`}
         </div>
-        ${renderReactionRow(c.reactions)}
+        ${renderReactionRow(c)}
       </div>
     </article>
   `;
 }
 
-function renderReactionRow(reactions: Reaction[]): string {
-  if (reactions.length === 0) return "";
+function renderReactionRow(c: DiscussionComment): string {
+  if (c.reactions.length === 0 && !c.upvotes) return "";
   return `
     <div class="oldgh-issue__reactions">
-      ${reactions.map((r) => `<span class="oldgh-issue__reaction" title="${escapeAttr(r.content.toLowerCase().replace(/_/g, " "))}">${reactionEmoji(r.content)} ${r.count}</span>`).join("")}
+      ${c.upvotes ? `<span class="oldgh-issue__reaction" title="upvotes">${octicon("arrow-up", { size: 12 })} ${c.upvotes}</span>` : ""}
+      ${c.reactions.map((r) => `<span class="oldgh-issue__reaction" title="${escapeAttr(r.content.toLowerCase().replace(/_/g, " "))}">${reactionEmoji(r.content)} ${r.count}</span>`).join("")}
     </div>
   `;
 }
@@ -421,18 +330,6 @@ function reactionEmoji(content: string): string {
   }
 }
 
-function formatAssociation(a: string): string {
-  switch (a) {
-    case "OWNER": return "Owner";
-    case "COLLABORATOR": return "Collaborator";
-    case "MEMBER": return "Member";
-    case "CONTRIBUTOR": return "Contributor";
-    case "FIRST_TIME_CONTRIBUTOR": return "First-time contributor";
-    case "FIRST_TIMER": return "First-timer";
-    default: return a.toLowerCase();
-  }
-}
-
 function labelTextColor(hex: string): string {
   const m = /^([\da-f]{6})$/i.exec(hex);
   if (!m || !m[1]) return "#fff";
@@ -447,16 +344,4 @@ function labelTextColor(hex: string): string {
 function relativeTimeLink(iso: string): string {
   if (!iso) return "";
   return `<span title="${escapeAttr(absoluteTime(iso))}">${escapeText(relativeTime(iso))}</span>`;
-}
-
-function readObj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-}
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
 }
