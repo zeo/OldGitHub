@@ -127,17 +127,33 @@ function renderPullFiles(files: PullFile[], threads: ReviewThread[], pullPath: s
       and <strong class="oldgh-pr-files__del">${totalDel}</strong> deletions
     </div>
   `;
-  const blocks = files.map((f) => renderPullFile(f, threads.filter((t) => t.path === f.filename), pullPath)).join("");
+  const byPath = groupBy(threads, (t) => t.path);
+  const blocks = files.map((f) => renderPullFile(f, byPath.get(f.filename) ?? [], pullPath)).join("");
   return `<div class="oldgh-pr-files">${summary}${blocks}</div>`;
 }
 
 function renderPullFile(f: PullFile, threads: ReviewThread[], pullPath: string): string {
+  const activeByAnchor = new Map<string, ReviewThread[]>();
+  for (const t of threads) {
+    if (t.outdated || t.line == null) continue;
+    const key = `${t.side}:${t.line}`;
+    const list = activeByAnchor.get(key) ?? [];
+    list.push(t);
+    activeByAnchor.set(key, list);
+  }
   const placed = new Set<ReviewThread>();
   const threadsAfter = (l: DiffLine): string => {
-    const here = threads.filter((t) => !t.outdated && !placed.has(t) && (t.side === "LEFT"
-      ? l.kind !== "add" && l.kind !== "no-newline" && l.old === t.line
-      : l.kind !== "del" && l.kind !== "no-newline" && l.new === t.line));
-    here.forEach((t) => placed.add(t));
+    const here: ReviewThread[] = [];
+    if (l.kind !== "add" && l.kind !== "no-newline" && l.old != null) {
+      for (const t of activeByAnchor.get(`LEFT:${l.old}`) ?? []) {
+        if (!placed.has(t)) { placed.add(t); here.push(t); }
+      }
+    }
+    if (l.kind !== "del" && l.kind !== "no-newline" && l.new != null) {
+      for (const t of activeByAnchor.get(`RIGHT:${l.new}`) ?? []) {
+        if (!placed.has(t)) { placed.add(t); here.push(t); }
+      }
+    }
     return here.length ? `<tr class="oldgh-diff__threads"><td colspan="3">${here.map((t) => renderReviewThread(t, pullPath, false)).join("")}</td></tr>` : "";
   };
   const statusLabel = f.status === "renamed" && f.previousFilename

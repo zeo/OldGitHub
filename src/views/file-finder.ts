@@ -1,15 +1,18 @@
 import { getFileList } from "@/adapters/repo-files";
 import { octicon } from "@/icons";
-import { rankPaths, type PathMatch } from "@/util/fuzzy";
-import { escapeAttr, escapeText } from "@/util/html";
+import { preparePaths, rankPreparedPaths, type PathMatch, type PreparedPath } from "@/util/fuzzy";
+import { encodePathSegments, escapeAttr, escapeText } from "@/util/html";
 
 const LIMIT = 50;
 
-const encodePath = (p: string): string => p.split("/").map(encodeURIComponent).join("/");
-
 function renderMatch(m: PathMatch): string {
   const hits = new Set(m.hits);
-  return Array.from(m.path, (ch, i) => (hits.has(i) ? `<b>${escapeText(ch)}</b>` : escapeText(ch))).join("");
+  let out = "";
+  for (let i = 0; i < m.path.length; i++) {
+    const ch = escapeText(m.path[i]!);
+    out += hits.has(i) ? `<b>${ch}</b>` : ch;
+  }
+  return out;
 }
 
 export function openFileFinder(owner: string, repo: string, codePath: string | null, go: (path: string) => void): void {
@@ -27,11 +30,16 @@ export function openFileFinder(owner: string, repo: string, codePath: string | n
     </div>`;
   const input = overlay.querySelector<HTMLInputElement>(".oldgh-finder__input")!;
   const list = overlay.querySelector<HTMLUListElement>(".oldgh-finder__list")!;
-  let paths: string[] = [];
+  let paths: PreparedPath[] = [];
   let base = "";
   let selected = 0;
+  let rafId = 0;
 
   const close = (): void => {
+    if (rafId) {
+      window.cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
     overlay.remove();
     previous?.focus();
   };
@@ -44,14 +52,21 @@ export function openFileFinder(owner: string, repo: string, codePath: string | n
     all[selected]!.scrollIntoView({ block: "nearest" });
   };
   const render = (): void => {
-    const found = rankPaths(input.value.trim(), paths, LIMIT);
+    const found = rankPreparedPaths(input.value.trim(), paths, LIMIT);
     list.innerHTML = found.length
-      ? found.map((m) => `<li role="option"><a href="${escapeAttr(`${base}/${encodePath(m.path)}`)}">${octicon("file", { size: 16 })}<span>${renderMatch(m)}</span></a></li>`).join("")
+      ? found.map((m) => `<li role="option"><a href="${escapeAttr(`${base}/${encodePathSegments(m.path)}`)}">${octicon("file", { size: 16 })}<span>${renderMatch(m)}</span></a></li>`).join("")
       : `<li class="oldgh-finder__empty">No matching files.</li>`;
     select(0);
   };
+  const scheduleRender = (): void => {
+    if (rafId) return;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = 0;
+      if (overlay.isConnected) render();
+    });
+  };
 
-  input.addEventListener("input", render);
+  input.addEventListener("input", scheduleRender);
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
@@ -75,8 +90,8 @@ export function openFileFinder(owner: string, repo: string, codePath: string | n
   getFileList(owner, repo, codePath).then(
     (files) => {
       if (!overlay.isConnected) return;
-      paths = files.paths;
-      base = `/${owner}/${repo}/blob/${encodePath(files.ref)}`;
+      paths = preparePaths(files.paths);
+      base = `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/blob/${encodePathSegments(files.ref)}`;
       input.disabled = false;
       input.placeholder = `Find a file on ${files.ref}`;
       input.focus();

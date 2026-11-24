@@ -9,7 +9,7 @@ import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { copyToClipboard } from "@/util/clipboard";
-import { encodePathSegments, escapeAttr, escapeText, safeCssColor, sanitizeHtml } from "@/util/html";
+import { decodeHtmlText, encodePathSegments, escapeAttr, escapeText, safeCssColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-home";
 
@@ -219,7 +219,7 @@ function parsePageLatestCommit(j: Record<string, unknown>): LatestCommitData | n
   const author = j["author"] as { login?: unknown; displayName?: unknown; avatarUrl?: unknown } | null;
   const text = (key: string): string => {
     const html = j[key];
-    return typeof html === "string" ? new DOMParser().parseFromString(html, "text/html").body.textContent ?? "" : "";
+    return typeof html === "string" ? decodeHtmlText(html) : "";
   };
   // github clips a long subject with an ellipsis and carries the rest at the start of the body
   const short = text("shortMessageHtmlLink").trim();
@@ -448,6 +448,7 @@ function bindCloneTabs(root: HTMLElement): void {
   });
 }
 
+const MAX_BRANCH_CACHE = 50;
 const branchCache = new Map<string, string[]>();
 let branchPickerOutsideClickInstalled = false;
 
@@ -516,6 +517,11 @@ async function loadBranches(list: HTMLUListElement | null, ctx: { owner: string;
         if (b === ctx.branch) return 1;
         return a.localeCompare(b);
       });
+      while (branchCache.size >= MAX_BRANCH_CACHE) {
+        const oldest = branchCache.keys().next().value;
+        if (oldest === undefined) break;
+        branchCache.delete(oldest);
+      }
       branchCache.set(key, names);
     } catch (err) {
       console.debug("[oldgh] branch list fetch failed:", err);

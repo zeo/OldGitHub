@@ -28,6 +28,7 @@ export type RepoSummary = {
 
 const summaryCache = new Map<string, { value: RepoSummary; expires: number }>();
 const TTL_MS = 60_000;
+const MAX_SUMMARY_CACHE = 100;
 
 export function forgetRepoSummary(owner: string, repo: string): void {
   summaryCache.delete(`${owner.toLowerCase()}/${repo.toLowerCase()}`);
@@ -43,6 +44,14 @@ export async function getRepoSummary(owner: string, repo: string): Promise<RepoS
   const scraped = await scrapeRepoSummary(owner, repo).catch(() => null);
   const summary = scraped?.stars != null ? scraped : (await apiRepoSummary(owner, repo).catch(() => null)) ?? scraped;
   if (!summary) throw new AdapterFailure("getRepoSummary", `${owner}/${repo} page and api both failed`);
+  for (const [k, entry] of summaryCache) {
+    if (entry.expires <= now) summaryCache.delete(k);
+  }
+  while (summaryCache.size >= MAX_SUMMARY_CACHE) {
+    const oldest = summaryCache.keys().next().value;
+    if (oldest === undefined) break;
+    summaryCache.delete(oldest);
+  }
   summaryCache.set(key, { value: summary, expires: now + TTL_MS });
   return summary;
 }

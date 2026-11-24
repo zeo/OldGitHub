@@ -5,6 +5,7 @@ import { isLoggedIn } from "@/auth/session";
 import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/adapters/profile-repos";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
+import { fetchPageDoc } from "@/adapters/_page";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeAttr, escapeRegExp, escapeText, safeAttrHref, safeCssColor, safeDecodeURIComponent, safeHref, sanitizeHtml, sanitizeScrapedFragment, sanitizeTree } from "@/util/html";
 
@@ -234,6 +235,7 @@ function formatRange(startIso: string, endIso: string): string {
 }
 
 function decorateContributionCells(root: HTMLElement): void {
+  if (!root.isConnected) return;
   const graph = root.querySelector<HTMLElement>(".oldgh-profile__contribs-graph");
   if (!graph) return;
   // Build a map of tool-tip[for] -> text, searching the whole document since
@@ -524,10 +526,7 @@ async function hydrateScrapedTab(root: HTMLElement, login: string, tab: string, 
   params.set("tab", tab);
   const url = `https://github.com/${encodeURIComponent(login)}?${params}`;
   try {
-    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
-    if (!resp.ok) throw new Error(`status ${resp.status}`);
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = await fetchPageDoc(url);
     const frame: Element =
       doc.querySelector("turbo-frame#user-profile-frame") ||
       doc.querySelector("turbo-frame[id*='profile']") ||

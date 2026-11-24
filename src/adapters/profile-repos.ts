@@ -1,4 +1,5 @@
 import { AdapterFailure } from "./index";
+import { fetchPageDoc } from "./_page";
 
 export type RepoListItem = {
   name: string;
@@ -27,15 +28,7 @@ export type ProfileReposView = {
 
 export async function getProfileRepos(login: string, query: string): Promise<ProfileReposView> {
   const url = `https://github.com/${login}?${ensureRepositoriesTab(query)}`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: { Accept: "text/html" },
-  });
-  if (!resp.ok) {
-    throw new AdapterFailure("getProfileRepos", `${url} responded ${resp.status}`);
-  }
-  const html = await resp.text();
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = await fetchPageDoc(url);
 
   // user profile uses #user-repositories-list, org profile uses #org-repositories
   const list = doc.querySelector<HTMLElement>("#user-repositories-list, #org-repositories");

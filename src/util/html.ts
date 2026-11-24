@@ -2,6 +2,16 @@ export function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+let decodeTemplate: HTMLTemplateElement | null = null;
+
+export function decodeHtmlText(html: string): string {
+  decodeTemplate ??= document.createElement("template");
+  decodeTemplate.innerHTML = html;
+  const text = decodeTemplate.content.textContent ?? "";
+  decodeTemplate.innerHTML = "";
+  return text;
+}
+
 export function escapeAttr(s: string): string {
   return s
     .replace(/&/g, "&amp;")

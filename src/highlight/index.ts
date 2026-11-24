@@ -146,45 +146,43 @@ function splitLines(html: string): string[] {
   return splitOnNewlinesPreservingSpans(html);
 }
 
-function splitOnNewlinesPreservingSpans(html: string): string[] {
+export function splitOnNewlinesPreservingSpans(html: string): string[] {
   const lines: string[] = [];
   const openStack: string[] = [];
-  let current = "";
+  let parts: string[] = [];
   let i = 0;
 
   const flush = (): void => {
-    const closing = openStack.map(() => "</span>").join("");
-    const reopen = openStack.join("");
-    lines.push(current + closing);
-    current = reopen;
+    for (let k = 0; k < openStack.length; k++) parts.push("</span>");
+    lines.push(parts.join(""));
+    parts = openStack.length > 0 ? [...openStack] : [];
   };
 
   while (i < html.length) {
-    const ch = html[i]!;
-    if (ch === "<") {
-      const end = html.indexOf(">", i);
-      if (end === -1) {
-        current += html.slice(i);
-        break;
-      }
-      const tag = html.slice(i, end + 1);
-      if (tag.startsWith("<span")) {
-        openStack.push(tag);
-      } else if (tag.startsWith("</span")) {
-        openStack.pop();
-      }
-      current += tag;
-      i = end + 1;
-      continue;
+    const lt = html.indexOf("<", i);
+    const nl = html.indexOf("\n", i);
+    if (lt === -1 && nl === -1) {
+      parts.push(html.slice(i));
+      break;
     }
-    if (ch === "\n") {
+    if (nl !== -1 && (lt === -1 || nl < lt)) {
+      if (nl > i) parts.push(html.slice(i, nl));
       flush();
-      i++;
+      i = nl + 1;
       continue;
     }
-    current += ch;
-    i++;
+    if (lt > i) parts.push(html.slice(i, lt));
+    const end = html.indexOf(">", lt + 1);
+    if (end === -1) {
+      parts.push(html.slice(lt));
+      break;
+    }
+    const tag = html.slice(lt, end + 1);
+    if (tag.startsWith("<span")) openStack.push(tag);
+    else if (tag.startsWith("</span")) openStack.pop();
+    parts.push(tag);
+    i = end + 1;
   }
-  lines.push(current);
+  lines.push(parts.join(""));
   return lines;
 }

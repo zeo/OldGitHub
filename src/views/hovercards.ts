@@ -59,18 +59,20 @@ let activeAnchor: HTMLAnchorElement | null = null;
 let showTimer: number | null = null;
 let hideTimer: number | null = null;
 
-export function mountHovercards(): void {
-  if (popoverEl) return;
-  popoverEl = document.createElement("div");
-  popoverEl.className = "oldgh-hovercard";
-  popoverEl.hidden = true;
-  popoverEl.addEventListener("mouseenter", clearHideTimer);
-  popoverEl.addEventListener("mouseleave", scheduleHide);
-  document.body.appendChild(popoverEl);
+export function mountHovercards(initialEvent?: MouseEvent): void {
+  if (!popoverEl) {
+    popoverEl = document.createElement("div");
+    popoverEl.className = "oldgh-hovercard";
+    popoverEl.hidden = true;
+    popoverEl.addEventListener("mouseenter", clearHideTimer);
+    popoverEl.addEventListener("mouseleave", scheduleHide);
+    document.body.appendChild(popoverEl);
 
-  document.addEventListener("mouseover", onMouseOver, true);
-  document.addEventListener("mouseout", onMouseOut, true);
-  document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    document.addEventListener("mouseover", onMouseOver, true);
+    document.addEventListener("mouseout", onMouseOut, true);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+  }
+  if (initialEvent) onMouseOver(initialEvent);
 }
 
 function onScroll(): void {

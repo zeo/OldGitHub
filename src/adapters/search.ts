@@ -1,7 +1,7 @@
 import { AdapterFailure } from "./index";
 import { loadPagePayload, parseRepoPage } from "./_page";
 import { fetchApi } from "./rate-limit";
-import { sanitizeTree } from "@/util/html";
+import { decodeHtmlText, sanitizeTree } from "@/util/html";
 
 export type SearchType =
   | "repositories"
@@ -159,7 +159,7 @@ function pageRepoOf(r: Record<string, unknown>, key: string): { owner: string; n
 
 // highlighted fields wrap matches in <em> and escape entities
 function plainText(html: string | null): string | null {
-  return html ? new DOMParser().parseFromString(html, "text/html").body.textContent : null;
+  return html ? decodeHtmlText(html) : null;
 }
 
 function pageRepoResult(raw: unknown): RepoResult | null {

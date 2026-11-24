@@ -3,6 +3,7 @@ import { AdapterFailure } from "./index";
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 50;
 const cache = new Map<string, { html: Promise<string>; expires: number }>();
+const pageHtmlCache = new Map<string, { html: Promise<string>; expires: number }>();
 let firstLoad: { url: string; html: string; expires: number } | null = null;
 
 function normalizedUrl(url: string): string {
@@ -17,11 +18,29 @@ export function keepFirstLoad(): void {
   firstLoad = { url: normalizedUrl(location.href), html: document.documentElement.outerHTML, expires: Date.now() + TTL_MS };
 }
 
+export function clearFirstLoad(): void {
+  firstLoad = null;
+}
+
+export function clearPageCache(): void {
+  cache.clear();
+  pageHtmlCache.clear();
+}
+
 export function takeFirstLoad(url: string): string | null {
   if (!firstLoad || firstLoad.expires <= Date.now() || firstLoad.url !== normalizedUrl(url)) return null;
   const { html } = firstLoad;
   firstLoad = null;
   return html;
+}
+
+function pruneMap(map: Map<string, { html: Promise<string>; expires: number }>, now: number): void {
+  for (const [k, entry] of map) if (entry.expires <= now) map.delete(k);
+  while (map.size >= MAX_ENTRIES) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
 }
 
 // concurrent callers share one request; a failed request is not kept
@@ -30,8 +49,7 @@ export function fetchRepoPage(owner: string, repo: string): Promise<string> {
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expires > now) return cached.html;
-  for (const [k, entry] of cache) if (entry.expires <= now) cache.delete(k);
-  if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value!);
+  pruneMap(cache, now);
 
   const html = loadRepoPage(owner, repo);
   cache.set(key, { html, expires: now + TTL_MS });
@@ -40,7 +58,9 @@ export function fetchRepoPage(owner: string, repo: string): Promise<string> {
 }
 
 export function forgetRepoPage(owner: string, repo: string): void {
-  cache.delete(`${owner.toLowerCase()}/${repo.toLowerCase()}`);
+  const slug = `${owner.toLowerCase()}/${repo.toLowerCase()}`;
+  cache.delete(slug);
+  pageHtmlCache.delete(`https://github.com/${slug}`);
 }
 
 async function loadRepoPage(owner: string, repo: string): Promise<string> {
@@ -57,18 +77,37 @@ async function loadRepoPage(owner: string, repo: string): Promise<string> {
   return resp.text();
 }
 
+function fetchPageHtml(resolved: URL): Promise<string> {
+  const kept = takeFirstLoad(resolved.href);
+  if (kept !== null) {
+    // store first-load html so sibling adapters reading the same url in the same navigation don't refetch
+    const key = normalizedUrl(resolved.href);
+    const p = Promise.resolve(kept);
+    pruneMap(pageHtmlCache, Date.now());
+    pageHtmlCache.set(key, { html: p, expires: Date.now() + TTL_MS });
+    return p;
+  }
+  const key = normalizedUrl(resolved.href);
+  const now = Date.now();
+  const cached = pageHtmlCache.get(key);
+  if (cached && cached.expires > now) return cached.html;
+  pruneMap(pageHtmlCache, now);
+
+  const p = fetch(resolved.href, { credentials: "include", headers: { Accept: "text/html" } }).then((resp) => {
+    if (!resp.ok) throw new AdapterFailure("fetchPageDoc", `${resolved.pathname} responded ${resp.status}`);
+    return resp.text();
+  });
+  pageHtmlCache.set(key, { html: p, expires: now + TTL_MS });
+  p.catch(() => pageHtmlCache.get(key)?.html === p && pageHtmlCache.delete(key));
+  return p;
+}
+
 export async function fetchPageDoc(url: string): Promise<Document> {
   const resolved = new URL(url, "https://github.com");
   if (resolved.origin !== "https://github.com") {
     throw new AdapterFailure("fetchPageDoc", `refusing cross-origin page fetch: ${resolved.origin}`);
   }
-  let html = takeFirstLoad(resolved.href);
-  if (html === null) {
-    const resp = await fetch(resolved.href, { credentials: "include", headers: { Accept: "text/html" } });
-    if (!resp.ok) throw new AdapterFailure("fetchPageDoc", `${resolved.pathname} responded ${resp.status}`);
-    html = await resp.text();
-  }
-  return parseRepoPage(html);
+  return parseRepoPage(await fetchPageHtml(resolved));
 }
 
 export async function loadPagePayload(url: string): Promise<unknown> {

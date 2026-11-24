@@ -1,6 +1,5 @@
 import { navigate } from "./index";
 import { resolveRoute, type Route } from "./resolve";
-import { openFileFinder } from "@/views/file-finder";
 
 // 2013 keyboard shortcuts the dashboard ProTips advertise: "/" or "s" focuses
 // the search bar, "t" on a repo opens the file finder, and "g" followed by a key
@@ -59,7 +58,7 @@ export function bindShortcuts(): void {
       if (route.kind.startsWith("repo-") && "owner" in route && "repo" in route) {
         e.preventDefault();
         const codePath = route.kind === "repo-tree" || route.kind === "repo-blob" ? window.location.pathname : null;
-        openFileFinder(route.owner, route.repo, codePath, go);
+        void import("@/views/file-finder").then((m) => m.openFileFinder(route.owner, route.repo, codePath, go));
       }
       return;
     }

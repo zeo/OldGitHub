@@ -30,11 +30,16 @@ async function hydrateHighlight(root: HTMLElement, view: RepoBlobView): Promise<
   // highlight.js runs on the main thread; past this size plain text beats a frozen tab
   if (text.length > MAX_HIGHLIGHT_CHARS || view.rawLines.length > MAX_HIGHLIGHT_LINES) return;
   const result = await highlightFile(text, view.language);
-  if (!result) return;
-  const codeCells = root.querySelectorAll<HTMLTableCellElement>("td.oldgh-repo-blob__code");
-  for (let i = 0; i < codeCells.length && i < result.lines.length; i++) {
-    codeCells[i]!.innerHTML = result.lines[i]!;
+  if (!result || !root.isConnected) return;
+  const tbody = root.querySelector<HTMLTableSectionElement>(".oldgh-repo-blob__table tbody");
+  if (!tbody) return;
+  const rows: string[] = [];
+  for (let i = 0; i < view.rawLines.length; i++) {
+    const n = i + 1;
+    const codeHtml = result.lines[i] ?? escapeText(view.rawLines[i]!);
+    rows.push(`<tr id="L${n}"><td class="oldgh-repo-blob__num"><a href="#L${n}">${n}</a></td><td class="oldgh-repo-blob__code">${codeHtml}</td></tr>`);
   }
+  tbody.innerHTML = rows.join("");
   root.classList.add(`oldgh-hljs-${result.language}`);
   root.classList.add("oldgh-hljs");
 }

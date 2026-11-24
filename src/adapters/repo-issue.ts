@@ -592,9 +592,39 @@ async function apiFetch(path: string): Promise<unknown | null> {
 }
 
 async function apiFetchAll(path: string): Promise<unknown[]> {
-  const out: unknown[] = [];
-  let url = `${API}${path}?per_page=100`;
-  for (let i = 0; i < 5; i++) {
+  const firstUrl = `${API}${path}?per_page=100`;
+  const firstResp = await fetchApi(firstUrl, {
+    credentials: "omit",
+    headers: { Accept: HTML_ACCEPT },
+  });
+  if (!firstResp.ok) {
+    throw new AdapterFailure("apiFetchAll", `${path} responded ${firstResp.status}`);
+  }
+  const firstPage = (await firstResp.json()) as unknown;
+  if (!Array.isArray(firstPage)) return [];
+  const out: unknown[] = [...firstPage];
+  const link = firstResp.headers.get("link") || "";
+  const lastMatch = /<([^>]+)>;\s*rel="last"/.exec(link);
+  const lastPage = lastMatch?.[1] ? Number(new URL(lastMatch[1]).searchParams.get("page") ?? 1) : 0;
+  if (lastPage >= 2) {
+    const cap = Math.min(lastPage, 5);
+    const rest = await Promise.all(
+      Array.from({ length: cap - 1 }, (_, i) => {
+        const u = new URL(firstUrl);
+        u.searchParams.set("page", String(i + 2));
+        return fetchApi(u.href, { credentials: "omit", headers: { Accept: HTML_ACCEPT } }).then(async (r) => {
+          if (!r.ok) throw new AdapterFailure("apiFetchAll", `${path} responded ${r.status}`);
+          const data = (await r.json()) as unknown;
+          return Array.isArray(data) ? data : [];
+        });
+      }),
+    );
+    for (const page of rest) out.push(...page);
+    return out;
+  }
+
+  let url = /<([^>]+)>;\s*rel="next"/.exec(link)?.[1] ?? null;
+  for (let i = 1; i < 5 && url; i++) {
     const resp = await fetchApi(url, {
       credentials: "omit",
       headers: { Accept: HTML_ACCEPT },
@@ -605,10 +635,7 @@ async function apiFetchAll(path: string): Promise<unknown[]> {
     const page = (await resp.json()) as unknown;
     if (!Array.isArray(page)) break;
     out.push(...page);
-    const link = resp.headers.get("link") || "";
-    const next = /<([^>]+)>;\s*rel="next"/.exec(link);
-    if (!next || !next[1]) break;
-    url = next[1];
+    url = /<([^>]+)>;\s*rel="next"/.exec(resp.headers.get("link") || "")?.[1] ?? null;
   }
   return out;
 }

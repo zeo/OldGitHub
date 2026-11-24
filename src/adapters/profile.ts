@@ -1,5 +1,5 @@
 import { AdapterFailure } from "./index";
-import { takeFirstLoad } from "./_page";
+import { fetchPageDoc } from "./_page";
 import { readFollowForms, type FollowForms } from "./social";
 
 export type ProfileKind = "user" | "org";
@@ -74,8 +74,7 @@ export async function getProfile(login: string, query: string = ""): Promise<Pro
   }
   const qs = passthrough.toString();
   const url = `https://github.com/${login}${qs ? `?${qs}` : ""}`;
-  const html = takeFirstLoad(url) ?? await fetchProfilePage(login, url);
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = await fetchPageDoc(url);
 
   const profileUsername = meta(doc, "profile:username");
   if (!profileUsername) {
@@ -180,30 +179,13 @@ function extractContributionYears(doc: Document, login: string, activeFrom: stri
 }
 
 
-async function fetchProfilePage(login: string, url: string): Promise<string> {
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: { Accept: "text/html" },
-  });
-  if (!resp.ok) {
-    throw new AdapterFailure("getProfile", `/${login} responded ${resp.status}`);
-  }
-  return resp.text();
-}
-
 async function fetchContributionFragment(login: string, from?: string | null, to?: string | null): Promise<{ tableHtml: string; heading: string | null } | null> {
   try {
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
     const tail = qs.toString();
-    const resp = await fetch(`https://github.com/users/${login}/contributions${tail ? `?${tail}` : ""}`, {
-      credentials: "include",
-      headers: { Accept: "text/html" },
-    });
-    if (!resp.ok) return null;
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = await fetchPageDoc(`https://github.com/users/${encodeURIComponent(login)}/contributions${tail ? `?${tail}` : ""}`);
     const table = doc.querySelector<HTMLElement>("table.ContributionCalendar-grid, table.js-calendar-graph-table, .js-yearly-contributions table");
     if (!table) return null;
     const heading = normalizeWhitespace(doc.querySelector("h2")?.textContent || "") || null;
@@ -214,7 +196,7 @@ async function fetchContributionFragment(login: string, from?: string | null, to
     }
     const tooltips: string[] = [];
     for (const id of referencedIds) {
-      const tt = doc.querySelector(`#${cssIdentifierEscape(id)}`);
+      const tt = doc.getElementById(id);
       if (tt) tooltips.push(tt.outerHTML);
     }
     return { tableHtml: table.outerHTML + tooltips.join(""), heading };
