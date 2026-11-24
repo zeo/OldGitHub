@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { languageColor as languageColorFor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref, safeCssColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-explore";
 
@@ -240,7 +240,7 @@ function renderRepos(items: TrendingRepo[]): string {
           </div>
           ${r.description ? `<p class="oldgh-explore__repo-desc">${escapeText(r.description)}</p>` : ""}
           <div class="oldgh-explore__repo-meta">
-            ${r.language ? `<span><span class="oldgh-search__lang-dot" style="background:${r.languageColor || languageColorFor(r.language)}"></span>${escapeText(r.language)}</span>` : ""}
+            ${r.language ? `<span><span class="oldgh-search__lang-dot" style="background:${escapeAttr(safeCssColor(r.languageColor || languageColorFor(r.language)) ?? "")}"></span>${escapeText(r.language)}</span>` : ""}
             <span>${octicon("star", { size: 12 })} ${formatCount(r.stars)}</span>
           </div>
         </li>
@@ -258,7 +258,7 @@ function renderDevs(items: TrendingDev[]): string {
       ${items.map((d) => `
         <li class="oldgh-explore__dev">
           <a class="oldgh-explore__dev-avatar" href="/${escapeAttr(d.login)}" aria-label="View ${escapeAttr(d.login)}'s profile">
-            <img src="${escapeAttr(d.avatarUrl)}" width="48" height="48" alt="" />
+            <img src="${safeAttrHref(d.avatarUrl)}" width="48" height="48" alt="" />
           </a>
           <div class="oldgh-explore__dev-main">
             <div class="oldgh-explore__dev-name">
@@ -268,7 +268,7 @@ function renderDevs(items: TrendingDev[]): string {
             ${d.popRepo ? `
               <div class="oldgh-explore__dev-repo">
                 <span class="oldgh-explore__dev-pop-label">Popular repo</span>
-                <a href="${escapeAttr(d.popRepo.href || `/${d.login}/${d.popRepo.name}`)}">${escapeText(d.popRepo.name)}</a>
+                <a href="${safeAttrHref(d.popRepo.href || `/${d.login}/${d.popRepo.name}`)}">${escapeText(d.popRepo.name)}</a>
                 ${d.popRepo.description ? `<span class="oldgh-explore__dev-pop-desc">${escapeText(d.popRepo.description)}</span>` : ""}
               </div>
             ` : ""}

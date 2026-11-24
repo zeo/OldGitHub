@@ -5,7 +5,7 @@ import { currentUserLogin } from "@/auth/session";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, relativizeGithubUrl, safeAttrHref, safeHexColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-me-issues";
 
@@ -121,14 +121,17 @@ function searchHref(p: MeIssuesPage): string {
 function renderItem(it: IssueResult): string {
   const icon = stateIcon(it);
   const [repoOwner, repoName] = it.repoFullName.split("/");
-  const labels = it.labels.slice(0, 6).map((l) => `<span class="oldgh-me-issues__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)}"` : ""}>${escapeText(emojify(l.name))}</span>`).join("");
+  const labels = it.labels.slice(0, 6).map((l) => {
+    const bg = l.color ? safeHexColor(l.color) : null;
+    return `<span class="oldgh-me-issues__label"${bg ? ` style="background:${escapeAttr(bg)};color:${labelTextColor(bg)}"` : ""}>${escapeText(emojify(l.name))}</span>`;
+  }).join("");
   return `
     <li class="oldgh-me-issues__item">
       <span class="oldgh-me-issues__icon oldgh-me-issues__icon--${itemStateClass(it)}">${icon}</span>
       <div class="oldgh-me-issues__body">
         <div class="oldgh-me-issues__row1">
           <a class="oldgh-me-issues__repo" href="/${escapeAttr(it.repoFullName)}">${escapeText(repoOwner ?? "")}/${escapeText(repoName ?? "")}</a>
-          <a class="oldgh-me-issues__title" href="${escapeAttr(it.htmlUrl.replace(/^https:\/\/github\.com/, ""))}">${escapeText(it.title)}</a>
+          <a class="oldgh-me-issues__title" href="${safeAttrHref(relativizeGithubUrl(it.htmlUrl))}">${escapeText(it.title)}</a>
           ${labels ? `<span class="oldgh-me-issues__labels">${labels}</span>` : ""}
         </div>
         <div class="oldgh-me-issues__row2">
@@ -187,15 +190,6 @@ function stateIcon(it: IssueResult): string {
 function itemStateClass(it: IssueResult): string {
   if (!it.isPull) return it.state;
   return it.merged ? "merged" : it.state === "closed" ? "closed" : it.draft ? "draft" : "open";
-}
-
-function labelTextColor(hex: string): string {
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#24292e";
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6 ? "#24292e" : "#ffffff";
 }
 
 function formatCount(n: number): string {

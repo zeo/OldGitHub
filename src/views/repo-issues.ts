@@ -3,7 +3,7 @@ import { getIssueList, type IssueListView, type IssueRow } from "@/adapters/repo
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issues";
 
@@ -32,7 +32,7 @@ function renderShell(v: IssueListView, kind: "issues" | "pulls"): string {
     <div class="oldgh-page">
       <div class="oldgh-issues__toolbar">
         ${renderSearch(v, kind)}
-        <a class="oldgh-btn oldgh-btn--primary oldgh-issues__new" href="/${v.owner}/${v.repo}/${kind === "pulls" ? "compare" : "issues/new/choose"}">
+        <a class="oldgh-btn oldgh-btn--primary oldgh-issues__new" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/${kind === "pulls" ? "compare" : "issues/new/choose"}">
           ${octicon(kind === "pulls" ? "git-pull-request" : "issue-opened", { size: 14 })}
           <span>New ${kind === "pulls" ? "pull request" : "issue"}</span>
         </a>
@@ -66,7 +66,7 @@ function renderShell(v: IssueListView, kind: "issues" | "pulls"): string {
 
 function renderSearch(v: IssueListView, kind: "issues" | "pulls"): string {
   return `
-    <form class="oldgh-issues__search" action="/${v.owner}/${v.repo}/${kind}" method="get" role="search">
+    <form class="oldgh-issues__search" action="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/${kind}" method="get" role="search">
       <input type="search" name="q" value="${escapeAttr(v.query)}" placeholder="Search ${kind}" aria-label="Search ${kind}" />
     </form>
   `;
@@ -89,7 +89,10 @@ function renderRow(v: IssueListView, r: IssueRow, kind: "issues" | "pulls"): str
 
   const labelState = /\bis:closed\b/i.test(v.query) ? "is:closed" : "is:open";
   const labels = r.labels.length > 0
-    ? `<span class="oldgh-issues__labels">${r.labels.map((l) => `<a class="oldgh-issues__label" href="/${v.owner}/${v.repo}/${kind}?q=${labelState}+label:${encodeURIComponent('"' + l.name + '"')}" style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};">${escapeText(emojify(l.name))}</a>`).join("")}</span>`
+    ? `<span class="oldgh-issues__labels">${r.labels.map((l) => {
+      const bg = safeHexColor(l.color) ?? "#cccccc";
+      return `<a class="oldgh-issues__label" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/${kind}?q=${labelState}+label:${encodeURIComponent('"' + l.name + '"')}" style="background:${escapeAttr(bg)};color:${labelTextColor(bg)};">${escapeText(emojify(l.name))}</a>`;
+    }).join("")}</span>`
     : "";
 
   const author = r.author
@@ -122,7 +125,7 @@ function renderRow(v: IssueListView, r: IssueRow, kind: "issues" | "pulls"): str
         </h3>
         <p class="oldgh-issues__meta">
           #${r.number} ${opened}
-          ${r.milestone ? ` <span class="oldgh-issues__milestone">${octicon("milestone", { size: 12 })}<a href="${escapeAttr(r.milestone.url)}">${escapeText(r.milestone.title)}</a></span>` : ""}
+          ${r.milestone ? ` <span class="oldgh-issues__milestone">${octicon("milestone", { size: 12 })}<a href="${safeAttrHref(r.milestone.url)}">${escapeText(r.milestone.title)}</a></span>` : ""}
         </p>
       </div>
       <div class="oldgh-issues__meta-right">${assignees}${commentsBadge}</div>
@@ -182,15 +185,4 @@ function relativeTimeLink(iso: string, href?: string): string {
     return `<a href="${escapeAttr(href)}" title="${escapeAttr(abs)}">${escapeText(rel)}</a>`;
   }
   return `<span title="${escapeAttr(abs)}">${escapeText(rel)}</span>`;
-}
-
-function labelTextColor(hex: string): string {
-  const m = /^#?([\da-f]{6})$/i.exec(hex);
-  if (!m || !m[1]) return "#fff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#333" : "#fff";
 }

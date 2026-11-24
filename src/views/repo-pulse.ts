@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoPulse, type PulseItem, type PulseList, type PulseView } from "@/adapters/repo-pulse";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, relativizeGithubUrl, safeAttrHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-pulse";
 
@@ -107,7 +107,7 @@ function renderList(owner: string, repo: string, list: PulseList, one: string, m
         ${list.items.map((it) => `
           <li>
             <span class="oldgh-pulse__badge oldgh-pulse__split-num--${tone}">${escapeText(badge)}</span>
-            <a href="${escapeAttr(localPath(owner, repo, it))}">${escapeText(it.title)}</a>
+            <a href="${safeAttrHref(localPath(owner, repo, it))}">${escapeText(it.title)}</a>
             <span class="oldgh-pulse__sublist-meta">${/^\d+$/.test(it.ref) ? `#${escapeText(it.ref)}` : escapeText(it.ref)}${it.date ? ` · <span title="${escapeAttr(absoluteTime(it.date))}">${escapeText(relativeTime(it.date))}</span>` : ""}</span>
           </li>
         `).join("")}
@@ -129,7 +129,7 @@ export function renderInsightsNav(active: "pulse" | "contributors" | "commit-act
     { key: "forks", label: "Forks", href: (o, r) => `/${o}/${r}/forks` },
   ];
   // owner/repo come from the URL — read from window
-  const m = /^\/([^\/]+)\/([^\/]+)/.exec(window.location.pathname);
+  const m = /^\/([^/]+)\/([^/]+)/.exec(window.location.pathname);
   const owner = m && m[1] ? m[1] : "";
   const repo = m && m[2] ? m[2] : "";
   return `
@@ -144,6 +144,6 @@ export function renderInsightsNav(active: "pulse" | "contributors" | "commit-act
 
 // some paths come back absolute, and a missing one falls back to the item's own number
 function localPath(owner: string, repo: string, it: PulseItem): string {
-  if (it.path) return it.path.replace(/^https:\/\/github\.com/, "");
+  if (it.path) return relativizeGithubUrl(it.path);
   return `/${owner}/${repo}/${/^\d+$/.test(it.ref) ? `issues/${it.ref}` : `releases/tag/${encodeURIComponent(it.ref)}`}`;
 }

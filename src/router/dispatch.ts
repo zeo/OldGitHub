@@ -52,7 +52,7 @@ function insertBodyError(message: string, rateLimited: boolean): void {
         <h2>GitHub rate-limited this request.</h2>
         <p>GitHub allows 60 API requests an hour without a token and 5,000 with one. This browser has used its share for now.</p>
         <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
-        <p><a href="javascript:void(0)" data-oldgh-open-options>Add a token in OldGitHub options</a>, wait for the limit to reset, or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>.</p>
+        <p><a href="#" data-oldgh-open-options>Add a token in OldGitHub options</a>, wait for the limit to reset, or <a href="#" data-oldgh-show-native>show GitHub's native page instead</a>.</p>
       </div>
     `
     : `
@@ -60,7 +60,7 @@ function insertBodyError(message: string, rateLimited: boolean): void {
         <h2>Couldn't render this page natively.</h2>
         <p>The OldGitHub adapter for this URL didn't return data we could use, so the original GitHub UI is hidden to avoid showing two skins at once.</p>
         <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
-        <p><a href="${escapeAttr(window.location.href)}">Reload</a> or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>. If it keeps happening, <a href="${escapeAttr(reportIssueUrl(message))}" target="_blank" rel="noopener noreferrer">report it</a>.</p>
+        <p><a href="${escapeAttr(window.location.href)}">Reload</a> or <a href="#" data-oldgh-show-native>show GitHub's native page instead</a>. If it keeps happening, <a href="${escapeAttr(reportIssueUrl(message))}" target="_blank" rel="noopener noreferrer">report it</a>.</p>
       </div>
     `;
   const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
@@ -273,8 +273,8 @@ function insertBodyNotFound(message: string, inRepo: boolean): void {
       <h2>${inRepo ? "This section isn't available." : "This page isn't available."}</h2>
       <p>${inRepo ? "The page you requested couldn't be found in this repository. It may be disabled, moved, or never existed." : "GitHub returned 404 for this page. It may be private, moved, or never existed."}</p>
       <p class="oldgh-body-error__detail"><code>${escapeText(message)}</code></p>
-      <p>If it's a private repository, <a href="javascript:void(0)" data-oldgh-open-options>add a token in OldGitHub options</a> so it can be read.</p>
-      <p><a href="javascript:void(0)" data-oldgh-show-native>Show GitHub's native page instead</a>.</p>
+      <p>If it's a private repository, <a href="#" data-oldgh-open-options>add a token in OldGitHub options</a> so it can be read.</p>
+      <p><a href="#" data-oldgh-show-native>Show GitHub's native page instead</a>.</p>
     </div>
   `;
   const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
@@ -317,7 +317,7 @@ function targetBodyForRoute(route: Route): BodyState {
 }
 
 function matchRepoList(subPath: string): RepoListKind | null {
-  const seg = subPath.replace(/^\//, "").split(/[\/?]/)[0];
+  const seg = subPath.replace(/^\//, "").split(/[/?]/)[0];
   if (seg === "tags" || seg === "branches" || seg === "forks" || seg === "stargazers" || seg === "watchers" || seg === "labels" || seg === "milestones") {
     return seg as RepoListKind;
   }
@@ -622,7 +622,7 @@ function titleForRoute(route: Route, pathname: string): string {
       return last ? `${last} · ${nwo}` : nwo;
     }
     case "repo-other": {
-      const sub = pathname.replace(`/${route.owner}/${route.repo}`, "").replace(/^\//, "").split(/[\/?]/)[0] || "";
+      const sub = pathname.replace(`/${route.owner}/${route.repo}`, "").replace(/^\//, "").split(/[/?]/)[0] || "";
       const label = REPO_OTHER_TITLE[sub];
       return label ? `${label} · ${nwo}` : nwo;
     }

@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { parseRepoPage } from "./_page";
+import { encodePathSegments, escapeAttr } from "@/util/html";
 
 export type WikiPageRef = {
   title: string;
@@ -17,8 +18,12 @@ export type WikiView = {
 };
 
 export async function getWiki(owner: string, repo: string, page: string): Promise<WikiView> {
-  const slug = page === "Home" ? "" : "/" + encodeURIComponent(page).replace(/%2F/g, "/");
-  const url = `https://github.com/${owner}/${repo}/wiki${slug}`;
+  const segs = page.split("/").filter(Boolean);
+  if (segs.some((s) => s === "." || s === "..")) {
+    throw new AdapterFailure("getWiki", `invalid wiki page path: ${page}`);
+  }
+  const slug = page === "Home" ? "" : "/" + encodePathSegments(page);
+  const url = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/wiki${slug}`;
   const resp = await fetch(url, {
     credentials: "include",
     headers: { Accept: "text/html" },
@@ -38,7 +43,7 @@ export async function getWiki(owner: string, repo: string, page: string): Promis
   const bodyHtml = bodyEl
     ? bodyEl.innerHTML
     : isEmptyWiki
-      ? `<div class="oldgh-wiki__empty"><h2>This wiki is empty.</h2><p>Wikis let you write longer-form content about your project: design notes, getting-started guides, references, anything that doesn't fit a README. Create the first page on <a href="https://github.com/${owner}/${repo}/wiki" rel="noreferrer">GitHub's wiki editor</a>.</p></div>`
+      ? `<div class="oldgh-wiki__empty"><h2>This wiki is empty.</h2><p>Wikis let you write longer-form content about your project: design notes, getting-started guides, references, anything that doesn't fit a README. Create the first page on <a href="/${escapeAttr(owner)}/${escapeAttr(repo)}/wiki" data-oldgh-show-native>GitHub's wiki editor</a>.</p></div>`
       : "";
   if (!bodyEl && !isEmptyWiki) {
     throw new AdapterFailure("getWiki", "no .markdown-body found");

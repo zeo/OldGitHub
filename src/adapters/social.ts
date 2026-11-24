@@ -57,7 +57,7 @@ export async function getRepoSocial(owner: string, repo: string): Promise<RepoSo
 }
 
 export async function setStarred(owner: string, repo: string, starred: boolean, nonce: string): Promise<void> {
-  await verifiedPost(`/${owner}/${repo}/${starred ? "star" : "unstar"}`, nonce);
+  await verifiedPost(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${starred ? "star" : "unstar"}`, nonce);
   forgetRepoPage(owner, repo);
 }
 

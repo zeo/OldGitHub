@@ -44,7 +44,7 @@ function renderBreadcrumb(v: RepoTreeView): string {
     <span class="oldgh-breadcrumb__ref">${branchIcon}<strong>${escapeText(v.branch)}</strong></span>
   `);
   pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${v.owner}/${v.repo}">${escapeText(v.repo)}</a>`);
+  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}">${escapeText(v.repo)}</a>`);
   let acc = "";
   for (let i = 0; i < parts.length; i++) {
     const seg = parts[i]!;

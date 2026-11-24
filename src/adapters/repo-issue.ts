@@ -1,7 +1,7 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
 import { loadPagePayload, parseRepoPage } from "./_page";
-import { escapeText } from "@/util/html";
+import { escapeText, relativizeGithubUrl } from "@/util/html";
 import { parsePatch, parseUnifiedDiff, type DiffHunk } from "@/util/diff";
 
 export type IssueState = "OPEN" | "CLOSED";
@@ -493,7 +493,7 @@ function pageTimelineItem(n: Record<string, unknown>): TimelineNode | null {
     const url = readString(source, "url");
     const num = readNumber(source, "number");
     if (titleHtml) base.refTitle = parseRepoPage(titleHtml).body.textContent ?? "";
-    if (url) base.refUrl = url.replace(/^https:\/\/github\.com/, "");
+    if (url) base.refUrl = relativizeGithubUrl(url);
     if (num != null) base.ref = `#${num}`;
   }
   return base;
@@ -794,7 +794,10 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
       const cid = readString(n, "commit_id");
       if (cid) base.commitOid = cid.slice(0, 7);
       const repoUrl = readString(n, "commit_url");
-      if (repoUrl) base.refUrl = repoUrl.replace(/^https?:\/\/github\.com/, "");
+      if (repoUrl) {
+        const m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/commits\/([0-9a-f]+)$/i.exec(repoUrl);
+        base.refUrl = m ? `/${m[1]}/commit/${m[2]}` : relativizeGithubUrl(repoUrl);
+      }
       return base;
     }
     case "cross-referenced": {
@@ -805,7 +808,7 @@ function restTimelineItem(ev: string, n: Record<string, unknown>): TimelineNode 
           const t = readString(issueObj, "title");
           const u = readString(issueObj, "html_url");
           if (t) base.refTitle = t;
-          if (u) base.refUrl = u.replace(/^https?:\/\/github\.com/, "");
+          if (u) base.refUrl = relativizeGithubUrl(u);
           const num = readNumber(issueObj, "number");
           if (num != null) base.ref = `#${num}`;
         }
@@ -918,7 +921,7 @@ function restMilestone(raw: unknown): Milestone | null {
   if (!title) return null;
   return {
     title,
-    url: (readString(m, "html_url") ?? readString(m, "url") ?? "").replace(/^https:\/\/github\.com/, ""),
+    url: relativizeGithubUrl(readString(m, "html_url") ?? readString(m, "url") ?? ""),
   };
 }
 

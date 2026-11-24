@@ -14,7 +14,7 @@ import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderInsightsNav } from "./repo-pulse";
 import { renderForks } from "./repo-lists";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, relativizeGithubUrl, safeAttrHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-graphs";
 
@@ -277,7 +277,7 @@ function renderCommunityRow(owner: string, repo: string, f: CommunityFile): stri
     : `<span class="oldgh-community__check oldgh-community__check--off">${octicon("primitive-dot", { size: 14 })}</span>`;
   const setupHref = communitySetupHref(owner, repo, f.key);
   const link = f.href
-    ? `<a class="oldgh-community__link" href="${escapeAttr(f.href.replace("https://github.com", ""))}">${escapeText(f.label)}</a>`
+    ? `<a class="oldgh-community__link" href="${safeAttrHref(relativizeGithubUrl(f.href))}">${escapeText(f.label)}</a>`
     : `<span class="oldgh-community__label">${escapeText(f.label)}</span>`;
   return `
     <li class="oldgh-community__row ${f.present ? "is-present" : "is-missing"}">

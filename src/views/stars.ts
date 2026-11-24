@@ -4,7 +4,7 @@ import { currentUserLogin } from "@/auth/session";
 import { fetchPageDoc, pageLinks } from "@/adapters/_page";
 import { languageColor } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeCssColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-stars";
 
@@ -169,7 +169,7 @@ function renderLayout(page: StarsPage, pathname: string, params: URLSearchParams
             ${page.languages.map((l) => `
               <li class="${l.value === language ? "is-active" : ""}">
                 <a href="${escapeAttr(hrefWith({ language: l.value }))}">
-                  <span class="oldgh-search__lang-dot" style="background:${escapeAttr(languageColor(l.label))}"></span>
+                  <span class="oldgh-search__lang-dot" style="background:${escapeAttr(safeCssColor(languageColor(l.label)) ?? "#ccc")}"></span>
                   ${escapeText(l.label)}
                 </a>
               </li>
@@ -230,7 +230,7 @@ function renderRow(r: StarredRepo): string {
       </h2>
       ${r.description ? `<p class="oldgh-stars__desc">${escapeText(r.description)}</p>` : ""}
       <ul class="oldgh-stars__meta">
-        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${escapeAttr(r.languageColor ?? languageColor(r.language))}"></span>${escapeText(r.language)}</li>` : ""}
+        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${escapeAttr(safeCssColor(r.languageColor ?? languageColor(r.language)) ?? "#ccc")}"></span>${escapeText(r.language)}</li>` : ""}
         ${r.stars ? `<li>${octicon("star", { size: 12 })} ${escapeText(r.stars)}</li>` : ""}
         ${r.forks ? `<li>${octicon("repo-forked", { size: 12 })} ${escapeText(r.forks)}</li>` : ""}
         ${r.updatedAt ? `<li>Updated <time datetime="${escapeAttr(r.updatedAt)}" title="${escapeAttr(absoluteTime(r.updatedAt))}">${escapeText(relativeTime(r.updatedAt))}</time></li>` : ""}

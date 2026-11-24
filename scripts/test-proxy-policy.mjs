@@ -11,10 +11,21 @@ test("allows only raw GitHub file requests", () => {
     policy.allowedProxyUrl("https://github.com/octocat/Hello-World/raw/refs/heads/main/README.md", "include"),
     "https://github.com/octocat/Hello-World/raw/refs/heads/main/README.md",
   );
+  assert.equal(
+    policy.allowedProxyUrl("https://github.com/octocat/Hello-World/raw/refs/tags/v1.0.0/README.md", "include"),
+    "https://github.com/octocat/Hello-World/raw/refs/tags/v1.0.0/README.md",
+  );
+  assert.equal(
+    policy.allowedProxyUrl("https://github.com/octocat/Hello-World/raw/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0/src/index.ts", "include"),
+    "https://github.com/octocat/Hello-World/raw/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0/src/index.ts",
+  );
 
   for (const [url, credentials] of [
     ["https://api.github.com/user", "include"],
     ["https://github.com/settings/profile", "include"],
+    ["https://github.com/octocat/Hello-World/raw/main/../../settings/tokens", "include"],
+    ["https://github.com/octocat/Hello-World/raw/main/%2e%2e/secret", "include"],
+    ["https://github.com/octocat/Hello-World/raw/main/%2E%2E/secret", "include"],
     ["https://raw.githubusercontent.com/octocat/Hello-World/main/README.md", "include"],
     ["http://raw.githubusercontent.com/octocat/Hello-World/main/README.md", "omit"],
     ["not a url", "omit"],
@@ -26,7 +37,14 @@ test("allows only raw GitHub file requests", () => {
 test("follows redirects only to github raw hosts", () => {
   assert.equal(policy.allowedRedirectTarget("https://raw.githubusercontent.com/o/r/main/a.txt?token=x"), true);
   assert.equal(policy.allowedRedirectTarget("https://github.com/o/r/raw/refs/heads/main/a.txt"), true);
-  for (const url of ["https://evil.example/a.txt", "http://raw.githubusercontent.com/a", "https://raw.githubusercontent.com.evil.example/a", "nope"]) {
+  for (const url of [
+    "https://evil.example/a.txt",
+    "https://github.com/settings/profile",
+    "https://github.com/o/r/raw/main/%2e%2e/secret",
+    "http://raw.githubusercontent.com/a",
+    "https://raw.githubusercontent.com.evil.example/a",
+    "nope",
+  ]) {
     assert.equal(policy.allowedRedirectTarget(url), false, url);
   }
 });

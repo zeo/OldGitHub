@@ -40,7 +40,7 @@ function fail(message) {
 }
 
 function validateDist(files) {
-  if (files.length === 0) fail("dist/ is empty — run `npm run build` first.");
+  if (files.length === 0) fail("dist/ is empty: run `npm run build` first.");
   const relFiles = files.map(toZipName);
   const mapFiles = relFiles.filter((name) => name.endsWith(".map"));
   if (mapFiles.length > 0) fail(`sourcemaps found in dist/: ${mapFiles.join(", ")}`);
@@ -82,7 +82,7 @@ function validateDist(files) {
   }
 }
 
-if (!existsSync(distDir)) fail("dist/ does not exist — run `npm run build` first.");
+if (!existsSync(distDir)) fail("dist/ does not exist: run `npm run build` first.");
 const files = walk(distDir);
 validateDist(files);
 

@@ -27,7 +27,7 @@ import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { renderDiffLines, renderHunks } from "./_diff-table";
 import { parsePatch, type DiffLine } from "@/util/diff";
-import { escapeAttr, escapeText, sanitizeHtml, safeHref } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issue";
 
@@ -110,7 +110,7 @@ async function hydrateSubTab(root: HTMLElement, pull: PullDetail, tab: IssueTab)
     }
   } catch (err) {
     if (!(err instanceof AdapterFailure)) throw err;
-    container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this tab${isApiRateLimited() ? ": GitHub's API limit is used up" : ""}. <a href="javascript:void(0)" data-oldgh-show-native>Show it on GitHub</a>.</p>`;
+    container.innerHTML = `<p class="oldgh-issue__subtab-empty">Couldn't load this tab${isApiRateLimited() ? ": GitHub's API limit is used up" : ""}. <a href="#" data-oldgh-show-native>Show it on GitHub</a>.</p>`;
   }
 }
 
@@ -145,7 +145,7 @@ function renderPullFile(f: PullFile, threads: ReviewThread[], pullPath: string):
     : escapeText(f.filename);
   const hunk = f.hunks.length
     ? renderHunks(f.hunks, threadsAfter)
-    : `<div class="oldgh-pr-file__nopatch">Binary or large file — view on <a href="${escapeAttr(f.blobUrl)}">GitHub</a>.</div>`;
+    : `<div class="oldgh-pr-file__nopatch">Binary or large file, view on <a href="${safeAttrHref(f.blobUrl)}">GitHub</a>.</div>`;
   const unplaced = threads.filter((t) => !placed.has(t));
   return `
     <div class="oldgh-pr-file" data-status="${escapeAttr(f.status)}">
@@ -274,7 +274,7 @@ function renderCheckRow(c: CheckRun): string {
     <li class="oldgh-pr-checks__row ${cls}">
       <span class="oldgh-pr-checks__icon">${icon}</span>
       <div class="oldgh-pr-checks__main">
-        <a class="oldgh-pr-checks__name" href="${escapeAttr(safeHref(c.htmlUrl || c.detailsUrl))}">${escapeText(c.name)}</a>
+        <a class="oldgh-pr-checks__name" href="${safeAttrHref(c.htmlUrl || c.detailsUrl)}">${escapeText(c.name)}</a>
         ${c.outputTitle ? `<div class="oldgh-pr-checks__output">${escapeText(c.outputTitle)}</div>` : ""}
       </div>
       <div class="oldgh-pr-checks__meta">
@@ -592,7 +592,7 @@ function renderEvent(e: Extract<TimelineNode, { kind: "event" }>): string {
     case "ReferencedEvent":
     case "CrossReferencedEvent":
       icon = "bookmark";
-      line = `<a href="/${escapeAttr(actor)}">${escapeText(actor)}</a> referenced this ${e.refUrl ? `in <a href="${escapeAttr(e.refUrl)}">${escapeText(e.refTitle || e.ref || "another item")}</a>` : ""} ${when}`;
+      line = `<a href="/${escapeAttr(actor)}">${escapeText(actor)}</a> referenced this ${e.refUrl ? `in <a href="${safeAttrHref(e.refUrl)}">${escapeText(e.refTitle || e.ref || "another item")}</a>` : ""} ${when}`;
       break;
     case "PullRequestCommit":
     case "Commit":
@@ -632,7 +632,7 @@ function renderEvent(e: Extract<TimelineNode, { kind: "event" }>): string {
       icon = "unfold";
       line = `${hidden
         ? `${hidden} more ${hidden === 1 ? "item isn't" : "items aren't"} shown here.`
-        : `Comments and reviews come from GitHub's API, which didn't answer${isApiRateLimited() ? " because its hourly limit is used up" : ""}. <a href="javascript:void(0)" data-oldgh-open-options>Add a token</a> or`} <a href="javascript:void(0)" data-oldgh-show-native>${hidden ? "Show the full timeline on GitHub" : "show them on GitHub"}</a>.`;
+        : `Comments and reviews come from GitHub's API, which didn't answer${isApiRateLimited() ? " because its hourly limit is used up" : ""}. <a href="#" data-oldgh-open-options>Add a token</a> or`} <a href="#" data-oldgh-show-native>${hidden ? "Show the full timeline on GitHub" : "show them on GitHub"}</a>.`;
       break;
     }
     case "SubscribedEvent":
@@ -673,7 +673,7 @@ function renderSidebar(v: IssueDetail | PullDetail): string {
     `)}
 
     ${renderSidebarSection("Milestone", v.milestone ? `
-      <a href="${escapeAttr(v.milestone.url)}">${escapeText(v.milestone.title)}</a>
+      <a href="${safeAttrHref(v.milestone.url)}">${escapeText(v.milestone.title)}</a>
     ` : `<p class="oldgh-issue__sidebar-empty">No milestone</p>`)}
   `;
 }
@@ -688,7 +688,8 @@ function renderSidebarSection(title: string, body: string): string {
 }
 
 function renderLabelInline(l: Label): string {
-  return `<span class="oldgh-issue__label" style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};" title="${escapeAttr(l.description || "")}">${escapeText(emojify(l.name))}</span>`;
+  const bg = safeHexColor(l.color) ?? "#cccccc";
+  return `<span class="oldgh-issue__label" style="background:${escapeAttr(bg)};color:${labelTextColor(bg)};" title="${escapeAttr(l.description || "")}">${escapeText(emojify(l.name))}</span>`;
 }
 
 function relativeTimeLink(iso: string): string {
@@ -696,22 +697,6 @@ function relativeTimeLink(iso: string): string {
   const rel = relativeTime(iso);
   const abs = absoluteTime(iso);
   return `<span title="${escapeAttr(abs)}">${escapeText(rel)}</span>`;
-}
-
-function labelTextColor(hex: string): string {
-  // expand 3-digit shorthand (ccc) to 6 digits before luminance calc
-  const short = /^#?([\da-f]{3})$/i.exec(hex);
-  const normalized = short && short[1]
-    ? short[1].split("").map((ch) => ch + ch).join("")
-    : hex;
-  const m = /^#?([\da-f]{6})$/i.exec(normalized);
-  if (!m || !m[1]) return "#fff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#333" : "#fff";
 }
 
 function reactionEmoji(content: string): string {

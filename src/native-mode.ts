@@ -12,12 +12,14 @@ function sessionFlag(key: string): string | null {
   }
 }
 
-function setSessionFlag(key: string, value: string | null): void {
+function setSessionFlag(key: string, value: string | null): boolean {
   try {
     if (value === null) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, value);
+    return true;
   } catch {
     // storage blocked: native mode then lasts only for this load
+    return false;
   }
 }
 
@@ -34,11 +36,11 @@ export async function reportPageMode(mode: PageMode): Promise<boolean> {
   }
 }
 
-// reload at most once per url every 10s so a confused worker can't loop the tab
+// reload at most once per pathname every 10s so a confused worker can't loop the tab
 export function reloadOnce(): boolean {
-  const [at = "0", href = ""] = (sessionFlag(RELOAD_GUARD_KEY) ?? "").split(" ");
-  if (href === location.href && Date.now() - Number(at) < 10_000) return false;
-  setSessionFlag(RELOAD_GUARD_KEY, `${Date.now()} ${location.href}`);
+  const [at = "0", path = ""] = (sessionFlag(RELOAD_GUARD_KEY) ?? "").split(" ");
+  if (path === location.pathname && Date.now() - Number(at) < 10_000) return false;
+  if (!setSessionFlag(RELOAD_GUARD_KEY, `${Date.now()} ${location.pathname}`)) return false;
   location.reload();
   return true;
 }
@@ -71,10 +73,22 @@ export function bindNativeLinks(): void {
   }, true);
 }
 
+function isPrivateRepositoryPage(): boolean {
+  const header = document.querySelector(".oldgh-repo-header");
+  if (header?.getAttribute("data-oldgh-private") === "true") return true;
+  return document.querySelector<HTMLMetaElement>('meta[name="octolytics-dimension-repository_public"]')?.content === "false";
+}
+
 export function reportIssueUrl(detail?: string): string {
+  const page = isPrivateRepositoryPage()
+    ? "(private repository - paste redacted URL if applicable)"
+    : `https://github.com${location.pathname}`;
+  const safeDetail = detail
+    ? detail.replace(/https?:\/\/\S+/gi, "[url]").replace(/[\r\n]+/g, " ").slice(0, 200)
+    : "";
   const params = new URLSearchParams({
-    title: `Page not rendering: ${location.pathname}`,
-    body: `Page: ${location.href}\n${detail ? `Error: ${detail}\n` : ""}\nWhat looked wrong:\n`,
+    title: isPrivateRepositoryPage() ? "Page not rendering on private repository" : `Page not rendering: ${location.pathname}`,
+    body: `Page: ${page}\n${safeDetail ? `Error: ${safeDetail}\n` : ""}\nWhat looked wrong:\n`,
   });
   return `${REPORT_URL}?${params}`;
 }

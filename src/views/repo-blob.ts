@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoBlob, type RepoBlobView } from "@/adapters/repo-overview";
 import { highlightFile } from "@/highlight";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText, safeAttrHref, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-blob";
 const MAX_HIGHLIGHT_CHARS = 1_000_000;
@@ -60,7 +60,7 @@ function renderBreadcrumb(v: RepoBlobView): string {
   const pieces: string[] = [];
   pieces.push(`<span class="oldgh-breadcrumb__ref">${branchIcon}<strong>${escapeText(v.branch)}</strong></span>`);
   pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${v.owner}/${v.repo}">${escapeText(v.repo)}</a>`);
+  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}">${escapeText(v.repo)}</a>`);
   let acc = "";
   for (let i = 0; i < parts.length; i++) {
     const seg = parts[i]!;
@@ -69,7 +69,7 @@ function renderBreadcrumb(v: RepoBlobView): string {
     if (i === parts.length - 1) {
       pieces.push(`<span class="oldgh-breadcrumb__seg oldgh-breadcrumb__seg--current">${escapeText(seg)}</span>`);
     } else {
-      const href = `/${v.owner}/${v.repo}/tree/${encodeURIComponent(v.branch)}/${acc.split("/").map(encodeURIComponent).join("/")}`;
+      const href = `/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/tree/${encodePathSegments(v.branch)}/${acc.split("/").map(encodeURIComponent).join("/")}`;
       pieces.push(`<a class="oldgh-breadcrumb__seg" href="${escapeAttr(href)}">${escapeText(seg)}</a>`);
     }
   }
@@ -81,14 +81,14 @@ function renderFileHeader(v: RepoBlobView, rendered: boolean, href: string): str
   const byteSize = v.isImage ? "image" : v.isBinary ? "binary" : formatBytes(v.size);
   const lang = v.language ? `<span class="oldgh-repo-blob__lang">${escapeText(v.language)}</span>` : "";
   const raw = v.rawBlobUrl
-    ? `<a class="oldgh-btn" href="${escapeAttr(v.rawBlobUrl)}">${octicon("file-binary", { size: 14 })}<span>Raw</span></a>`
+    ? `<a class="oldgh-btn" href="${safeAttrHref(v.rawBlobUrl)}">${octicon("file-binary", { size: 14 })}<span>Raw</span></a>`
     : "";
   const fileName = v.path.split("/").pop() || v.path;
   const download = v.rawBlobUrl
-    ? `<a class="oldgh-btn oldgh-repo-blob__download" href="${escapeAttr(v.rawBlobUrl)}" download="${escapeAttr(fileName)}" title="Download ${escapeAttr(fileName)}">${octicon("cloud-download", { size: 14 })}<span class="oldgh-repo-blob__download-label">Download</span></a>`
+    ? `<a class="oldgh-btn oldgh-repo-blob__download" href="${safeAttrHref(v.rawBlobUrl)}" download="${escapeAttr(fileName)}" title="Download ${escapeAttr(fileName)}">${octicon("cloud-download", { size: 14 })}<span class="oldgh-repo-blob__download-label">Download</span></a>`
     : "";
-  const blame = `<a class="oldgh-btn" href="/${v.owner}/${v.repo}/blame/${encodeURIComponent(v.branch)}/${pathSegments(v.path)}">${octicon("versions", { size: 14 })}<span>Blame</span></a>`;
-  const history = `<a class="oldgh-btn" href="/${v.owner}/${v.repo}/commits/${encodeURIComponent(v.branch)}/${pathSegments(v.path)}">${octicon("history", { size: 14 })}<span>History</span></a>`;
+  const blame = `<a class="oldgh-btn" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/blame/${encodePathSegments(v.branch)}/${pathSegments(v.path)}">${octicon("versions", { size: 14 })}<span>Blame</span></a>`;
+  const history = `<a class="oldgh-btn" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/commits/${encodePathSegments(v.branch)}/${pathSegments(v.path)}">${octicon("history", { size: 14 })}<span>History</span></a>`;
   const toggle = !v.hasPreview
     ? ""
     : rendered
@@ -148,12 +148,12 @@ function renderSource(v: RepoBlobView): string {
 
 function renderBinary(v: RepoBlobView): string {
   if (v.isImage && v.rawBlobUrl) {
-    return `<div class="oldgh-repo-blob__image"><img src="${escapeAttr(v.rawBlobUrl)}" alt="${escapeAttr(v.displayName)}" /></div>`;
+    return `<div class="oldgh-repo-blob__image"><img src="${safeAttrHref(v.rawBlobUrl)}" alt="${escapeAttr(v.displayName)}" /></div>`;
   }
   return `
     <div class="oldgh-repo-blob__binary">
       <p>This file is a binary and cannot be displayed inline.</p>
-      ${v.rawBlobUrl ? `<a class="oldgh-btn" href="${escapeAttr(v.rawBlobUrl)}">${octicon("cloud-download", { size: 14 })}<span>Download</span></a>` : ""}
+      ${v.rawBlobUrl ? `<a class="oldgh-btn" href="${safeAttrHref(v.rawBlobUrl)}">${octicon("cloud-download", { size: 14 })}<span>Download</span></a>` : ""}
     </div>
   `;
 }
@@ -162,7 +162,7 @@ function renderTruncated(v: RepoBlobView): string {
   // when truncated content has no lines, skip renderSource to avoid stacking its empty-state error under the notice
   return `
     <div class="oldgh-repo-blob__truncated">
-      <p>This file has been truncated. ${v.rawBlobUrl ? `<a href="${escapeAttr(v.rawBlobUrl)}">View raw</a>.` : ""}</p>
+      <p>This file has been truncated. ${v.rawBlobUrl ? `<a href="${safeAttrHref(v.rawBlobUrl)}">View raw</a>.` : ""}</p>
       ${isEmptySource(v) ? "" : renderSource(v)}
     </div>
   `;

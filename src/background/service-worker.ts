@@ -231,13 +231,20 @@ if (import.meta.env.MODE === "development") {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || typeof msg !== "object") return undefined;
+  if (!msg || typeof msg !== "object" || sender.id !== chrome.runtime.id) return undefined;
   const m = msg as { type?: unknown; pathname?: unknown; search?: unknown };
   const tabId = sender.tab?.id;
   if (typeof tabId !== "number") return undefined;
+  let senderOrigin = "";
+  try {
+    senderOrigin = sender.origin ?? (sender.url ? new URL(sender.url).origin : "");
+  } catch {
+    return undefined;
+  }
+  if (senderOrigin !== "https://github.com" && senderOrigin !== "https://gist.github.com") return undefined;
 
   if (m.type === "oldgh:route-change") {
-    if (typeof m.pathname !== "string") return undefined;
+    if (senderOrigin !== "https://github.com" || typeof m.pathname !== "string") return undefined;
     const search = typeof m.search === "string" ? m.search : "";
     const applied = isFullyCoveredUrl(m.pathname, search) ? enableForTab(tabId) : disableForTab(tabId);
     void applied.then(() => sendResponse({ ok: true }));
@@ -257,11 +264,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (m.type === "oldgh:pre-navigate-uncovered") {
+    if (senderOrigin !== "https://github.com") return undefined;
     disableForTab(tabId).finally(() => sendResponse({ ok: true }));
     return true;
   }
 
   if (m.type === "oldgh:fetch") {
+    if (senderOrigin !== "https://github.com") return undefined;
     const url = typeof (m as { url?: unknown }).url === "string" ? (m as { url: string }).url : null;
     if (!url) return undefined;
     const credentials = (m as { credentials?: unknown }).credentials === "include" ? "include" : "omit";
@@ -279,16 +288,32 @@ type ProxyFetchResult =
 async function proxyFetch(url: string, credentials: "include" | "omit"): Promise<ProxyFetchResult> {
   const allowedUrl = allowedProxyUrl(url, credentials);
   if (!allowedUrl) return { ok: false, status: 400, error: "raw file URL rejected" };
+  let currentUrl = allowedUrl;
+  let currentCreds = credentials;
   try {
-    const r = await fetch(allowedUrl, { credentials, redirect: "follow" });
-    if (r.redirected && !allowedRedirectTarget(r.url)) {
-      await r.body?.cancel();
-      return { ok: false, status: 400, error: "raw file redirect rejected" };
+    for (let hop = 0; hop <= 5; hop++) {
+      const r = await fetch(currentUrl, { credentials: currentCreds, redirect: "manual" });
+      if (r.type === "opaqueredirect" || (r.status >= 300 && r.status < 400)) {
+        await r.body?.cancel();
+        const location = r.headers.get("location");
+        if (!location || hop === 5) return { ok: false, status: 400, error: "raw file redirect rejected" };
+        let nextUrl: string;
+        try {
+          nextUrl = new URL(location, currentUrl).toString();
+        } catch {
+          return { ok: false, status: 400, error: "raw file redirect rejected" };
+        }
+        if (!allowedRedirectTarget(nextUrl)) return { ok: false, status: 400, error: "raw file redirect rejected" };
+        if (new URL(nextUrl).hostname !== "github.com") currentCreds = "omit";
+        currentUrl = nextUrl;
+        continue;
+      }
+      if (!r.ok) return { ok: false, status: r.status };
+      const contentType = r.headers.get("content-type") || "";
+      const text = await readProxyText(r);
+      return { ok: true, status: r.status, contentType, text };
     }
-    if (!r.ok) return { ok: false, status: r.status };
-    const contentType = r.headers.get("content-type") || "";
-    const text = await readProxyText(r);
-    return { ok: true, status: r.status, contentType, text };
+    return { ok: false, status: 400, error: "raw file redirect rejected" };
   } catch (e) {
     const tooLarge = e instanceof RangeError;
     return { ok: false, status: tooLarge ? 413 : 0, error: String(e) };

@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref, safeCssColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-marketplace";
 
@@ -256,7 +256,7 @@ function renderMain(v: MarketView): string {
     return `
       <div class="oldgh-marketplace__empty">
         <p>We couldn't render this Marketplace view in the classic layout.</p>
-        <p><a href="javascript:void(0)" data-oldgh-show-native>Show GitHub's Marketplace page instead</a>.</p>
+        <p><a href="#" data-oldgh-show-native>Show GitHub's Marketplace page instead</a>.</p>
       </div>
     `;
   }
@@ -278,13 +278,14 @@ function renderSection(s: MarketSection): string {
 }
 
 function renderItem(it: MarketItem): string {
-  const iconStyle = it.iconBg ? `style="background:${escapeAttr(it.iconBg)}"` : "";
+  const safeBg = it.iconBg ? safeCssColor(it.iconBg) : null;
+  const iconStyle = safeBg ? `style="background:${escapeAttr(safeBg)}"` : "";
   const icon = it.iconUrl
-    ? `<img class="oldgh-marketplace__icon" src="${escapeAttr(it.iconUrl)}" alt="" />`
+    ? `<img class="oldgh-marketplace__icon" src="${safeAttrHref(it.iconUrl)}" alt="" />`
     : `<span class="oldgh-marketplace__icon-placeholder">${octicon(it.kind === "action" ? "zap" : "plug", { size: 18 })}</span>`;
   return `
     <li class="oldgh-marketplace__card">
-      <a class="oldgh-marketplace__card-link" href="${escapeAttr(it.url)}">
+      <a class="oldgh-marketplace__card-link" href="${safeAttrHref(it.url)}">
         <div class="oldgh-marketplace__icon-wrap" ${iconStyle}>${icon}</div>
         <div class="oldgh-marketplace__card-body">
           <h3 class="oldgh-marketplace__card-name">

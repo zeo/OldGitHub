@@ -180,7 +180,7 @@ function disableAutosaveToggles(main: HTMLElement): void {
   if (disabled === 0) return;
   const note = document.createElement("div");
   note.className = "flash";
-  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="javascript:void(0)" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
+  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="#" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
   main.querySelector(".oldgh-settings__native")?.prepend(note);
 }
 

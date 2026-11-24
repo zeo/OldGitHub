@@ -1,4 +1,5 @@
 import { AdapterFailure } from "./index";
+import { sanitizeTree } from "@/util/html";
 
 const HEADERS = { Accept: "text/html", "X-Requested-With": "XMLHttpRequest" } as const;
 
@@ -168,11 +169,7 @@ function stripNoise(art: Element): void {
   for (const sel of selectors) {
     art.querySelectorAll(sel).forEach((n) => n.remove());
   }
-  for (const node of Array.from(art.querySelectorAll<HTMLElement>("*"))) {
-    for (const attr of Array.from(node.attributes)) {
-      if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-    }
-  }
+  sanitizeTree(art);
 }
 
 function headerWithoutTime(header: Element): string {

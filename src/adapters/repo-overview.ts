@@ -235,11 +235,22 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
   // private repos: github.com/raw redirects to a signed url and needs the session cookie
   // both go through the background service worker to bypass cross-origin cors
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${encodedPath}`;
+  const encodedBranch = branch.split("/").map(encodeURIComponent).join("/");
+  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${encodedBranch}/${encodedPath}`;
   let proxy = await proxyFetchViaBackground(rawUrl, "omit");
   if (!proxy.ok) {
-    const ghRawUrl = pageRawUrl ?? `https://github.com/${owner}/${repo}/raw/refs/heads/${encodeURIComponent(branch)}/${encodedPath}`;
-    proxy = await proxyFetchViaBackground(ghRawUrl, "include");
+    let ghRawUrl = `https://github.com/${owner}/${repo}/raw/refs/heads/${encodedBranch}/${encodedPath}`;
+    let ghCreds: "include" | "omit" = "include";
+    if (pageRawUrl) {
+      try {
+        const resolved = new URL(pageRawUrl, "https://github.com");
+        ghRawUrl = resolved.href;
+        if (resolved.hostname === "raw.githubusercontent.com") ghCreds = "omit";
+      } catch {
+        // fallback to constructed refs/heads url
+      }
+    }
+    proxy = await proxyFetchViaBackground(ghRawUrl, ghCreds);
     if (!proxy.ok) {
       throw new AdapterFailure("getRepoBlob", `raw ${owner}/${repo}/${path}@${branch} responded ${proxy.status || "network error"}`);
     }

@@ -8,7 +8,7 @@ import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText, safeCssColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-home";
 
@@ -301,9 +301,9 @@ function renderLanguageBar(langs: RepoLanguage[]): string {
   const shown = langs.filter((l) => l.name !== "Other").slice(0, 8);
   const top = shown.map((l) => ({ ...l, display: canonicalLanguageName(l.name) }));
   const restPercent = langs.filter((l) => !shown.includes(l)).reduce((s, l) => s + l.percent, 0);
-  const segs = top.map((l) => `<span class="oldgh-repo-home__lang-seg" style="width:${l.percent.toFixed(2)}%;background:${languageColor(l.name)}" title="${escapeAttr(l.display)} ${l.percent.toFixed(1)}%"></span>`).join("");
+  const segs = top.map((l) => `<span class="oldgh-repo-home__lang-seg" style="width:${l.percent.toFixed(2)}%;background:${escapeAttr(safeCssColor(languageColor(l.name)) ?? "#ccc")}" title="${escapeAttr(l.display)} ${l.percent.toFixed(1)}%"></span>`).join("");
   const otherSeg = restPercent > 0.1 ? `<span class="oldgh-repo-home__lang-seg oldgh-repo-home__lang-seg--other" style="width:${restPercent.toFixed(2)}%" title="Other ${restPercent.toFixed(1)}%"></span>` : "";
-  const labels = top.map((l) => `<span class="oldgh-repo-home__lang-label"><span class="oldgh-repo-home__lang-dot" style="background:${languageColor(l.name)}"></span>${escapeText(l.display)} <strong>${l.percent.toFixed(1)}%</strong></span>`).join(" ");
+  const labels = top.map((l) => `<span class="oldgh-repo-home__lang-label"><span class="oldgh-repo-home__lang-dot" style="background:${escapeAttr(safeCssColor(languageColor(l.name)) ?? "#ccc")}"></span>${escapeText(l.display)} <strong>${l.percent.toFixed(1)}%</strong></span>`).join(" ");
   return `
     <div class="oldgh-repo-home__langs" tabindex="0" aria-label="Repository languages" title="Show language breakdown">
       <div class="oldgh-repo-home__lang-bar">${segs}${otherSeg}</div>
@@ -328,7 +328,7 @@ function renderShell(o: RepoOverview): string {
 
 function renderNumbersBar(o: RepoOverview): string {
   const commits = o.commitCount
-    ? `<li class="oldgh-repo-numbers__item"><a href="/${o.owner}/${o.repo}/commits/${escapeAttr(o.branch)}">${octicon("history", { size: 16 })}<span class="oldgh-repo-numbers__num">${escapeText(o.commitCount)}</span> <span class="oldgh-repo-numbers__label">${o.commitCount === "1" ? "commit" : "commits"}</span></a></li>`
+    ? `<li class="oldgh-repo-numbers__item"><a href="/${escapeAttr(o.owner)}/${escapeAttr(o.repo)}/commits/${encodePathSegments(o.branch)}">${octicon("history", { size: 16 })}<span class="oldgh-repo-numbers__num">${escapeText(o.commitCount)}</span> <span class="oldgh-repo-numbers__label">${o.commitCount === "1" ? "commit" : "commits"}</span></a></li>`
     : "";
   // branches, tags, and contributors fill in via hydrateRepoNumbers
   // they start with a thin placeholder and each drops out if its fetch fails.
@@ -363,7 +363,7 @@ function renderTopBar(o: RepoOverview): string {
             <ul class="oldgh-branch-picker__list" data-loading="pending">
               <li class="oldgh-branch-picker__status">Loading branches&hellip;</li>
             </ul>
-            <a class="oldgh-branch-picker__footer" href="/${o.owner}/${o.repo}/branches">View all branches</a>
+            <a class="oldgh-branch-picker__footer" href="/${escapeAttr(o.owner)}/${escapeAttr(o.repo)}/branches">View all branches</a>
           </div>
         </details>
       </div>
@@ -421,7 +421,7 @@ function renderReadme(o: RepoOverview): string {
     <section class="oldgh-repo-home__readme">
       <div class="oldgh-repo-home__readme-head">
         ${octicon("book", { size: 16 })}
-        <a href="/${o.owner}/${o.repo}/blob/${encodeURIComponent(o.branch)}/${escapeAttr(pathSegments(o.readme.path))}">${escapeText(o.readme.path)}</a>
+        <a href="/${escapeAttr(o.owner)}/${escapeAttr(o.repo)}/blob/${encodePathSegments(o.branch)}/${escapeAttr(pathSegments(o.readme.path))}">${escapeText(o.readme.path)}</a>
       </div>
       <div class="oldgh-repo-home__readme-body">${sanitizeHtml(o.readme.html)}</div>
     </section>

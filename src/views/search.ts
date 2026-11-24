@@ -19,7 +19,7 @@ import { relativeTime, absoluteTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, relativizeGithubUrl, safeAttrHref, safeCssColor, safeHexColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-search";
 
@@ -93,7 +93,7 @@ export async function mountSearch(_pathname: string, search: string): Promise<vo
       resultsEl.innerHTML = `
         <div class="oldgh-search__empty">
           ${octicon("clock", { size: 36 })}
-          <p>You've hit GitHub's API rate limit. It resets within the hour, or <a href="javascript:void(0)" data-oldgh-open-options>add a token in options</a> for a higher limit.</p>
+          <p>You've hit GitHub's API rate limit. It resets within the hour, or <a href="#" data-oldgh-open-options>add a token in options</a> for a higher limit.</p>
           <p><a href="https://github.com/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(fallbackType)}">Open this search on modern GitHub</a></p>
         </div>
       `;
@@ -185,7 +185,7 @@ function renderRepoRow(r: RepoResult): string {
       ${r.description ? `<p class="oldgh-search__desc">${escapeText(r.description)}</p>` : ""}
       ${r.topics.length > 0 ? `<p class="oldgh-search__topics">${r.topics.slice(0, 6).map((t) => `<a class="oldgh-search__topic" href="/topics/${encodeURIComponent(t)}">${escapeText(t)}</a>`).join(" ")}</p>` : ""}
       <ul class="oldgh-search__meta">
-        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${langColor}"></span>${escapeText(r.language)}</li>` : ""}
+        ${r.language ? `<li><span class="oldgh-search__lang-dot" style="background:${escapeAttr(safeCssColor(langColor) ?? "#ccc")}"></span>${escapeText(r.language)}</li>` : ""}
         <li>${octicon("star", { size: 12 })} ${formatCount(r.stargazers)}</li>
         ${r.forks != null ? `<li>${octicon("repo-forked", { size: 12 })} ${formatCount(r.forks)}</li>` : ""}
         ${r.license ? `<li>${octicon("law", { size: 12 })} ${escapeText(r.license)}</li>` : ""}
@@ -218,7 +218,10 @@ function renderIssueRow(it: IssueResult): string {
     stateClass = "oldgh-search__state--closed";
   }
   const labels = it.labels
-    .map((l) => `<span class="oldgh-search__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};"` : ""}>${escapeText(emojify(l.name))}</span>`)
+    .map((l) => {
+      const bg = l.color ? safeHexColor(l.color) : null;
+      return `<span class="oldgh-search__label"${bg ? ` style="background:${escapeAttr(bg)};color:${labelTextColor(bg)};"` : ""}>${escapeText(emojify(l.name))}</span>`;
+    })
     .join(" ");
   return `
     <li class="oldgh-search__row oldgh-search__row--issue">
@@ -283,12 +286,12 @@ function renderCommitResults(summary: SearchSummary, items: CommitResult[], ctx:
       ${items.map((c) => `
         <li class="oldgh-search__row oldgh-search__row--commit">
           <div class="oldgh-search__commit-main">
-            <a class="oldgh-search__commit-title" href="${c.htmlUrl.replace("https://github.com", "")}">${escapeText(c.messageHeadline)}</a>
+            <a class="oldgh-search__commit-title" href="${safeAttrHref(relativizeGithubUrl(c.htmlUrl))}">${escapeText(c.messageHeadline)}</a>
             <div class="oldgh-search__commit-meta">
               ${escapeText(c.repoFullName)}${commitAuthorSegment(c)}
             </div>
           </div>
-          <code class="oldgh-search__sha"><a href="${c.htmlUrl.replace("https://github.com", "")}">${escapeText(c.abbrevSha)}</a></code>
+          <code class="oldgh-search__sha"><a href="${safeAttrHref(relativizeGithubUrl(c.htmlUrl))}">${escapeText(c.abbrevSha)}</a></code>
         </li>
       `).join("")}
     </ul>
@@ -431,14 +434,3 @@ function relativeTimeSpan(iso: string): string {
 }
 
 import { formatCount } from "@/util/format";
-
-function labelTextColor(hex: string): string {
-  const m = /^#?([\da-f]{6})$/i.exec(hex);
-  if (!m || !m[1]) return "#fff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#333" : "#fff";
-}

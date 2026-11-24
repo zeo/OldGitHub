@@ -10,7 +10,7 @@ import {
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref, safeCssColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-dashboard";
 
@@ -78,10 +78,10 @@ function renderTrendingBox(title: string, icon: string, seeMoreHref: string, rep
       <ul class="oldgh-dash__trending-list">
         ${repos.map((r) => `
           <li class="oldgh-dash__trending-row">
-            <a class="oldgh-dash__trending-slug" href="${escapeAttr(r.href)}">${escapeText(r.slug)}</a>
+            <a class="oldgh-dash__trending-slug" href="${safeAttrHref(r.href)}">${escapeText(r.slug)}</a>
             ${r.description ? `<p class="oldgh-dash__trending-desc">${escapeText(r.description)}</p>` : ""}
             <div class="oldgh-dash__trending-meta">
-              ${r.language ? `<span><span class="oldgh-lang-dot" style="background:${languageColor(r.language)}"></span>${escapeText(r.language)}</span>` : ""}
+              ${r.language ? `<span><span class="oldgh-lang-dot" style="background:${escapeAttr(safeCssColor(languageColor(r.language)) ?? "#ccc")}"></span>${escapeText(r.language)}</span>` : ""}
               ${r.starCount ? `<span>${octicon("star", { size: 12 })} ${escapeText(r.starCount)}</span>` : ""}
             </div>
           </li>
@@ -94,7 +94,7 @@ function renderTrendingBox(title: string, icon: string, seeMoreHref: string, rep
 function renderFeedItem(item: FeedItem): string {
   const icon = iconForCard(item.cardType);
   const avatar = item.actor?.avatarUrl
-    ? `<img class="oldgh-dash__feed-avatar" src="${escapeAttr(item.actor.avatarUrl)}" alt="" />`
+    ? `<img class="oldgh-dash__feed-avatar" src="${safeAttrHref(item.actor.avatarUrl)}" alt="" />`
     : "";
   const headline = item.actor
     ? formatHeadline(item.actor.login, item.headline)
@@ -107,7 +107,7 @@ function renderFeedItem(item: FeedItem): string {
     : "";
 
   const title = item.bodyTextLink
-    ? `<div class="oldgh-dash__feed-title"><a href="${escapeAttr(item.bodyTextLink.href)}">${escapeText(item.bodyTextLink.text)}</a></div>`
+    ? `<div class="oldgh-dash__feed-title"><a href="${safeAttrHref(item.bodyTextLink.href)}">${escapeText(item.bodyTextLink.text)}</a></div>`
     : "";
 
   const body = item.bodyExcerpt ? renderFeedBody(item.bodyExcerpt) : "";
@@ -162,7 +162,7 @@ function renderRepoCard(c: FeedRepoCard): string {
   return `
     <li class="oldgh-dash__repo-card">
       <div class="oldgh-dash__repo-card-head">
-        <a href="${escapeAttr(c.href)}" class="oldgh-dash__repo-card-slug">${escapeText(c.slug)}</a>
+        <a href="${safeAttrHref(c.href)}" class="oldgh-dash__repo-card-slug">${escapeText(c.slug)}</a>
         ${c.starCount ? `<span class="oldgh-dash__repo-card-stars">${octicon("star", { size: 12 })} ${escapeText(c.starCount)}</span>` : ""}
       </div>
       ${c.description ? `<div class="oldgh-dash__repo-card-desc">${escapeText(c.description)}</div>` : ""}
@@ -192,7 +192,7 @@ function renderRepoRow(r: TopRepo): string {
   return `
     <li class="oldgh-dash__repo-row" data-name="${escapeAttr(r.slug)}">
       ${octicon("repo", { size: 14 })}
-      <a href="${escapeAttr(r.href)}">${escapeText(r.slug)}</a>
+      <a href="${safeAttrHref(r.href)}">${escapeText(r.slug)}</a>
     </li>
   `;
 }
@@ -214,7 +214,7 @@ function renderBroadcastBox(items: ChangelogItem[]): string {
             : "";
           return `
           <li>
-            <a href="${escapeAttr(c.href)}">${escapeText(c.title)}</a>
+            <a href="${safeAttrHref(c.href)}">${escapeText(c.title)}</a>
             ${date}
           </li>
         `;

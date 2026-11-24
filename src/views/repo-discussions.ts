@@ -1,7 +1,7 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeRegExp, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-discussions";
 
@@ -63,10 +63,11 @@ async function scrapeDiscussions(owner: string, repo: string, subPath: string, q
 
   const items: DiscussionItem[] = [];
   const seen = new Set<number>();
+  const prefixPattern = `${escapeRegExp(owner)}/${escapeRegExp(repo)}`;
   // Discussion rows have anchors to /owner/repo/discussions/N
   for (const a of Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
     const href = a.getAttribute("href") || "";
-    const m = new RegExp(`^/${owner}/${repo}/discussions/(\\d+)$`).exec(href);
+    const m = new RegExp(`^/${prefixPattern}/discussions/(\\d+)$`, "i").exec(href);
     if (!m) continue;
     const num = parseInt(m[1]!, 10);
     if (seen.has(num)) continue;
@@ -124,7 +125,7 @@ async function scrapeDiscussions(owner: string, repo: string, subPath: string, q
   const seenCat = new Set<string>();
   for (const a of Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
     const href = a.getAttribute("href") || "";
-    const cm = new RegExp(`^/${owner}/${repo}/discussions/categories/([\\w.-]+)`).exec(href);
+    const cm = new RegExp(`^/${prefixPattern}/discussions/categories/([\\w.-]+)`, "i").exec(href);
     if (!cm) continue;
     const slug = cm[1]!;
     if (seenCat.has(slug)) continue;

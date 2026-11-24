@@ -65,7 +65,7 @@ export async function mountRepoReleases(owner: string, repo: string, search: str
     main.innerHTML = `<div class="oldgh-releases__empty">Couldn't load ${escapeText(what)}: ${escapeText(err instanceof Error ? err.message : String(err))}</div>`;
     return;
   }
-  for (const details of Array.from(main.querySelectorAll<HTMLDetailsElement>("details[data-assets-url]"))) {
+  for (const details of Array.from(main.querySelectorAll<HTMLDetailsElement>("details.oldgh-releases__assets[data-assets-url]"))) {
     if (details.open) void loadAssets(details);
     else details.addEventListener("toggle", () => void loadAssets(details), { once: true });
   }

@@ -6,7 +6,7 @@ import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/ada
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml, safeHref } from "@/util/html";
+import { escapeAttr, escapeRegExp, escapeText, safeAttrHref, safeCssColor, safeHref, sanitizeHtml, sanitizeScrapedFragment, sanitizeTree } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-profile";
 
@@ -416,7 +416,8 @@ function renderStarsFromFrame(frame: Element): string {
     if (!full || !card) return [];
     const desc = text(card.querySelector("p[itemprop='description']"));
     const lang = text(card.querySelector("[itemprop='programmingLanguage']"));
-    const swatch = card.querySelector<HTMLElement>(".repo-language-color")?.style.backgroundColor || languageColor(lang);
+    const rawSwatch = card.querySelector<HTMLElement>(".repo-language-color")?.style.backgroundColor || languageColor(lang);
+    const swatch = safeCssColor(rawSwatch) ?? "#ccc";
     const stars = text(card.querySelector('a[href$="/stargazers"]'));
     const forks = text(card.querySelector('a[href$="/forks"]'));
     const updated = card.querySelector("relative-time[datetime]")?.getAttribute("datetime") ?? "";
@@ -554,12 +555,7 @@ async function hydrateScrapedTab(root: HTMLElement, login: string, tab: string, 
       container.innerHTML = renderProjectsFromFrame(frame, login);
       return;
     }
-    for (const node of Array.from(frame.querySelectorAll("script, style, iframe, object, embed"))) node.remove();
-    for (const node of Array.from(frame.querySelectorAll<HTMLElement>("*"))) {
-      for (const attr of Array.from(node.attributes)) {
-        if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
-      }
-    }
+    sanitizeTree(frame);
     container.innerHTML = frame.innerHTML;
   } catch {
     container.innerHTML = `<div class="oldgh-profile__empty"><p class="oldgh-profile__muted">Couldn't load this tab.</p></div>`;
@@ -811,7 +807,10 @@ function renderProjectsFromFrame(frame: Element, login: string): string {
   const seen = new Set<number>();
   for (const a of Array.from(frame.querySelectorAll<HTMLAnchorElement>("a[href*='/projects/']"))) {
     const href = a.getAttribute("href") || "";
-    const m = new RegExp(`^/${login}/projects/(\\d+)`).exec(href) || /^\/users\/[\w.-]+\/projects\/(\d+)/.exec(href) || new RegExp(`^/orgs/${login}/projects/(\\d+)`).exec(href);
+    const escapedLogin = escapeRegExp(login);
+    const m = new RegExp(`^/${escapedLogin}/projects/(\\d+)`, "i").exec(href)
+      || /^\/users\/[\w.-]+\/projects\/(\d+)/i.exec(href)
+      || new RegExp(`^/orgs/${escapedLogin}/projects/(\\d+)`, "i").exec(href);
     if (!m) continue;
     const num = parseInt(m[1]!, 10);
     if (seen.has(num)) continue;
@@ -850,7 +849,7 @@ function renderProjectsFromFrame(frame: Element, login: string): string {
             <span class="oldgh-user-projects__icon">${octicon("project", { size: 16 })}</span>
             <div class="oldgh-user-projects__main">
               <h3>
-                <a href="${escapeAttr(p.href)}">${escapeText(p.title)}</a>
+                <a href="${safeAttrHref(p.href)}">${escapeText(p.title)}</a>
                 <span class="oldgh-user-projects__num">#${p.number}</span>
               </h3>
               ${p.description ? `<p class="oldgh-user-projects__desc">${escapeText(p.description)}</p>` : ""}
@@ -957,8 +956,9 @@ function renderRepoRow(r: RepoListItem): string {
 
   const meta: string[] = [];
   if (r.language) {
-    const swatch = r.languageColor
-      ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(r.languageColor)}"></span>`
+    const swatchColor = r.languageColor ? safeCssColor(r.languageColor) : null;
+    const swatch = swatchColor
+      ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(swatchColor)}"></span>`
       : "";
     meta.push(`<span>${swatch}${escapeText(r.language)}</span>`);
   }
@@ -971,7 +971,7 @@ function renderRepoRow(r: RepoListItem): string {
   return `
     <li class="oldgh-repo-list__item">
       <h3 class="oldgh-repo-list__title">
-        <a href="${escapeAttr(r.href)}"><strong>${escapeText(r.name)}</strong></a>
+        <a href="${safeAttrHref(r.href)}"><strong>${escapeText(r.name)}</strong></a>
         ${privacy}${forkLabel}${mirror}${template}
       </h3>
       ${r.description ? `<p class="oldgh-repo-list__desc">${escapeText(r.description)}</p>` : ""}
@@ -1040,7 +1040,7 @@ function renderSidebar(v: ProfileView): string {
     ? `<section class="oldgh-profile__achievements">
         <h3>Achievements</h3>
         <ul class="oldgh-profile__badges">
-          ${v.achievements.slice(0, 8).map((a) => `<li><a href="${escapeAttr(a.href)}" title="${escapeAttr(a.name)}"><img src="${escapeAttr(a.iconUrl)}" alt="${escapeAttr(a.name)}" width="56" height="56" /></a></li>`).join("")}
+          ${v.achievements.slice(0, 8).map((a) => `<li><a href="${safeAttrHref(a.href)}" title="${escapeAttr(a.name)}"><img src="${safeAttrHref(a.iconUrl)}" alt="${escapeAttr(a.name)}" width="56" height="56" /></a></li>`).join("")}
         </ul>
       </section>`
     : "";
@@ -1092,8 +1092,9 @@ function renderPinned(v: ProfileView): string {
 
 function renderPinnedCard(p: PinnedRepo): string {
   const repoIcon = p.isPrivate ? octicon("lock", { size: 14 }) : octicon("repo", { size: 14 });
-  const langSwatch = p.languageColor
-    ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(p.languageColor)}"></span>`
+  const langColor = p.languageColor ? safeCssColor(p.languageColor) : null;
+  const langSwatch = langColor
+    ? `<span class="oldgh-profile__lang-swatch" style="background:${escapeAttr(langColor)}"></span>`
     : "";
   const meta: string[] = [];
   if (p.language) meta.push(`<span class="oldgh-profile__pinned-lang">${langSwatch}${escapeText(p.language)}</span>`);
@@ -1103,7 +1104,7 @@ function renderPinnedCard(p: PinnedRepo): string {
     <li class="oldgh-profile__pinned-card">
       <h4 class="oldgh-profile__pinned-title">
         ${repoIcon}
-        <a href="${escapeAttr(p.href)}"><strong>${escapeText(p.nwo.split("/").pop() ?? p.nwo)}</strong></a>
+        <a href="${safeAttrHref(p.href)}"><strong>${escapeText(p.nwo.split("/").pop() ?? p.nwo)}</strong></a>
       </h4>
       ${p.description ? `<p class="oldgh-profile__pinned-desc">${escapeText(p.description)}</p>` : ""}
       ${meta.length > 0 ? `<p class="oldgh-profile__pinned-meta">${meta.join("")}</p>` : ""}
@@ -1132,7 +1133,7 @@ function renderContributions(v: ProfileView): string {
       ${v.contributionHeading ? `<h3 class="oldgh-profile__section-title">${escapeText(v.contributionHeading)}</h3>` : `<h3 class="oldgh-profile__section-title">Contributions</h3>`}
       <div class="oldgh-profile__contribs-row">
         <div class="oldgh-profile__contribs-main">
-          <div class="oldgh-profile__contribs-graph">${sanitizeHtml(v.contributionGraphHtml)}</div>
+          <div class="oldgh-profile__contribs-graph">${sanitizeScrapedFragment(v.contributionGraphHtml)}</div>
           <div class="oldgh-profile__contribs-legend">
             <span>Less</span>
             <span class="oldgh-profile__contribs-legend-cell" data-level="0"></span>

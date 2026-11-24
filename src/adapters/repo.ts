@@ -44,7 +44,7 @@ export async function getRepoSummary(owner: string, repo: string): Promise<RepoS
 
 async function apiRepoSummary(owner: string, repo: string): Promise<RepoSummary> {
   if (isApiRateLimited()) throw new AdapterFailure("getRepoSummary", "API rate-limited; skipping");
-  const resp = await fetchApi(`https://api.github.com/repos/${owner}/${repo}`, {
+  const resp = await fetchApi(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, {
     credentials: "omit",
     headers: { Accept: "application/vnd.github+json" },
   });
@@ -99,14 +99,14 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
 
   // Walk every anchor with an href in the same repo namespace; modern GitHub
   // doesn't put the tabs under a single stable container class anymore.
-  const prefix = `/${owner}/${repo}`;
+  const prefix = `/${owner}/${repo}`.toLowerCase();
   let hasIssues = false;
   let hasWiki = false;
   let hasProjects = false;
   let hasDiscussions = false;
   for (const a of Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
     const href = a.getAttribute("href") || "";
-    if (!href.startsWith(prefix)) continue;
+    if (!href.toLowerCase().startsWith(prefix)) continue;
     const rest = href.slice(prefix.length);
     if (/^\/issues(\?|$|\/)/.test(rest)) hasIssues = true;
     else if (/^\/wiki(\?|$|\/)/.test(rest)) hasWiki = true;

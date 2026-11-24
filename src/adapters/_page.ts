@@ -58,10 +58,14 @@ async function loadRepoPage(owner: string, repo: string): Promise<string> {
 }
 
 export async function fetchPageDoc(url: string): Promise<Document> {
-  let html = takeFirstLoad(url);
+  const resolved = new URL(url, "https://github.com");
+  if (resolved.origin !== "https://github.com") {
+    throw new AdapterFailure("fetchPageDoc", `refusing cross-origin page fetch: ${resolved.origin}`);
+  }
+  let html = takeFirstLoad(resolved.href);
   if (html === null) {
-    const resp = await fetch(url, { credentials: "include", headers: { Accept: "text/html" } });
-    if (!resp.ok) throw new AdapterFailure("fetchPageDoc", `${new URL(url).pathname} responded ${resp.status}`);
+    const resp = await fetch(resolved.href, { credentials: "include", headers: { Accept: "text/html" } });
+    if (!resp.ok) throw new AdapterFailure("fetchPageDoc", `${resolved.pathname} responded ${resp.status}`);
     html = await resp.text();
   }
   return parseRepoPage(html);

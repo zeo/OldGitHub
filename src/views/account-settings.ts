@@ -114,6 +114,9 @@ export async function mountAccountSettings(pathname: string, search: string): Pr
     cleanScrapedContent(native);
     main.innerHTML = `<div class="oldgh-account-settings__native">${native.innerHTML}</div>`;
     rewireAccountDialogs(main);
+    disableAutosaveToggles(main);
+    fillMenuLabels(main);
+    enforceSameOriginForms(main);
     askDataConfirm(main);
     // the upload runs through github's file-attachment element, so hand it to the native page
     for (const label of Array.from(main.querySelectorAll<HTMLLabelElement>("label[for='avatar_upload']"))) {
@@ -235,10 +238,54 @@ function rewireAccountDialogs(main: HTMLElement): void {
 }
 
 const DESTRUCTIVE = /\b(delete|remove|revoke|disable|reset|regenerate|leave|unlink|transfer|sign out)\b/i;
+const SUBMIT_BTN_SELECTOR = 'button[type="submit"], input[type="submit"], button:not([type])';
 
-// a surfaced dialog lost the modal that made the user stop and read, so the first click on a destructive submit only arms it
+function disableAutosaveToggles(main: HTMLElement): void {
+  let disabled = 0;
+  for (const form of Array.from(main.querySelectorAll<HTMLFormElement>("form[data-autosubmit]"))) {
+    if (form.querySelector(SUBMIT_BTN_SELECTOR)) continue;
+    for (const control of Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[type='checkbox'], input[type='radio'], select"))) {
+      control.disabled = true;
+      disabled++;
+    }
+  }
+  if (disabled === 0) return;
+  const note = document.createElement("div");
+  note.className = "flash";
+  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="#" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
+  main.querySelector(".oldgh-account-settings__native")?.prepend(note);
+}
+
+function fillMenuLabels(main: HTMLElement): void {
+  for (const menu of Array.from(main.querySelectorAll<HTMLElement>("action-menu[data-dynamic-label]"))) {
+    const label = menu.querySelector(".Button-label");
+    const chosen = menu.querySelector("[aria-checked='true'] .ActionListItem-label")?.textContent?.trim();
+    if (!label || !chosen) continue;
+    const prefix = menu.getAttribute("data-dynamic-label-prefix");
+    label.textContent = prefix ? `${prefix}: ${chosen}` : chosen;
+  }
+}
+
+function enforceSameOriginForms(main: HTMLElement): void {
+  main.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const action = form.getAttribute("action");
+    if (!action) return;
+    try {
+      if (new URL(action, "https://github.com").origin === "https://github.com") return;
+    } catch {
+      // invalid action falls through to cancel
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, { capture: true });
+}
+
+// a surfaced dialog lost the modal that made the user stop and read, so the first click or enter-submit on a destructive control only arms it
 function requireSecondClick(section: HTMLElement): void {
-  for (const button of Array.from(section.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]'))) {
+  const armedButtons = new WeakMap<HTMLButtonElement | HTMLInputElement, () => void>();
+  for (const button of Array.from(section.querySelectorAll<HTMLButtonElement | HTMLInputElement>(SUBMIT_BTN_SELECTOR))) {
     const text = (button instanceof HTMLInputElement ? button.value : button.textContent || "").replace(/\s+/g, " ").trim();
     if (button.hasAttribute("data-confirm") || (!button.classList.contains("btn-danger") && !DESTRUCTIVE.test(text))) continue;
     const original = button instanceof HTMLInputElement ? button.value : button.innerHTML;
@@ -250,18 +297,37 @@ function requireSecondClick(section: HTMLElement): void {
       if (button instanceof HTMLInputElement) button.value = original;
       else button.innerHTML = original;
     };
-    button.addEventListener("click", (e) => {
-      if (button.dataset["oldghArmed"]) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
+    const arm = () => {
       button.dataset["oldghArmed"] = "1";
       button.classList.add("oldgh-btn--danger");
       if (button instanceof HTMLInputElement) button.value = confirmText;
       else button.textContent = confirmText;
       window.clearTimeout(timer);
       timer = window.setTimeout(disarm, 5000);
+    };
+    armedButtons.set(button, arm);
+    button.addEventListener("click", (e) => {
+      if (button.dataset["oldghArmed"]) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      arm();
     }, { capture: true });
   }
+
+  section.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const submitter = (e as SubmitEvent).submitter;
+    const candidate = submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement
+      ? submitter
+      : form.querySelector<HTMLButtonElement | HTMLInputElement>(SUBMIT_BTN_SELECTOR);
+    if (!candidate) return;
+    const arm = armedButtons.get(candidate);
+    if (!arm || candidate.dataset["oldghArmed"]) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    arm();
+  }, { capture: true });
 }
 
 function renderShell(activeKey: string): string {

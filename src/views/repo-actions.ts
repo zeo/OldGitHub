@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getActions, type ActionsView, type WorkflowRun } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-actions";
 
@@ -25,7 +25,7 @@ function renderShell(v: ActionsView, query: string): string {
           <ul class="oldgh-actions__workflows">
             <li><a href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/actions" class="oldgh-actions__wf-all${v.selectedWorkflowFilePath ? "" : " oldgh-actions__wf--selected"}"><strong>All workflows</strong></a></li>
             ${v.workflows.map((w) => `
-              <li><a href="${escapeAttr(w.href)}" title="${escapeAttr(w.filePath)}" class="${w.filePath === v.selectedWorkflowFilePath ? "oldgh-actions__wf--selected" : ""}">${escapeText(w.name)}</a></li>
+              <li><a href="${safeAttrHref(w.href)}" title="${escapeAttr(w.filePath)}" class="${w.filePath === v.selectedWorkflowFilePath ? "oldgh-actions__wf--selected" : ""}">${escapeText(w.name)}</a></li>
             `).join("")}
           </ul>
         </aside>
@@ -59,14 +59,14 @@ function renderRun(r: WorkflowRun): string {
       <span class="oldgh-actions__run-status oldgh-actions__run-status--${r.status}" title="${escapeAttr(r.status)}">${statusIcon(r.status)}</span>
       <div class="oldgh-actions__run-body">
         <div class="oldgh-actions__run-title">
-          <a href="${escapeAttr(r.url)}">${escapeText(r.title || r.workflowName)}</a>
+          <a href="${safeAttrHref(r.url)}">${escapeText(r.title || r.workflowName)}</a>
           ${r.runNumber ? `<span class="oldgh-actions__run-number">#${r.runNumber}</span>` : ""}
         </div>
         <div class="oldgh-actions__run-meta">
           <span>${escapeText(r.workflowName)}</span>
-          ${r.branch ? `· <a href="${escapeAttr(r.branchUrl || "#")}"><code>${escapeText(r.branch)}</code></a>` : ""}
-          ${r.event ? `· ${escapeText(r.event)}${r.eventLink ? ` <a href="${escapeAttr(r.eventLink.url)}">${escapeText(r.eventLink.text)}</a>` : ""}` : ""}
-          ${r.actor ? `· <a href="${escapeAttr(r.actor.url)}">${escapeText(r.actor.login)}</a>` : ""}
+          ${r.branch ? `· <a href="${safeAttrHref(r.branchUrl || "#")}"><code>${escapeText(r.branch)}</code></a>` : ""}
+          ${r.event ? `· ${escapeText(r.event)}${r.eventLink ? ` <a href="${safeAttrHref(r.eventLink.url)}">${escapeText(r.eventLink.text)}</a>` : ""}` : ""}
+          ${r.actor ? `· <a href="${safeAttrHref(r.actor.url)}">${escapeText(r.actor.login)}</a>` : ""}
           ${r.startedAt ? `· <span title="${escapeAttr(absoluteTime(r.startedAt))}">${escapeText(relativeTime(r.startedAt))}</span>` : ""}
           ${r.duration ? `· ${escapeText(r.duration)}` : ""}
         </div>

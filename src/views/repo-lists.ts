@@ -3,7 +3,7 @@ import { AdapterFailure } from "@/adapters";
 import { fetchPageDoc, loadPagePayload, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-list";
 
@@ -83,8 +83,8 @@ async function renderTags(owner: string, repo: string, search: string): Promise<
           ${date ? `<span class="oldgh-repo-list__muted" title="${escapeAttr(absoluteTime(date))}">${escapeText(relativeTime(date))}</span>` : ""}
         </div>
         <div class="oldgh-repo-list__actions">
-          ${zipUrl ? `<a class="oldgh-btn" href="${escapeAttr(zipUrl)}">${octicon("cloud-download", { size: 12 })} zip</a>` : ""}
-          ${tarUrl ? `<a class="oldgh-btn" href="${escapeAttr(tarUrl)}">${octicon("cloud-download", { size: 12 })} tar.gz</a>` : ""}
+          ${zipUrl ? `<a class="oldgh-btn" href="${safeAttrHref(zipUrl)}">${octicon("cloud-download", { size: 12 })} zip</a>` : ""}
+          ${tarUrl ? `<a class="oldgh-btn" href="${safeAttrHref(tarUrl)}">${octicon("cloud-download", { size: 12 })} tar.gz</a>` : ""}
         </div>
       </li>
     `;
@@ -209,12 +209,12 @@ async function renderLabels(owner: string, repo: string, page: number): Promise<
   if (nodes.length === 0) return emptyHtml("No labels.");
   const rows = nodes.map((r) => {
     const name = readString(r, "name") ?? "";
-    const color = (readString(r, "color") ?? "ccc").replace(/^#/, "");
+    const bg = safeHexColor(readString(r, "color") ?? "ccc") ?? "#cccccc";
     const desc = readString(r, "description") ?? "";
     const labelQuery = new URLSearchParams({ q: `is:open label:"${name}"` }).toString();
     return `
       <li class="oldgh-repo-list__label-row">
-        <a class="oldgh-repo-list__label" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?${escapeAttr(labelQuery)}" style="background:#${escapeAttr(color)};color:${labelTextColor(color)};">${escapeText(name)}</a>
+        <a class="oldgh-repo-list__label" href="/${escapeAttr(owner)}/${escapeAttr(repo)}/issues?${escapeAttr(labelQuery)}" style="background:${escapeAttr(bg)};color:${labelTextColor(bg)};">${escapeText(name)}</a>
         ${desc ? `<span class="oldgh-repo-list__label-desc">${escapeText(desc)}</span>` : ""}
       </li>
     `;
@@ -284,17 +284,6 @@ function dueByLabel(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
-
-function labelTextColor(hex: string): string {
-  const m = /^([\da-f]{6})$/i.exec(hex);
-  if (!m || !m[1]) return "#fff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6 ? "#333" : "#fff";
 }
 
 function readObj(v: unknown): Record<string, unknown> | null {

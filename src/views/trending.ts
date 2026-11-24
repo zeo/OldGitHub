@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { languageColor } from "@/util/language-color";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref, safeCssColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-trending";
 
@@ -64,7 +64,7 @@ export async function mountTrending(pathname: string, search: string): Promise<v
       main.innerHTML = `
         <div class="oldgh-trending__empty">
           ${octicon("clock", { size: 36 })}
-          <p>You've hit GitHub's API rate limit. Trending works again within the hour, or <a href="javascript:void(0)" data-oldgh-open-options>add a token in options</a> for a higher limit.</p>
+          <p>You've hit GitHub's API rate limit. Trending works again within the hour, or <a href="#" data-oldgh-open-options>add a token in options</a> for a higher limit.</p>
           <p><a href="https://github.com/trending${isDevelopers ? "/developers" : language ? `/${encodeURIComponent(language)}` : ""}?since=${encodeURIComponent(period)}">Open trending on modern GitHub</a></p>
         </div>
       `;
@@ -303,7 +303,7 @@ function renderList(items: TrendingRepo[]): string {
 
 function renderRow(r: TrendingRepo, rank: number): string {
   const langDot = r.language
-    ? `<li><span class="oldgh-search__lang-dot" style="background:${r.languageColor || languageColor(r.language)}"></span>${escapeText(r.language)}</li>`
+    ? `<li><span class="oldgh-search__lang-dot" style="background:${escapeAttr(safeCssColor(r.languageColor || languageColor(r.language)) ?? "")}"></span>${escapeText(r.language)}</li>`
     : "";
   const periodLine = r.starsInPeriod && r.starsInPeriod > 0
     ? `<li class="oldgh-trending__momentum">${octicon("star", { size: 12 })} ${formatCount(r.starsInPeriod)} star${r.starsInPeriod === 1 ? "" : "s"} this period</li>`
@@ -315,7 +315,7 @@ function renderRow(r: TrendingRepo, rank: number): string {
       <span class="oldgh-trending__rank">#${rank}</span>
       <div class="oldgh-trending__main">
         <h2 class="oldgh-trending__name">
-          <img class="oldgh-trending__avatar" src="${escapeAttr(r.ownerAvatar)}" width="20" height="20" alt="" />
+          <img class="oldgh-trending__avatar" src="${safeAttrHref(r.ownerAvatar)}" width="20" height="20" alt="" />
           <a href="/${escapeAttr(r.ownerLogin)}">${escapeText(r.ownerLogin)}</a> /
           <a href="/${escapeAttr(r.ownerLogin)}/${escapeAttr(r.repoName)}"><strong>${escapeText(r.repoName)}</strong></a>
         </h2>

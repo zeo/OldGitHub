@@ -3,7 +3,7 @@ import { fetchPageDoc } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { escapeAttr, escapeText, labelTextColor, safeHexColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-discussion";
 const COMMENT = ".discussions-timeline-scroll-target[id^='discussioncomment-']";
@@ -212,7 +212,10 @@ function renderBody(d: DiscussionDetail): string {
             ${d.asked ? "asked" : "started this conversation"} ${relativeTimeLink(d.opener.createdAt)}
           </span>
         </div>
-        ${d.labels.length > 0 ? `<div class="oldgh-discussion__labels">${d.labels.map((l) => `<span class="oldgh-issue__label"${l.color ? ` style="background:#${escapeAttr(l.color)};color:${labelTextColor(l.color)};"` : ""}>${escapeText(emojify(l.name))}</span>`).join(" ")}</div>` : ""}
+        ${d.labels.length > 0 ? `<div class="oldgh-discussion__labels">${d.labels.map((l) => {
+          const bg = l.color ? safeHexColor(l.color) : null;
+          return `<span class="oldgh-issue__label"${bg ? ` style="background:${escapeAttr(bg)};color:${labelTextColor(bg)};"` : ""}>${escapeText(emojify(l.name))}</span>`;
+        }).join(" ")}</div>` : ""}
       </header>
 
       <div class="oldgh-discussion__main">
@@ -328,17 +331,6 @@ function reactionEmoji(content: string): string {
     case "EYES": return "\u{1F440}";
     default: return "";
   }
-}
-
-function labelTextColor(hex: string): string {
-  const m = /^([\da-f]{6})$/i.exec(hex);
-  if (!m || !m[1]) return "#fff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6 ? "#333" : "#fff";
 }
 
 function relativeTimeLink(iso: string): string {

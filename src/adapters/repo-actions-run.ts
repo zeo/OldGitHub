@@ -89,7 +89,13 @@ async function getRunJobs(jobsUrl: string): Promise<JobDetail[]> {
   const jobs: JobDetail[] = [];
   // same batch size github's own sidebar asks for; the cap stops a runaway loop
   for (let batch = 0; batch < 20; batch++) {
-    const resp = await fetch(new URL(`${jobsUrl}&batch=${batch}&size=200`, "https://github.com").href, {
+    const url = new URL(jobsUrl, "https://github.com");
+    if (url.origin !== "https://github.com") {
+      throw new AdapterFailure("getRunPage", `refusing cross-origin jobs url: ${url.origin}`);
+    }
+    url.searchParams.set("batch", String(batch));
+    url.searchParams.set("size", "200");
+    const resp = await fetch(url.href, {
       credentials: "include",
       headers: { Accept: "application/json" },
     });

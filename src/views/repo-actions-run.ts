@@ -3,7 +3,7 @@ import { getJobSteps, getRunPage, type JobDetail, type JobStep, type RunDetail, 
 import type { WorkflowRunStatus } from "@/adapters/repo-actions";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-actions-run";
 
@@ -57,7 +57,7 @@ function renderShell(p: RunPage): string {
 
 function renderRunHeader(r: RunDetail): string {
   const titleLink = r.workflowUrl
-    ? `<a href="${escapeAttr(r.workflowUrl)}">${escapeText(r.workflowName)}</a>`
+    ? `<a href="${safeAttrHref(r.workflowUrl)}">${escapeText(r.workflowName)}</a>`
     : escapeText(r.workflowName);
   return `
     <header class="oldgh-actions-run__header">
@@ -75,8 +75,8 @@ function renderRunHeader(r: RunDetail): string {
         </span>
         ${r.actor ? `
           <span class="oldgh-actions-run__meta-item">
-            <a href="${escapeAttr(r.actor.url)}">
-              ${r.actor.avatarUrl ? `<img src="${escapeAttr(r.actor.avatarUrl)}" width="16" height="16" alt="" class="oldgh-actions-run__avatar"/>` : ""}
+            <a href="${safeAttrHref(r.actor.url)}">
+              ${r.actor.avatarUrl ? `<img src="${safeAttrHref(r.actor.avatarUrl)}" width="16" height="16" alt="" class="oldgh-actions-run__avatar"/>` : ""}
               ${escapeText(r.actor.login)}
             </a>
             ${r.event ? `triggered via ${escapeText(r.event)}` : ""}
@@ -89,13 +89,13 @@ function renderRunHeader(r: RunDetail): string {
         ${r.branch ? `
           <span class="oldgh-actions-run__meta-item">
             ${octicon("git-branch", { size: 12 })}
-            <a href="${escapeAttr(r.branchUrl || "#")}"><code>${escapeText(r.branch)}</code></a>
+            <a href="${safeAttrHref(r.branchUrl || "#")}"><code>${escapeText(r.branch)}</code></a>
           </span>
         ` : ""}
         ${r.commitShortSha ? `
           <span class="oldgh-actions-run__meta-item">
             ${octicon("git-commit", { size: 12 })}
-            <a href="${escapeAttr(r.commitUrl || "#")}"><code>${escapeText(r.commitShortSha)}</code></a>
+            <a href="${safeAttrHref(r.commitUrl || "#")}"><code>${escapeText(r.commitShortSha)}</code></a>
           </span>
         ` : ""}
         ${r.duration ? `
