@@ -1,8 +1,6 @@
 import { OCTICON_SVGS } from "./generated";
 import { escapeAttr } from "@/util/html";
 
-export type OcticonName = keyof typeof OCTICON_SVGS;
-
 export type OcticonOptions = {
   size?: number;
   className?: string;

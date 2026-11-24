@@ -1,4 +1,4 @@
-import { scrapeSection, type ScrapedSection } from "@/adapters/repo-section";
+import { scrapeSection } from "@/adapters/repo-section";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeText } from "@/util/html";
 

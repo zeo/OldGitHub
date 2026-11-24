@@ -1,5 +1,4 @@
 import { octicon } from "@/icons";
-import { AdapterFailure } from "@/adapters";
 import { getProfile, type PinnedRepo, type ProfileReadme, type ProfileView } from "@/adapters/profile";
 import { setFollowing, type FollowForms } from "@/adapters/social";
 import { isLoggedIn } from "@/auth/session";
@@ -929,8 +928,8 @@ async function hydrateRepos(root: HTMLElement, login: string, query: string): Pr
   let data: ProfileReposView;
   try {
     data = await getProfileRepos(login, query);
-  } catch (err) {
-    container.innerHTML = `<p class="oldgh-profile__muted">${err instanceof AdapterFailure ? "Couldn't load repositories." : "Couldn't load repositories."}</p>`;
+  } catch {
+    container.innerHTML = `<p class="oldgh-profile__muted">Couldn't load repositories.</p>`;
     return;
   }
   container.innerHTML = renderRepos(data);

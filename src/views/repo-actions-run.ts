@@ -30,7 +30,7 @@ export async function mountRepoActionsRun(owner: string, repo: string, runId: st
 function renderShell(p: RunPage): string {
   return `
     <div class="oldgh-page oldgh-actions-run-page">
-      ${renderRunHeader(p.run, p.owner, p.repo)}
+      ${renderRunHeader(p.run)}
       <div class="oldgh-actions-run__layout">
         <aside class="oldgh-actions-run__sidebar">
           <h3>${octicon("list-unordered", { size: 12 })} Jobs</h3>
@@ -55,7 +55,7 @@ function renderShell(p: RunPage): string {
   `;
 }
 
-function renderRunHeader(r: RunDetail, owner: string, repo: string): string {
+function renderRunHeader(r: RunDetail): string {
   const titleLink = r.workflowUrl
     ? `<a href="${escapeAttr(r.workflowUrl)}">${escapeText(r.workflowName)}</a>`
     : escapeText(r.workflowName);

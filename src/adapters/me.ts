@@ -1,4 +1,4 @@
-import { AdapterFailure, type AdapterContext } from "./index";
+import { AdapterFailure } from "./index";
 
 export type Me = {
   login: string;
@@ -6,7 +6,7 @@ export type Me = {
   profileUrl: string;
 };
 
-export async function getMe(_ctx: AdapterContext = { csrfToken: null }): Promise<Me> {
+export async function getMe(): Promise<Me> {
   const inline = readFromCurrentDocument();
   if (inline) return inline;
 

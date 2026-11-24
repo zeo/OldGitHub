@@ -1,4 +1,4 @@
-import { AdapterFailure, type AdapterContext } from "./index";
+import { AdapterFailure } from "./index";
 
 export type NotificationItem = {
   id: string;
@@ -163,7 +163,7 @@ function parseFilters(doc: Document): NotificationFilter[] {
   return out;
 }
 
-export async function getUnreadCount(_ctx: AdapterContext = { csrfToken: null }): Promise<number> {
+export async function getUnreadCount(): Promise<number> {
   let resp: Response;
   try {
     resp = await fetch("https://github.com/notifications/beacon/count", {

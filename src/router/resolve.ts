@@ -20,8 +20,7 @@ export type Route =
   | { kind: "repo-settings"; owner: string; repo: string; subPath: string }
   | { kind: "repo-other"; owner: string; repo: string }
   | { kind: "profile"; login: string; tab: ProfileTab; query: string }
-  | { kind: "top-level"; subkind: "dashboard" | "notifications" | "search" | "issues" | "pulls" | "stars" | "explore" | "trending" | "watching" | "marketplace" | "settings" | "topic" | "topics" | "collections" | "sponsors" | "other"; pathname: string; search: string; title: string }
-  | { kind: "todo"; name: string };
+  | { kind: "top-level"; subkind: "dashboard" | "notifications" | "search" | "issues" | "pulls" | "stars" | "explore" | "trending" | "watching" | "marketplace" | "settings" | "topic" | "topics" | "collections" | "sponsors" | "other"; pathname: string; search: string; title: string };
 
 export type ProfileTab = "overview" | "repositories" | "stars" | "followers" | "following" | "achievements" | "projects" | "packages" | "sponsoring" | "people";
 
@@ -51,8 +50,6 @@ const OUT_OF_SCOPE_PREFIXES = [
   "/mobile",
   "/education",
 ];
-
-const OUT_OF_SCOPE_REPO_SUFFIXES: string[] = [];
 
 const TOP_LEVEL_NON_REPO = new Set([
   "search",
@@ -116,15 +113,6 @@ export function resolveRoute(pathname: string, search: string): Route {
   for (const prefix of OUT_OF_SCOPE_PREFIXES) {
     if (pathname === prefix || pathname.startsWith(prefix + "/")) {
       return { kind: "out-of-scope" };
-    }
-  }
-  for (const suffix of OUT_OF_SCOPE_REPO_SUFFIXES) {
-    if (pathname.endsWith(suffix) || pathname.includes(suffix + "/")) {
-      const segs = pathname.split("/").filter(Boolean);
-      if (segs.length >= 3 && !TOP_LEVEL_NON_REPO.has(segs[0]!)) {
-        const segIdx = segs.indexOf(suffix.replace(/^\//, ""));
-        if (segIdx === 2) return { kind: "out-of-scope" };
-      }
     }
   }
 

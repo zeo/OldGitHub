@@ -1,4 +1,4 @@
-import { scrapeTopLevel, type TopLevelView } from "@/adapters/top-level";
+import { scrapeTopLevel } from "@/adapters/top-level";
 import { AdapterFailure } from "@/adapters";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { escapeText } from "@/util/html";

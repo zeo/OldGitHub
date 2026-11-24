@@ -12,16 +12,6 @@ export type SearchType =
   | "commits"
   | "topics";
 
-export type SearchSort =
-  | "best-match"
-  | "stars"
-  | "forks"
-  | "updated"
-  | "created"
-  | "interactions"
-  | "reactions"
-  | "comments";
-
 export type SearchOrder = "asc" | "desc";
 
 export type RepoResult = {

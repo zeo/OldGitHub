@@ -41,7 +41,3 @@ export function adoptBodyRoot(root: HTMLElement, afterSelector?: string, nav?: n
 export function removeAllBodyRoots(): void {
   document.querySelectorAll(`.${BODY_ROOT_CLASS}`).forEach((el) => el.remove());
 }
-
-export function hasMountedBody(): boolean {
-  return !!document.querySelector(`.${BODY_ROOT_CLASS}`);
-}

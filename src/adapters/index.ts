@@ -8,8 +8,3 @@ export class AdapterFailure extends Error {
     this.status = status ? Number(status[1]) : null;
   }
 }
-
-export type AdapterContext = {
-  csrfToken: string | null;
-  signal?: AbortSignal;
-};

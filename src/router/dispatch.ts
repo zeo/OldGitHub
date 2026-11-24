@@ -43,7 +43,7 @@ let progressBarEl: HTMLElement | null = null;
 let progressTimer: number | null = null;
 
 function insertBodyError(message: string, rateLimited: boolean): void {
-  document.querySelectorAll(".oldgh-body-placeholder, .oldgh-body-error").forEach((n) => n.remove());
+  document.querySelectorAll(".oldgh-body-error").forEach((n) => n.remove());
   const el = document.createElement("div");
   el.className = "oldgh-body-root oldgh-body-error";
   el.innerHTML = rateLimited
@@ -63,19 +63,6 @@ function insertBodyError(message: string, rateLimited: boolean): void {
         <p><a href="${escapeAttr(window.location.href)}">Reload</a> or <a href="javascript:void(0)" data-oldgh-show-native>show GitHub's native page instead</a>. If it keeps happening, <a href="${escapeAttr(reportIssueUrl(message))}" target="_blank" rel="noopener noreferrer">report it</a>.</p>
       </div>
     `;
-  const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
-  if (after && after.parentNode) {
-    after.after(el);
-  } else {
-    insertBeforeFooter(el);
-  }
-}
-
-function insertBodyPlaceholder(): void {
-  if (document.querySelector(".oldgh-body-placeholder")) return;
-  const el = document.createElement("div");
-  el.className = "oldgh-body-placeholder oldgh-body-root";
-  el.setAttribute("aria-hidden", "true");
   const after = document.querySelector(".oldgh-repo-header") || document.querySelector(".oldgh-header");
   if (after && after.parentNode) {
     after.after(el);
@@ -121,7 +108,7 @@ export async function dispatchRoute(loc: Location | URL, options: { scrollTop?: 
     void chrome.runtime.sendMessage({ type: "oldgh:route-change", pathname, search }).catch(() => {});
   } catch {}
 
-  const willMount = route.kind !== "out-of-scope" && route.kind !== "todo";
+  const willMount = route.kind !== "out-of-scope";
   if (willMount) {
     document.documentElement.setAttribute(MOUNTED_ATTR, route.kind);
     showProgress();
@@ -278,7 +265,7 @@ function scrollToHashIfPresent(loc: Location | URL): boolean {
 }
 
 function insertBodyNotFound(message: string, inRepo: boolean): void {
-  document.querySelectorAll(".oldgh-body-placeholder, .oldgh-body-error").forEach((n) => n.remove());
+  document.querySelectorAll(".oldgh-body-error").forEach((n) => n.remove());
   const el = document.createElement("div");
   el.className = "oldgh-body-root oldgh-body-error";
   el.innerHTML = `
@@ -609,7 +596,7 @@ function currentSearch(loc: Location | URL): string {
 }
 
 function titleForRoute(route: Route, pathname: string): string {
-  if (route.kind === "out-of-scope" || route.kind === "todo") return "";
+  if (route.kind === "out-of-scope") return "";
   if (route.kind === "profile") return `${route.login}`;
   if (route.kind === "top-level") return route.title || "GitHub";
   const nwo = `${route.owner}/${route.repo}`;

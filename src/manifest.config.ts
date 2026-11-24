@@ -61,5 +61,3 @@ export function buildManifest(mode: "development" | "production"): chrome.runtim
     ],
   };
 }
-
-export const manifest = buildManifest("production");

@@ -127,11 +127,6 @@ function readPerson(raw: unknown): PersonRef | null {
   return { login, displayName, avatarUrl, path };
 }
 
-function readStringArray(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string");
-}
-
 function readParents(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const out: string[] = [];

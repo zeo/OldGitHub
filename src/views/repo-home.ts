@@ -243,10 +243,11 @@ function parseLatestCommit(raw: unknown): LatestCommitData | null {
   const commitAuthor = commit?.["author"] as Record<string, unknown> | undefined;
   const apiAuthor = r["author"] as Record<string, unknown> | undefined;
   const message = typeof commit?.["message"] === "string" ? (commit["message"] as string) : "";
+  const committer = commit?.["committer"] as Record<string, unknown> | undefined;
   const date = typeof commitAuthor?.["date"] === "string"
     ? (commitAuthor["date"] as string)
-    : typeof (commit?.["committer"] as Record<string, unknown> | undefined)?.["date"] === "string"
-      ? ((commit?.["committer"] as Record<string, unknown>)["date"] as string)
+    : typeof committer?.["date"] === "string"
+      ? (committer["date"] as string)
       : "";
   return {
     sha,
