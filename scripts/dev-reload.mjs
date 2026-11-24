@@ -8,8 +8,8 @@ import { stat, watch, mkdir, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, relative, dirname } from "node:path";
 
-const PORT = 7878;
-const ROOT = process.cwd();
+const PORT = Number(process.env.OLDGH_DEV_PORT) || 7878;
+const ROOT = resolve(import.meta.dirname, "..");
 const DIST_DIR = resolve(ROOT, "dist");
 const PUBLIC_DIR = resolve(ROOT, "public");
 const STAMP_FILE = resolve(DIST_DIR, "manifest.json");
@@ -42,6 +42,11 @@ const server = createServer((req, res) => {
   res.end("not found");
 });
 
+server.on("error", (err) => {
+  console.error(`[dev-reload] server error on port ${PORT}: ${err.message}`);
+  process.exit(1);
+});
+
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[dev-reload] listening on http://localhost:${PORT}/build-id`);
 });
@@ -55,21 +60,12 @@ async function watchLoop() {
         await sleep(500);
         continue;
       }
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 30_000);
-      try {
-        const watcher = watch(DIST_DIR, { recursive: false, signal: ac.signal });
-        for await (const ev of watcher) {
-          if (ev.filename && /manifest\.json$/.test(ev.filename)) {
-            // small debounce
-            await sleep(150);
-            await refreshStamp();
-          }
+      const watcher = watch(DIST_DIR, { recursive: false });
+      for await (const ev of watcher) {
+        if (ev.filename && ev.filename.endsWith("manifest.json")) {
+          await sleep(150);
+          await refreshStamp();
         }
-      } catch (e) {
-        if (e.name !== "AbortError") throw e;
-      } finally {
-        clearTimeout(timer);
       }
     } catch (e) {
       console.warn(`[dev-reload] watcher error: ${e.message}`);
@@ -86,31 +82,23 @@ async function publicWatcher() {
   if (!existsSync(PUBLIC_DIR)) return;
   while (true) {
     try {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 60_000);
-      try {
-        const watcher = watch(PUBLIC_DIR, { recursive: true, signal: ac.signal });
-        for await (const ev of watcher) {
-          if (!ev.filename) continue;
-          const src = resolve(PUBLIC_DIR, ev.filename);
-          if (!existsSync(src)) continue;
+      const watcher = watch(PUBLIC_DIR, { recursive: true });
+      for await (const ev of watcher) {
+        if (!ev.filename) continue;
+        const src = resolve(PUBLIC_DIR, ev.filename);
+        if (!existsSync(src)) continue;
+        try {
+          if (!(await stat(src)).isFile()) continue;
           const rel = relative(PUBLIC_DIR, src);
           const dest = resolve(DIST_DIR, rel);
-          try {
-            await mkdir(dirname(dest), { recursive: true });
-            await copyFile(src, dest);
-            console.log(`[dev-reload] copied public/${rel} -> dist/${rel}`);
-            // bump build id so SW reloads
-            buildId = String(Date.now());
-            console.log(`[dev-reload] new build-id ${buildId}`);
-          } catch (err) {
-            console.warn(`[dev-reload] copy failed: ${err.message}`);
-          }
+          await mkdir(dirname(dest), { recursive: true });
+          await copyFile(src, dest);
+          console.log(`[dev-reload] copied public/${rel} -> dist/${rel}`);
+          buildId = String(Date.now());
+          console.log(`[dev-reload] new build-id ${buildId}`);
+        } catch (err) {
+          console.warn(`[dev-reload] copy failed: ${err.message}`);
         }
-      } catch (e) {
-        if (e.name !== "AbortError") throw e;
-      } finally {
-        clearTimeout(timer);
       }
     } catch (e) {
       console.warn(`[dev-reload] public watcher error: ${e.message}`);

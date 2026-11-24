@@ -1,7 +1,7 @@
 // produce oldgithub-v<version>.zip from dist/ for chrome web store upload.
 // zero-dep: writes a stored+deflated zip with central-directory by hand.
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync, crc32 as zlibCrc32 } from "node:zlib";
@@ -34,14 +34,60 @@ function dosTime(d) {
   return { time, date };
 }
 
-const now = new Date();
-const { time: dosT, date: dosD } = dosTime(now);
-
-const files = walk(distDir);
-if (files.length === 0) {
-  console.error("dist/ is empty — run `npm run build` first.");
+function fail(message) {
+  console.error(`pack validation failed: ${message}`);
   process.exit(1);
 }
+
+function validateDist(files) {
+  if (files.length === 0) fail("dist/ is empty — run `npm run build` first.");
+  const relFiles = files.map(toZipName);
+  const mapFiles = relFiles.filter((name) => name.endsWith(".map"));
+  if (mapFiles.length > 0) fail(`sourcemaps found in dist/: ${mapFiles.join(", ")}`);
+
+  const manifestPath = resolve(distDir, "manifest.json");
+  if (!existsSync(manifestPath)) fail("dist/manifest.json is missing.");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (manifest.version !== pkg.version) {
+    fail(`manifest version ${manifest.version} does not match package.json ${pkg.version}`);
+  }
+  const hosts = Array.isArray(manifest.host_permissions) ? manifest.host_permissions : [];
+  if (hosts.some((h) => /localhost|127\.0\.0\.1/.test(String(h)))) {
+    fail(`dev host permission leaked into dist/manifest.json: ${hosts.join(", ")}`);
+  }
+
+  const requiredPaths = [];
+  if (manifest.icons) requiredPaths.push(...Object.values(manifest.icons));
+  if (manifest.action?.default_icon) requiredPaths.push(...Object.values(manifest.action.default_icon));
+  if (manifest.background?.service_worker) requiredPaths.push(manifest.background.service_worker);
+  if (manifest.options_ui?.page) requiredPaths.push(manifest.options_ui.page);
+  for (const cs of manifest.content_scripts ?? []) {
+    if (Array.isArray(cs.js)) requiredPaths.push(...cs.js);
+    if (Array.isArray(cs.css)) requiredPaths.push(...cs.css);
+  }
+  for (const war of manifest.web_accessible_resources ?? []) {
+    for (const res of war.resources ?? []) {
+      if (String(res).endsWith("/*")) {
+        const prefix = String(res).slice(0, -1);
+        if (!relFiles.some((f) => f.startsWith(prefix))) {
+          fail(`web_accessible_resources pattern ${res} matched zero files in dist/`);
+        }
+      } else {
+        requiredPaths.push(res);
+      }
+    }
+  }
+  for (const rel of requiredPaths) {
+    if (!existsSync(resolve(distDir, rel))) fail(`manifest references missing file: ${rel}`);
+  }
+}
+
+if (!existsSync(distDir)) fail("dist/ does not exist — run `npm run build` first.");
+const files = walk(distDir);
+validateDist(files);
+
+const now = new Date();
+const { time: dosT, date: dosD } = dosTime(now);
 
 const localChunks = [];
 const centralChunks = [];

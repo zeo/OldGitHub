@@ -14,6 +14,7 @@ oldgithub-v*.zip
 
 # stray agent config dropped by other CLIs
 .antigravitycli/
+.claude/
 .gemini/
 .aider*/
 .cursor/

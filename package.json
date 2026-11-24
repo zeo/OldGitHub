@@ -1,36 +1,39 @@
 {
   "name": "old-github",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Restore the 2012-2013 GitHub layout as a Chrome extension.",
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "build:icons": "node scripts/build-icons.mjs",
     "build:ext-icons": "node scripts/build-extension-icons.mjs",
-    "prebuild": "npm run build:icons && npm run build:ext-icons",
-    "predev": "npm run build:icons && npm run build:ext-icons",
+    "prebuild": "npm run build:icons",
+    "predev": "npm run build:icons",
     "pretypecheck": "npm run build:icons",
     "dev": "node scripts/run-dev.mjs",
     "dev:build": "vite build --watch --mode development",
     "dev:reload": "node scripts/dev-reload.mjs",
     "build": "vite build",
-    "pack": "npm run typecheck && npm test && npm run build && node scripts/pack.mjs",
+    "lint": "oxlint src scripts",
+    "pack": "npm run typecheck && npm run lint && npm test && npm run build && node scripts/pack.mjs",
     "test": "node scripts/test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "highlight.js": "11.11.1",
-    "octicons": "8.5.0"
+    "highlight.js": "11.11.1"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.270",
+    "@types/chrome": "0.3.8",
     "@types/node": "^22.20.5",
-    "sharp": "^0.34.5",
-    "typescript": "5.4.5",
-    "vite": "8.1.4"
+    "happy-dom": "^21.0.4",
+    "octicons": "8.5.0",
+    "oxlint": "^1.95.0",
+    "sharp": "^0.35.5",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8"
   }
 }

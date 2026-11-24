@@ -1,23 +1,28 @@
 import { spawn } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = resolve(here, "..");
+const viteBin = resolve(root, "node_modules", "vite", "bin", "vite.js");
+const reloadScript = resolve(here, "dev-reload.mjs");
 
 const procs = [];
-const isWin = process.platform === "win32";
-const npmCmd = isWin ? "npm.cmd" : "npm";
 
-function start(name, cmd, args) {
-  const child = spawn(cmd, args, { stdio: "inherit", shell: isWin });
+function start(name, args) {
+  const child = spawn(process.execPath, args, { cwd: root, stdio: "inherit" });
   child.on("exit", (code, signal) => {
     console.log(`[${name}] exited code=${code} signal=${signal}`);
-    procs.forEach((p) => {
+    for (const p of procs) {
       if (p !== child && !p.killed) p.kill();
-    });
+    }
     process.exit(code ?? 1);
   });
   procs.push(child);
 }
 
-start("vite", npmCmd, ["run", "dev:build"]);
-start("reload", npmCmd, ["run", "dev:reload"]);
+start("vite", [viteBin, "build", "--watch", "--mode", "development"]);
+start("reload", [reloadScript]);
 
 const shutdown = () => {
   for (const p of procs) {

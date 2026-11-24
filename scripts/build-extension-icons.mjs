@@ -3,7 +3,7 @@
 // transparent padding, extend to a square canvas with a small margin, then
 // rasterise at each output size with lanczos3. emits public/icons/icon-{size}.png.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -11,6 +11,18 @@ import sharp from "sharp";
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "..", "public", "icons");
 const source = resolve(here, "..", "assets", "source-icon.png");
+const sizes = [16, 32, 48, 128];
+const force = process.argv.includes("--force");
+
+if (!force) {
+  const sourceMtime = statSync(source).mtimeMs;
+  const fresh = sizes.every((size) => {
+    const file = resolve(outDir, `icon-${size}.png`);
+    return existsSync(file) && statSync(file).mtimeMs >= sourceMtime;
+  });
+  if (fresh) process.exit(0);
+}
+
 mkdirSync(outDir, { recursive: true });
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
@@ -37,7 +49,7 @@ const squared = await sharp(trimmed.data)
   .png()
   .toBuffer();
 
-for (const size of [16, 32, 48, 128]) {
+for (const size of sizes) {
   const file = resolve(outDir, `icon-${size}.png`);
   await sharp(squared)
     .resize(size, size, { kernel: "lanczos3" })

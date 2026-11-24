@@ -1,19 +1,43 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const srcDir = join(root, "src");
 const svgDir = join(root, "node_modules", "octicons", "build", "svg");
-const outFile = join(root, "src", "icons", "generated.ts");
+const outFile = join(srcDir, "icons", "generated.ts");
+
+async function collectTsFiles(dir) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await collectTsFiles(full)));
+    else if (entry.name.endsWith(".ts") && full !== outFile) out.push(full);
+  }
+  return out;
+}
 
 const files = (await readdir(svgDir)).filter((f) => f.endsWith(".svg")).sort();
+const allNames = new Set(files.map((f) => f.replace(/\.svg$/, "")));
+
+// keep only icons whose literal slug appears in src/ so unused glyphs stay out of the bundle
+const referenced = new Set();
+for (const tsFile of await collectTsFiles(srcDir)) {
+  const content = await readFile(tsFile, "utf8");
+  for (const m of content.matchAll(/["']([a-z0-9-]+)["']/g)) {
+    if (allNames.has(m[1])) referenced.add(m[1]);
+  }
+}
 
 const entries = await Promise.all(
-  files.map(async (file) => {
-    const name = file.replace(/\.svg$/, "");
-    const raw = (await readFile(join(svgDir, file), "utf8")).trim();
-    return [name, raw];
-  }),
+  files
+    .filter((f) => referenced.has(f.replace(/\.svg$/, "")))
+    .map(async (file) => {
+      const name = file.replace(/\.svg$/, "");
+      const raw = (await readFile(join(svgDir, file), "utf8")).trim();
+      return [name, raw];
+    }),
 );
 
 const body = entries
@@ -26,7 +50,9 @@ ${body}
 };
 `;
 
-await mkdir(dirname(outFile), { recursive: true });
-await writeFile(outFile, out, "utf8");
-
-console.log(`wrote ${entries.length} icons → ${outFile}`);
+const prev = existsSync(outFile) ? await readFile(outFile, "utf8") : null;
+if (prev !== out) {
+  await mkdir(dirname(outFile), { recursive: true });
+  await writeFile(outFile, out, "utf8");
+  console.log(`wrote ${entries.length} icons -> ${outFile}`);
+}
