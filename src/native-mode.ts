@@ -1,4 +1,6 @@
-export type PageMode = "on" | "native" | "signed-out" | "off";
+import type { PageMode } from "@/messages";
+
+export type { PageMode };
 
 const NATIVE_KEY = "oldgh:native";
 const RELOAD_GUARD_KEY = "oldgh:reload-guard";

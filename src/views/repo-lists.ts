@@ -3,7 +3,8 @@ import { AdapterFailure } from "@/adapters";
 import { fetchPageDoc, loadPagePayload, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { encodePathSegments, escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor } from "@/util/html";
+import { escapeAttr, escapeText, encodePathSegments, labelTextColor, safeAttrHref, safeHexColor } from "@/util/html";
+import { readNumber, readObj, readString } from "@/adapters/_json";
 
 const ROOT_CLASS = "oldgh-repo-list";
 
@@ -286,14 +287,4 @@ function dueByLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
-function readObj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-}
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
-}
+

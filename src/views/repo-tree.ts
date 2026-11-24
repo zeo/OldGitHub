@@ -1,8 +1,7 @@
-import { octicon } from "@/icons";
 import { getRepoTree, type RepoTreeView } from "@/adapters/repo-overview";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { encodePathSegments, escapeAttr, escapeText } from "@/util/html";
+import { renderRepoBreadcrumb } from "./_breadcrumb";
 
 const ROOT_CLASS = "oldgh-repo-tree";
 
@@ -30,32 +29,8 @@ export async function mountRepoTree(
 function renderShell(v: RepoTreeView): string {
   return `
     <div class="oldgh-page">
-      ${renderBreadcrumb(v)}
+      ${renderRepoBreadcrumb({ owner: v.owner, repo: v.repo, branch: v.branch, path: v.path })}
       ${renderTreeTable({ owner: v.owner, repo: v.repo, branch: v.branch, basePath: v.path }, v.items)}
     </div>
   `;
-}
-
-function renderBreadcrumb(v: RepoTreeView): string {
-  const parts = v.path.split("/").filter(Boolean);
-  const branchIcon = octicon("git-branch", { size: 14 });
-  const pieces: string[] = [];
-  pieces.push(`
-    <span class="oldgh-breadcrumb__ref">${branchIcon}<strong>${escapeText(v.branch)}</strong></span>
-  `);
-  pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}">${escapeText(v.repo)}</a>`);
-  let acc = "";
-  for (let i = 0; i < parts.length; i++) {
-    const seg = parts[i]!;
-    acc = acc ? `${acc}/${seg}` : seg;
-    pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-    if (i === parts.length - 1) {
-      pieces.push(`<span class="oldgh-breadcrumb__seg oldgh-breadcrumb__seg--current">${escapeText(seg)}</span>`);
-    } else {
-      const href = `/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/tree/${encodePathSegments(v.branch)}/${encodePathSegments(acc)}`;
-      pieces.push(`<a class="oldgh-breadcrumb__seg" href="${escapeAttr(href)}">${escapeText(seg)}</a>`);
-    }
-  }
-  return `<div class="oldgh-breadcrumb">${pieces.join("")}</div>`;
 }

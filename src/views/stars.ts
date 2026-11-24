@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { navigate } from "@/router";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderPrevNextPager } from "./_pager";
 import { currentUserLogin } from "@/auth/session";
 import { fetchPageDoc, pageLinks } from "@/adapters/_page";
 import { languageColor } from "@/util/language-color";
@@ -192,11 +193,11 @@ function renderLayout(page: StarsPage, pathname: string, params: URLSearchParams
           </label>` : ""}
       </div>
       ${renderList(page.repos, !!language)}
-      ${page.prev || page.next ? `
-        <nav class="oldgh-stars__pager">
-          ${page.prev ? `<a href="${escapeAttr(pagerHref(page.prev))}">‹ Previous</a>` : "<span></span>"}
-          ${page.next ? `<a href="${escapeAttr(pagerHref(page.next))}">Next ›</a>` : "<span></span>"}
-        </nav>` : ""}
+      ${renderPrevNextPager({
+        className: "oldgh-stars__pager",
+        prevHref: page.prev ? pagerHref(page.prev) : null,
+        nextHref: page.next ? pagerHref(page.next) : null,
+      })}
     </main>
   `;
 }

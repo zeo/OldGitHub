@@ -19,6 +19,7 @@ import { relativeTime, absoluteTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderPrevNextPager } from "./_pager";
 import { navigate } from "@/router";
 import { escapeAttr, escapeText, labelTextColor, relativizeGithubUrl, safeAttrHref, safeCssColor, safeHexColor } from "@/util/html";
 
@@ -407,13 +408,12 @@ function renderPager(s: SearchSummary, params: URLSearchParams): string {
     else next.delete("p");
     return `/search?${next}`;
   };
-  return `
-    <nav class="oldgh-search__pager">
-      ${s.page > 1 ? `<a href="${escapeAttr(href(s.page - 1))}">‹ Previous</a>` : "<span></span>"}
-      <span>Page ${s.page} of ${s.pageCount}</span>
-      ${s.page < s.pageCount ? `<a href="${escapeAttr(href(s.page + 1))}">Next ›</a>` : "<span></span>"}
-    </nav>
-  `;
+  return renderPrevNextPager({
+    className: "oldgh-search__pager",
+    prevHref: s.page > 1 ? href(s.page - 1) : null,
+    nextHref: s.page < s.pageCount ? href(s.page + 1) : null,
+    statusText: `Page ${s.page} of ${s.pageCount}`,
+  });
 }
 
 function renderEmpty(_s: SearchSummary): string {

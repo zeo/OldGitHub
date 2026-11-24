@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { loadPagePayload, parseRepoPage } from "./_page";
+import { readArray, readNumber, readObj, readString } from "./_json";
 import { fetchApi } from "./rate-limit";
 import { decodeHtmlText, sanitizeTree } from "@/util/html";
 
@@ -488,17 +489,4 @@ function parseTopicResult(raw: unknown): TopicResult | null {
   };
 }
 
-function readObj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-}
-function readArray(v: unknown): unknown[] {
-  return Array.isArray(v) ? v : [];
-}
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
-}
+

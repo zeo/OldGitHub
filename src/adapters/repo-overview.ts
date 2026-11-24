@@ -1,7 +1,8 @@
 import { AdapterFailure } from "./index";
 import { extractEmbeddedPayload, fetchRepoPage, loadPagePayload, parseRepoPage } from "./_page";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
-import { readProxyText } from "@/background/proxy-policy";
+import { readProxyText } from "@/util/proxy-text";
+import type { ProxyFetchResult } from "@/messages";
 import { encodePathSegments, safeDecodeURIComponent } from "@/util/html";
 
 export type TreeItem = {
@@ -286,10 +287,6 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
     hasPreview: false,
   };
 }
-
-type ProxyFetchOk = { ok: true; status: number; contentType: string; text: string };
-type ProxyFetchErr = { ok: false; status: number; error?: string };
-type ProxyFetchResult = ProxyFetchOk | ProxyFetchErr;
 
 async function proxyFetchViaBackground(url: string, credentials: "include" | "omit"): Promise<ProxyFetchResult> {
   try {

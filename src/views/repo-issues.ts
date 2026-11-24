@@ -3,6 +3,7 @@ import { getIssueList, type IssueListView, type IssueRow } from "@/adapters/repo
 import { absoluteTime, relativeTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderPrevNextPager } from "./_pager";
 import { escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-issues";
@@ -151,15 +152,14 @@ function renderPagination(v: IssueListView, kind: "issues" | "pulls"): string {
   const url = new URL(`https://github.com/${v.owner}/${v.repo}/${kind}`);
   const params = new URLSearchParams(v.rawQuery);
   const current = v.pageInfo.page || parseInt(params.get("page") || "1", 10) || 1;
-  const prev = makePageUrl(url, params, Math.max(1, current - 1));
-  const next = makePageUrl(url, params, current + 1);
-  const prevBtn = v.pageInfo.hasPrevious
-    ? `<a class="oldgh-btn" href="${escapeAttr(prev)}">${octicon("triangle-left", { size: 14 })}<span>Previous</span></a>`
-    : `<button class="oldgh-btn" type="button" disabled>${octicon("triangle-left", { size: 14 })}<span>Previous</span></button>`;
-  const nextBtn = v.pageInfo.hasNext
-    ? `<a class="oldgh-btn" href="${escapeAttr(next)}"><span>Next</span>${octicon("triangle-right", { size: 14 })}</a>`
-    : `<button class="oldgh-btn" type="button" disabled><span>Next</span>${octicon("triangle-right", { size: 14 })}</button>`;
-  return `<div class="oldgh-issues__pagination">${prevBtn}${nextBtn}</div>`;
+  return renderPrevNextPager({
+    className: "oldgh-issues__pagination",
+    prevHref: v.pageInfo.hasPrevious ? makePageUrl(url, params, Math.max(1, current - 1)) : null,
+    nextHref: v.pageInfo.hasNext ? makePageUrl(url, params, current + 1) : null,
+    prevHtml: `${octicon("triangle-left", { size: 14 })}<span>Previous</span>`,
+    nextHtml: `<span>Next</span>${octicon("triangle-right", { size: 14 })}`,
+    disabledButtons: true,
+  });
 }
 
 function makePageUrl(base: URL, params: URLSearchParams, page: number): string {

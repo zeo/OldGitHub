@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { loadPagePayload } from "./_page";
+import { readArray, readNumber, readObj, readString } from "./_json";
 import { escapeText } from "@/util/html";
 
 export type IssueState = "OPEN" | "CLOSED";
@@ -194,20 +195,7 @@ function parseLabels(raw: unknown): IssueLabel[] {
   });
 }
 
-function readObj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-function readArray(v: unknown): unknown[] {
-  return Array.isArray(v) ? v : [];
-}
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
-}
+
 
 // older links carry ?labels=, ?assignee= and ?milestone=; search only reads q
 function withParamFilters(q: string, params: URLSearchParams): string {

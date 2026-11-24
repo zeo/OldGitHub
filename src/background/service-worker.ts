@@ -1,4 +1,5 @@
 import { isFullyCoveredUrl } from "@/router/resolve";
+import type { PageMode, ProxyFetchResult } from "@/messages";
 import { blockRules } from "./block-rules";
 import { allowedProxyUrl, allowedRedirectTarget, readProxyText } from "./proxy-policy";
 
@@ -180,8 +181,6 @@ chrome.tabs.onReplaced.addListener((added, removed) => {
   });
 });
 
-type PageMode = "on" | "native" | "signed-out" | "off";
-
 // returns true when the page loaded under the wrong blocking state and needs one reload
 function notePageMode(tabId: number, mode: PageMode): Promise<boolean> {
   return runQueued(async () => {
@@ -321,10 +320,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   return undefined;
 });
-
-type ProxyFetchResult =
-  | { ok: true; status: number; contentType: string; text: string }
-  | { ok: false; status: number; error?: string };
 
 async function proxyFetch(url: string, credentials: "include" | "omit"): Promise<ProxyFetchResult> {
   const allowedUrl = allowedProxyUrl(url, credentials);

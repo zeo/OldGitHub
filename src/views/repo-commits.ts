@@ -2,6 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoCommits, type CommitEntry, type CommitsView, type PersonRef } from "@/adapters/repo-commits";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderPrevNextPager } from "./_pager";
 import { encodePathSegments, escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-commits";
@@ -107,17 +108,12 @@ function renderAuthors(authors: PersonRef[]): string {
 }
 
 function renderPagination(v: CommitsView): string {
-  if (!v.pagination.hasNext && !v.pagination.hasPrevious) return "";
-  const newer = v.pagination.hasPrevious && v.pagination.startCursor
-    ? `<a class="oldgh-btn" href="?before=${encodeURIComponent(v.pagination.startCursor)}">${octicon("triangle-left", { size: 14 })}<span>Newer</span></a>`
-    : `<button class="oldgh-btn" type="button" disabled>${octicon("triangle-left", { size: 14 })}<span>Newer</span></button>`;
-  const older = v.pagination.hasNext && v.pagination.endCursor
-    ? `<a class="oldgh-btn" href="?after=${encodeURIComponent(v.pagination.endCursor)}"><span>Older</span>${octicon("triangle-right", { size: 14 })}</a>`
-    : `<button class="oldgh-btn" type="button" disabled><span>Older</span>${octicon("triangle-right", { size: 14 })}</button>`;
-  return `
-    <div class="oldgh-repo-commits__pagination">
-      ${newer}
-      ${older}
-    </div>
-  `;
+  return renderPrevNextPager({
+    className: "oldgh-repo-commits__pagination",
+    prevHref: v.pagination.hasPrevious && v.pagination.startCursor ? `?before=${encodeURIComponent(v.pagination.startCursor)}` : null,
+    nextHref: v.pagination.hasNext && v.pagination.endCursor ? `?after=${encodeURIComponent(v.pagination.endCursor)}` : null,
+    prevHtml: `${octicon("triangle-left", { size: 14 })}<span>Newer</span>`,
+    nextHtml: `<span>Older</span>${octicon("triangle-right", { size: 14 })}`,
+    disabledButtons: true,
+  });
 }

@@ -1,6 +1,16 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, isCurrentNavigation, navigationToken } from "./_body";
-import { askDataConfirm, escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
+import {
+  SUBMIT_BTN_SELECTOR,
+  askDataConfirm,
+  cleanSettingsContent,
+  disableAutosaveToggles,
+  enforceSameOriginForms,
+  extractSettingsMain,
+  fillMenuLabels,
+  requireSecondClick,
+} from "./_settings-shell";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-account-settings";
 
@@ -92,6 +102,23 @@ function activeKeyFor(subPath: string): string {
   }
 }
 
+const ACCOUNT_MAIN_SELECTORS = [
+  "main .Layout-main",
+  "main .application-main",
+  "main",
+  "#main-content",
+  "[role='main']",
+];
+
+const ACCOUNT_STRIP_SELECTORS = [
+  "nav-list",
+  ".SideNav",
+  ".Layout-sidebar",
+  "nav[aria-label*='settings' i]",
+  "nav[aria-label='User account menu']",
+  "nav[aria-label='Account menu']",
+];
+
 export async function mountAccountSettings(pathname: string, search: string): Promise<void> {
   const nav = navigationToken();
   const root = document.createElement("div");
@@ -108,15 +135,15 @@ export async function mountAccountSettings(pathname: string, search: string): Pr
     const html = await fetchSettingsPage(query ? `${pathname}?${query}` : pathname);
     if (!isCurrentNavigation(nav)) return;
     const doc = new DOMParser().parseFromString(html, "text/html");
-    const native = extractMainContent(doc);
+    const native = extractSettingsMain(doc, ACCOUNT_MAIN_SELECTORS);
     if (!native) {
       main.innerHTML = `<div class="oldgh-account-settings__empty">Couldn't find settings content.</div>`;
       return;
     }
-    cleanScrapedContent(native);
+    cleanSettingsContent(native, ACCOUNT_STRIP_SELECTORS);
     main.innerHTML = `<div class="oldgh-account-settings__native">${native.innerHTML}</div>`;
     rewireAccountDialogs(main);
-    disableAutosaveToggles(main);
+    disableAutosaveToggles(main, ".oldgh-account-settings__native");
     fillMenuLabels(main);
     enforceSameOriginForms(main);
     askDataConfirm(main);
@@ -141,74 +168,10 @@ async function fetchSettingsPage(path: string): Promise<string> {
   return resp.text();
 }
 
-function extractMainContent(doc: Document): Element | null {
-  const selectors = [
-    "main .Layout-main",
-    "main .application-main",
-    "main",
-    "#main-content",
-    "[role='main']",
-  ];
-  for (const sel of selectors) {
-    const el = doc.querySelector(sel);
-    if (el && el.innerHTML.trim().length > 100) return el;
-  }
-  return null;
-}
-
-function cleanScrapedContent(el: Element): void {
-  cleanScrapedPage(el, [
-    "nav-list",
-    ".SideNav",
-    ".Layout-sidebar",
-    "nav[aria-label*='settings' i]",
-    "nav[aria-label='User account menu']",
-    "nav[aria-label='Account menu']",
-    // per-option ajax save-status badge (loading spinner + success check + error
-    // x). github shows one state via css/js we block, so all three leak at once
-    ".status-indicator",
-  ]);
-  // strip elements GitHub keeps in the DOM but hides via JS — without their
-  // bundle running, every conditional warning shows at once. avatar upload
-  // errors, .js-* hide-until-error stubs, [hidden] attribute holdouts.
-  const hiddenSelectors = [
-    // a blanket [hidden] strip is too broad — GitHub keeps real, reachable
-    // controls (collapsed sections, conditional 2FA panels, the delete-account
-    // confirm block, dialog bodies, tab panels) behind [hidden] and reveals
-    // them via JS we don't run. only strip the error/flash stubs.
-    "[hidden].js-flash-error",
-    "[hidden].flash-error",
-    "[hidden][class*='error']",
-    ".js-avatar-upload-error",
-    ".js-upload-error",
-    ".js-upload-image-error",
-    ".js-flash-error",
-    ".js-conditional-error",
-    ".error-message:not(.is-shown)",
-    "[data-test-selector*='error']:empty",
-  ];
-  for (const sel of hiddenSelectors) {
-    el.querySelectorAll(sel).forEach((n) => {
-      // never strip a hidden node that holds a form/dialog/tabpanel — that's
-      // real content GitHub reveals on interaction, not an error stub
-      if (n.matches("dialog, [role='tabpanel']") || n.querySelector(`form, ${SUBMIT_BTN_SELECTOR}`)) return;
-      n.remove();
-    });
-  }
-}
-
-// Confirmation `<dialog>` elements injected via innerHTML never activate
-// (dialog-helper / React event handlers don't run), so any action that
-// depends on opening one — disable 2FA, delete passkey, revoke key,
-// delete account, etc. — is dead on arrival. Promote them to inline
-// confirmation boxes so the form's submit button is reachable. Each
-// surfaced dialog gets a 2013-style warning border so the user knows
-// it's a destructive action.
+// confirmation <dialog> elements injected via innerHTML never activate, so promote them inline with a two-click destructive guard
 function rewireAccountDialogs(main: HTMLElement): void {
   for (const dialog of Array.from(main.querySelectorAll<HTMLElement>("dialog"))) {
-    // need either a form inside or a form ancestor — the latter is how
-    // GitHub puts inputs+submit inside a dialog while the <form> wraps
-    // the whole section (rename-form-dialog, delete-passkey-*).
+    // check both inner and ancestor forms because github wraps some destructive dialogs inside an outer form
     const hasInnerForm = !!dialog.querySelector("form");
     const hasAncestorForm = !!dialog.closest("form");
     if (!hasInnerForm && !hasAncestorForm) continue;
@@ -218,119 +181,19 @@ function rewireAccountDialogs(main: HTMLElement): void {
     while (dialog.firstChild) section.appendChild(dialog.firstChild);
     dialog.replaceWith(section);
     requireSecondClick(section);
-    // React dialogs carry overlay/backdrop scaffolding and a close-X that,
-    // once surfaced inline, render as a stray fixed panel or a dead pill.
     section.querySelectorAll(
       "[class*='prc-Dialog-Backdrop'], [class*='prc-Overlay-Backdrop'], [class*='prc-Dialog-CloseButton'], [aria-label='Close']",
     ).forEach((n) => n.remove());
-    // dialog-helper wrapper above the dialog often duplicates the trigger
-    // button (the one that was supposed to open the dialog). Clear it.
     const helper = section.parentElement?.tagName?.toLowerCase() === "dialog-helper" ? section.parentElement : null;
     if (helper) {
       while (helper.firstChild) helper.parentElement!.insertBefore(helper.firstChild, helper);
       helper.remove();
     }
   }
-  // Some pages also have <dialog-helper> wrappers around content that's
-  // not a true dialog — strip those custom-element shells so their inner
-  // forms are reachable.
   for (const helper of Array.from(main.querySelectorAll<HTMLElement>("dialog-helper"))) {
     while (helper.firstChild) helper.parentElement!.insertBefore(helper.firstChild, helper);
     helper.remove();
   }
-}
-
-const DESTRUCTIVE = /\b(delete|remove|revoke|disable|reset|regenerate|leave|unlink|transfer|sign out)\b/i;
-const SUBMIT_BTN_SELECTOR = 'button[type="submit"], input[type="submit"], button:not([type])';
-
-function disableAutosaveToggles(main: HTMLElement): void {
-  let disabled = 0;
-  for (const form of Array.from(main.querySelectorAll<HTMLFormElement>("form[data-autosubmit]"))) {
-    if (form.querySelector(SUBMIT_BTN_SELECTOR)) continue;
-    for (const control of Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[type='checkbox'], input[type='radio'], select"))) {
-      control.disabled = true;
-      disabled++;
-    }
-  }
-  if (disabled === 0) return;
-  const note = document.createElement("div");
-  note.className = "flash";
-  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="#" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
-  main.querySelector(".oldgh-account-settings__native")?.prepend(note);
-}
-
-function fillMenuLabels(main: HTMLElement): void {
-  for (const menu of Array.from(main.querySelectorAll<HTMLElement>("action-menu[data-dynamic-label]"))) {
-    const label = menu.querySelector(".Button-label");
-    const chosen = menu.querySelector("[aria-checked='true'] .ActionListItem-label")?.textContent?.trim();
-    if (!label || !chosen) continue;
-    const prefix = menu.getAttribute("data-dynamic-label-prefix");
-    label.textContent = prefix ? `${prefix}: ${chosen}` : chosen;
-  }
-}
-
-function enforceSameOriginForms(main: HTMLElement): void {
-  main.addEventListener("submit", (e) => {
-    const form = e.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    const action = form.getAttribute("action");
-    if (!action) return;
-    try {
-      if (new URL(action, "https://github.com").origin === "https://github.com") return;
-    } catch {
-      // invalid action falls through to cancel
-    }
-    e.preventDefault();
-    e.stopImmediatePropagation();
-  }, { capture: true });
-}
-
-// a surfaced dialog lost the modal that made the user stop and read, so the first click or enter-submit on a destructive control only arms it
-function requireSecondClick(section: HTMLElement): void {
-  const armedButtons = new WeakMap<HTMLButtonElement | HTMLInputElement, () => void>();
-  for (const button of Array.from(section.querySelectorAll<HTMLButtonElement | HTMLInputElement>(SUBMIT_BTN_SELECTOR))) {
-    const text = (button instanceof HTMLInputElement ? button.value : button.textContent || "").replace(/\s+/g, " ").trim();
-    if (button.hasAttribute("data-confirm") || (!button.classList.contains("btn-danger") && !DESTRUCTIVE.test(text))) continue;
-    const original = button instanceof HTMLInputElement ? button.value : button.innerHTML;
-    const confirmText = `Yes, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
-    let timer = 0;
-    const disarm = () => {
-      delete button.dataset["oldghArmed"];
-      button.classList.remove("oldgh-btn--danger");
-      if (button instanceof HTMLInputElement) button.value = original;
-      else button.innerHTML = original;
-    };
-    const arm = () => {
-      button.dataset["oldghArmed"] = "1";
-      button.classList.add("oldgh-btn--danger");
-      if (button instanceof HTMLInputElement) button.value = confirmText;
-      else button.textContent = confirmText;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(disarm, 5000);
-    };
-    armedButtons.set(button, arm);
-    button.addEventListener("click", (e) => {
-      if (button.dataset["oldghArmed"]) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      arm();
-    }, { capture: true });
-  }
-
-  section.addEventListener("submit", (e) => {
-    const form = e.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    const submitter = (e as SubmitEvent).submitter;
-    const candidate = submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement
-      ? submitter
-      : form.querySelector<HTMLButtonElement | HTMLInputElement>(SUBMIT_BTN_SELECTOR);
-    if (!candidate) return;
-    const arm = armedButtons.get(candidate);
-    if (!arm || candidate.dataset["oldghArmed"]) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    arm();
-  }, { capture: true });
 }
 
 function renderShell(activeKey: string): string {

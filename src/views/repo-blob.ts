@@ -2,6 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoBlob, type RepoBlobView } from "@/adapters/repo-overview";
 import { highlightFile } from "@/highlight";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderRepoBreadcrumb } from "./_breadcrumb";
 import { encodePathSegments, escapeAttr, escapeText, safeAttrHref, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-blob";
@@ -50,35 +51,13 @@ function renderShell(v: RepoBlobView, rendered: boolean, href: string): string {
     : v.isBinary ? renderBinary(v) : v.truncated ? renderTruncated(v) : renderSource(v);
   return `
     <div class="oldgh-page">
-      ${renderBreadcrumb(v)}
+      ${renderRepoBreadcrumb({ owner: v.owner, repo: v.repo, branch: v.branch, path: v.path })}
       <div class="oldgh-repo-blob__file">
         ${renderFileHeader(v, rendered, href)}
         ${content}
       </div>
     </div>
   `;
-}
-
-function renderBreadcrumb(v: RepoBlobView): string {
-  const parts = v.path.split("/").filter(Boolean);
-  const branchIcon = octicon("git-branch", { size: 14 });
-  const pieces: string[] = [];
-  pieces.push(`<span class="oldgh-breadcrumb__ref">${branchIcon}<strong>${escapeText(v.branch)}</strong></span>`);
-  pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-  pieces.push(`<a class="oldgh-breadcrumb__seg" href="/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}">${escapeText(v.repo)}</a>`);
-  let acc = "";
-  for (let i = 0; i < parts.length; i++) {
-    const seg = parts[i]!;
-    acc = acc ? `${acc}/${seg}` : seg;
-    pieces.push(`<span class="oldgh-breadcrumb__sep">/</span>`);
-    if (i === parts.length - 1) {
-      pieces.push(`<span class="oldgh-breadcrumb__seg oldgh-breadcrumb__seg--current">${escapeText(seg)}</span>`);
-    } else {
-      const href = `/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/tree/${encodePathSegments(v.branch)}/${acc.split("/").map(encodeURIComponent).join("/")}`;
-      pieces.push(`<a class="oldgh-breadcrumb__seg" href="${escapeAttr(href)}">${escapeText(seg)}</a>`);
-    }
-  }
-  return `<div class="oldgh-breadcrumb">${pieces.join("")}</div>`;
 }
 
 function renderFileHeader(v: RepoBlobView, rendered: boolean, href: string): string {

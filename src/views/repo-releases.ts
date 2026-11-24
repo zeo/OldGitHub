@@ -3,6 +3,7 @@ import { AdapterFailure } from "@/adapters";
 import { fetchPageDoc, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { renderPrevNextPager } from "./_pager";
 import { encodePathSegments, escapeAttr, escapeText, safeDecodeURIComponent, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-releases";
@@ -152,14 +153,14 @@ function renderShell(title: string): string {
 
 function renderPager(doc: Document, page: number): string {
   const { prev, next } = pageLinks(doc);
-  if (!prev && !next) return "";
-  return `
-    <nav class="oldgh-releases__pager">
-      ${prev ? `<a href="${escapeAttr(prev)}">‹ Newer</a>` : "<span></span>"}
-      <span>Page ${page}</span>
-      ${next ? `<a href="${escapeAttr(next)}">Older ›</a>` : "<span></span>"}
-    </nav>
-  `;
+  return renderPrevNextPager({
+    className: "oldgh-releases__pager",
+    prevHref: prev,
+    nextHref: next,
+    prevLabel: "‹ Newer",
+    nextLabel: "Older ›",
+    statusText: `Page ${page}`,
+  });
 }
 
 const BADGES: Record<string, string> = { Latest: "latest", "Pre-release": "pre", Draft: "draft" };

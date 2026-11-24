@@ -1,6 +1,7 @@
 import { AdapterFailure } from "./index";
 import { fetchApi } from "./rate-limit";
 import { loadPagePayload, parseRepoPage } from "./_page";
+import { readArray, readNumber, readObj, readString } from "./_json";
 import { escapeText, relativizeGithubUrl } from "@/util/html";
 import { parsePatch, parseUnifiedDiff, type DiffHunk } from "@/util/diff";
 
@@ -971,24 +972,6 @@ function restReactionSummary(raw: unknown): ReactionCount[] {
     if (typeof v === "number" && v > 0) out.push({ content, count: v });
   }
   return out;
-}
-
-function readObj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-}
-
-function readArray(v: unknown): unknown[] {
-  return Array.isArray(v) ? v : [];
-}
-
-function readString(o: Record<string, unknown>, key: string): string | null {
-  const v = o[key];
-  return typeof v === "string" ? v : null;
-}
-
-function readNumber(o: Record<string, unknown>, key: string): number | null {
-  const v = o[key];
-  return typeof v === "number" ? v : null;
 }
 
 function readNestedString(raw: unknown, path: string[]): string | null {

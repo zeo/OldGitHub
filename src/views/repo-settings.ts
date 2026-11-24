@@ -1,6 +1,14 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { askDataConfirm, escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
+import {
+  askDataConfirm,
+  cleanSettingsContent,
+  disableAutosaveToggles,
+  enforceSameOriginForms,
+  extractSettingsMain,
+  fillMenuLabels,
+} from "./_settings-shell";
+import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-settings";
 
@@ -62,7 +70,6 @@ function buildSidebar(owner: string, repo: string): SidebarGroup[] {
 }
 
 function activeKeyFor(subPath: string): string {
-  // subPath is "/settings", "/settings/branches", "/settings/secrets/actions" etc.
   const after = subPath.replace(/^\/settings/, "").replace(/^\//, "");
   if (!after) return "general";
   const first = after.split("/")[0] || "";
@@ -86,6 +93,24 @@ function activeKeyFor(subPath: string): string {
   }
 }
 
+const REPO_MAIN_SELECTORS = [
+  "main #repo-content-turbo-frame",
+  "main .Layout-main",
+  "main .application-main",
+  "main",
+];
+
+const REPO_STRIP_SELECTORS = [
+  "nav-list",
+  ".js-repo-settings-sidebar",
+  ".SideNav",
+  ".Layout-sidebar",
+  "nav[aria-label='Settings sidebar']",
+  "nav[aria-label='Repo settings sidebar']",
+  "nav[aria-label*='settings' i]",
+  "nav[item_classes*='repo-menu-item']",
+];
+
 export async function mountRepoSettings(owner: string, repo: string, subPath: string): Promise<void> {
   const nav = navigationToken();
   const root = document.createElement("div");
@@ -100,19 +125,17 @@ export async function mountRepoSettings(owner: string, repo: string, subPath: st
   try {
     const html = await fetchSettingsPage(owner, repo, subPath);
     const doc = new DOMParser().parseFromString(html, "text/html");
-    const native = extractMainContent(doc);
+    const native = extractSettingsMain(doc, REPO_MAIN_SELECTORS);
     if (!native) {
       main.innerHTML = `<div class="oldgh-settings__empty">Couldn't find settings content.</div>`;
       return;
     }
-    cleanScrapedContent(native);
+    cleanSettingsContent(native, REPO_STRIP_SELECTORS);
     main.innerHTML = `<div class="oldgh-settings__native">${native.innerHTML}</div>`;
-    // dialog-helper custom elements that drive Change visibility / Archive /
-    // Delete don't fire when injected via innerHTML — wire up native handlers
-    // that submit the underlying forms with our own confirmation dialog.
     rewireDialogActions(owner, repo, main);
-    disableAutosaveToggles(main);
+    disableAutosaveToggles(main, ".oldgh-settings__native");
     fillMenuLabels(main);
+    enforceSameOriginForms(main);
     askDataConfirm(main);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -120,12 +143,6 @@ export async function mountRepoSettings(owner: string, repo: string, subPath: st
   }
 }
 
-// In the scraped settings DOM, the "Change visibility", "Archive…",
-// "Delete this repository" buttons rely on GitHub's <dialog-helper> custom
-// element to open a confirmation dialog and submit. That custom element
-// doesn't activate when injected via innerHTML (no script context). We
-// detect those buttons and bind native click handlers that show a 2013
-// confirm dialog and submit the underlying form directly.
 function rewireDialogActions(owner: string, repo: string, main: HTMLElement): void {
   for (const dialog of Array.from(main.querySelectorAll<HTMLElement>("dialog[data-new-visibility]"))) {
     const target = dialog.getAttribute("data-new-visibility");
@@ -168,39 +185,7 @@ function rewireDialogActions(owner: string, repo: string, main: HTMLElement): vo
   }
 }
 
-// these forms save on change through github's own js, which never runs here, so a toggle would silently do nothing
-function disableAutosaveToggles(main: HTMLElement): void {
-  let disabled = 0;
-  for (const form of Array.from(main.querySelectorAll<HTMLFormElement>("form[data-autosubmit]"))) {
-    if (form.querySelector("button[type='submit'], input[type='submit'], button:not([type])")) continue;
-    for (const control of Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[type='checkbox'], input[type='radio'], select"))) {
-      control.disabled = true;
-      disabled++;
-    }
-  }
-  if (disabled === 0) return;
-  const note = document.createElement("div");
-  note.className = "flash";
-  note.innerHTML = `Checkboxes here save through GitHub's own scripts, which OldGitHub doesn't run. <a href="#" data-oldgh-show-native>Change them on GitHub's settings page</a>.`;
-  main.querySelector(".oldgh-settings__native")?.prepend(note);
-}
-
-// action-menu writes the chosen item into its button with js, so the scraped button arrives blank
-function fillMenuLabels(main: HTMLElement): void {
-  for (const menu of Array.from(main.querySelectorAll<HTMLElement>("action-menu[data-dynamic-label]"))) {
-    const label = menu.querySelector(".Button-label");
-    const chosen = menu.querySelector("[aria-checked='true'] .ActionListItem-label")?.textContent?.trim();
-    if (!label || !chosen) continue;
-    const prefix = menu.getAttribute("data-dynamic-label-prefix");
-    label.textContent = prefix ? `${prefix}: ${chosen}` : chosen;
-  }
-}
-
 function findVisibilityTrigger(dialog: HTMLElement): HTMLButtonElement | null {
-  // The trigger button is rendered as a sibling of the dialog, with text
-  // describing the transition (e.g. "I want to make this repository public").
-  // It's marked aria-haspopup, type=button, and lives inside the same
-  // visibility-related section as the dialog.
   let scope: HTMLElement | null = dialog.parentElement;
   for (let i = 0; i < 4 && scope; i++) {
     for (const btn of Array.from(scope.querySelectorAll<HTMLButtonElement>("button[aria-haspopup]"))) {
@@ -225,7 +210,7 @@ function findButtonByText(scope: HTMLElement, re: RegExp): HTMLButtonElement | n
 async function confirmVisibilityChange(owner: string, repo: string, target: string, main: HTMLElement): Promise<void> {
   const form = main.querySelector<HTMLFormElement>('form[action$="/set_visibility"]');
   if (!form) {
-    // selector miss (GitHub markup drifted) — degrade to native instead of a dead click
+    // degrade to native instead of a dead click when markup drifts
     window.location.href = `https://github.com/${owner}/${repo}/settings`;
     return;
   }
@@ -280,12 +265,8 @@ async function confirmDelete(owner: string, repo: string, main: HTMLElement): Pr
   submitFormDirect(form.action, { authenticity_token: csrf, _method: "delete", verify: `${owner}/${repo}` });
 }
 
-// Build a transient form and submit() it so the browser performs the POST
-// natively (cookies attached, server response navigates the page). The form
-// is added to the document so Chrome accepts the submit; we remove it on
-// any abort but in practice the page navigates before that matters.
 function submitFormDirect(action: string, fields: Record<string, string>): void {
-  // the action comes from scraped markup; never post the csrf token anywhere but github
+  // scraped action must stay same-origin before submitting csrf token
   if (new URL(action, location.href).origin !== "https://github.com") throw new Error(`refusing to post to ${action}`);
   const form = document.createElement("form");
   form.method = "post";
@@ -368,63 +349,6 @@ async function fetchSettingsPage(owner: string, repo: string, subPath: string): 
     throw new Error(`${url} responded ${resp.status}`);
   }
   return resp.text();
-}
-
-function extractMainContent(doc: Document): Element | null {
-  const selectors = [
-    "main #repo-content-turbo-frame",
-    "main .Layout-main",
-    "main .application-main",
-    "main",
-  ];
-  for (const sel of selectors) {
-    const el = doc.querySelector(sel);
-    if (el && el.innerHTML.trim().length > 100) return el;
-  }
-  return null;
-}
-
-function cleanScrapedContent(el: Element): void {
-  cleanScrapedPage(el, [
-    "nav-list",
-    // native sidebars / nav we replace with our own
-    ".js-repo-settings-sidebar",
-    ".SideNav",
-    ".Layout-sidebar",
-    "nav[aria-label='Settings sidebar']",
-    "nav[aria-label='Repo settings sidebar']",
-    "nav[aria-label*='settings' i]",
-    "nav[item_classes*='repo-menu-item']",
-    // per-option ajax save-status badge (loading spinner + success check + error
-    // x). github shows one state via css/js we block, so all three leak at once
-    ".status-indicator",
-  ]);
-  // strip elements GitHub keeps in the DOM but hides via JS — without their
-  // bundle running, every conditional warning shows at once. avatar /
-  // social-preview upload errors, .js-* hide-until-error stubs, [hidden] holdouts
-  const hiddenSelectors = [
-    // a blanket [hidden] strip is too broad — GitHub keeps real, reachable
-    // controls (collapsed sections, dialog bodies, tab panels) behind [hidden]
-    // and reveals them via JS we don't run. only strip the error/flash stubs
-    "[hidden].js-flash-error",
-    "[hidden].flash-error",
-    "[hidden][class*='error']",
-    ".js-avatar-upload-error",
-    ".js-upload-error",
-    ".js-upload-image-error",
-    ".js-flash-error",
-    ".js-conditional-error",
-    ".error-message:not(.is-shown)",
-    "[data-test-selector*='error']:empty",
-  ];
-  for (const sel of hiddenSelectors) {
-    el.querySelectorAll(sel).forEach((n) => {
-      // never strip a hidden node that holds a form/dialog/tabpanel — that's
-      // real content GitHub reveals on interaction, not an error stub
-      if (n.matches("dialog, [role='tabpanel']") || n.querySelector("form, button[type='submit'], input[type='submit']")) return;
-      n.remove();
-    });
-  }
 }
 
 function renderShell(owner: string, repo: string, activeKey: string): string {
