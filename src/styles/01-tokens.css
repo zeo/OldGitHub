@@ -1,0 +1,247 @@
+/* OldGitHub — 2013 theme tokens and base styles */
+
+:root {
+  color-scheme: light;
+  --gh-font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --gh-font-mono: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+
+  --gh-size-xs: 11px;
+  --gh-size-sm: 12px;
+  --gh-size-md: 13px;
+  --gh-size-lg: 14px;
+  --gh-size-h2: 18px;
+  --gh-size-h1: 22px;
+
+  --gh-line: 1.4;
+
+  --gh-bg: #ffffff;
+  --gh-bg-elev: #ffffff;
+  --gh-bg-subtle: #fafafa;
+  --gh-bg-stripe: #f7f7f7;
+
+  --gh-fg: #333333;
+  --gh-fg-muted: #777777;
+  --gh-fg-faint: #999999;
+
+  --gh-link: #4183c4;
+  --gh-link-hover: #4183c4;
+
+  --gh-border: #d8d8d8;
+  --gh-border-strong: #cacaca;
+  --gh-border-faint: #eaeaea;
+
+  --gh-header-bg-top: #fafafa;
+  --gh-header-bg-bottom: #eaeaea;
+  --gh-header-fg: #333333;
+  --gh-header-fg-muted: #777777;
+  --gh-header-border: #cacaca;
+  --gh-header-logo: #333333;
+
+  --gh-btn-bg-top: #fafafa;
+  --gh-btn-bg-bottom: #eaeaea;
+  --gh-btn-bg-top-hover: #ffffff;
+  --gh-btn-bg-bottom-hover: #dddddd;
+  --gh-btn-border: #d4d4d4;
+  --gh-btn-fg: #333333;
+
+  --gh-btn-primary-bg-top: #62c462;
+  --gh-btn-primary-bg-bottom: #51a351;
+  --gh-btn-primary-border: #4a934a;
+  --gh-btn-primary-fg: #ffffff;
+
+  --gh-state-open: #6cc644;
+  --gh-state-closed: #bd2c00;
+  --gh-state-merged: #6e5494;
+  --gh-state-neutral: #999999;
+
+  --gh-accent: var(--gh-link);
+  /* pale 2013 link-blue tint for topic pills, reaction hover, selected rows */
+  --gh-accent-tint: #f0f7fc;
+  --gh-accent-tint-border: #d6e6f5;
+  --gh-accent-tint-hover: #e3eff8;
+  --gh-bg-accent-subtle: var(--gh-accent-tint);
+  /* the authentic 2013 soft focus glow (#51a7e8) */
+  --gh-focus: #51a7e8;
+  --gh-focus-glow: 0 0 5px rgba(81, 167, 232, 0.5);
+  /* signature orange pjax progress bar / advisory severity */
+  --gh-progress: #e36209;
+  --gh-progress-dark: #b9530a;
+
+  --gh-radius: 3px;
+  --gh-radius-lg: 4px;
+
+  --gh-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --gh-shadow-soft: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+/* dark variant, invented in 2013 idiom */
+:root[data-oldgh-theme="dark"] {
+  color-scheme: dark;
+  --gh-bg: #1c1c1c;
+  --gh-bg-elev: #242424;
+  --gh-bg-subtle: #1e1e1e;
+  --gh-bg-stripe: #202020;
+
+  --gh-fg: #d9d9d9;
+  --gh-fg-muted: #a0a0a0;
+  --gh-fg-faint: #777777;
+
+  --gh-link: #6aa9e0;
+  --gh-link-hover: #84baee;
+
+  --gh-border: #383838;
+  --gh-border-strong: #4a4a4a;
+  --gh-border-faint: #2a2a2a;
+
+  --gh-header-bg-top: #2a2a2a;
+  --gh-header-bg-bottom: #1a1a1a;
+  --gh-header-fg: #e6e6e6;
+  --gh-header-fg-muted: #9a9a9a;
+
+  --gh-btn-bg-top: #3a3a3a;
+  --gh-btn-bg-bottom: #2a2a2a;
+  --gh-btn-bg-top-hover: #444444;
+  --gh-btn-bg-bottom-hover: #333333;
+  --gh-btn-border: #4a4a4a;
+  --gh-btn-fg: #e6e6e6;
+
+  --gh-header-border: #383838;
+  --gh-header-logo: #e6e6e6;
+
+  --gh-state-neutral: #4a4a4a;
+  --gh-accent-tint: rgba(106, 169, 224, 0.12);
+  --gh-accent-tint-border: rgba(106, 169, 224, 0.35);
+  --gh-accent-tint-hover: rgba(106, 169, 224, 0.22);
+  --gh-focus: #6aa9e0;
+  --gh-focus-glow: 0 0 5px rgba(106, 169, 224, 0.45);
+}
+
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]),
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body {
+  font-family: var(--gh-font-sans);
+  font-size: var(--gh-size-md);
+  line-height: var(--gh-line);
+  color: var(--gh-fg);
+  background: var(--gh-bg);
+}
+/* prevent a transient page-level horizontal scrollbar during route changes
+   and markdown render — native github fragments occasionally measure wider
+   than the viewport for a frame before our content swap completes. inner
+   scrollable surfaces (pre, table, blob source) keep their own overflow */
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body {
+  overflow-x: clip;
+}
+
+/* on gist and on pages handed back to github we only theme our own surfaces;
+   the page body keeps its native typography */
+:where(html[data-oldgh="active"]:not([data-oldgh-mounted]) :is(.oldgh-header, .oldgh-repo-header, .oldgh-hovercard, .oldgh-confirm-overlay, .oldgh-quota-notice)),
+:where(html[data-oldgh-host="gist"] .oldgh-header) {
+  font-family: var(--gh-font-sans);
+  font-size: var(--gh-size-md);
+  line-height: var(--gh-line);
+  color: var(--gh-fg);
+}
+
+/* low-specificity default so any class-based override (tabs, sidebars, nav)
+   wins automatically. without :where() this rule was 0,3,1 and was beating
+   .oldgh-tabs__link / .oldgh-account-settings__sidebar-list li a, painting
+   every nav-like surface link-blue in dark mode. */
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)) {
+  color: var(--gh-link);
+  text-decoration: none;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)):hover {
+  text-decoration: underline;
+}
+
+/* primer's base resets (primer/css src/base), which this sheet was tuned against. github's own
+   css is blocked on pages we render, so they ship here at the same element specificity */
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) * {
+  box-sizing: border-box;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) body {
+  margin: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(input, select, textarea, button) {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) button {
+  cursor: pointer;
+  border-radius: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) label {
+  font-weight: 600;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) table {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(td, th) {
+  padding: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) summary {
+  cursor: pointer;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(h1, h2, h3, h4, h5, h6, pre) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) blockquote {
+  margin: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) :is(ul, ol) {
+  padding-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) dd {
+  margin-left: 0;
+}
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) [hidden] {
+  display: none !important;
+}
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"])) .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: rect(0 0 0 0);
+  overflow-wrap: normal;
+  border: 0;
+}
+/* github's js positions these; without it their text would sit inline in scraped markup */
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) tool-tip {
+  display: none !important;
+}
+
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) code,
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) pre,
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) tt {
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-sm);
+}
+
+/* the 2013 octicon glyphs were sized to a 16px box */
+html[data-oldgh="active"] .octicon {
+  display: inline-block;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+html[data-oldgh="active"] .oldgh-chevron {
+  width: 8px;
+  height: auto;
+  opacity: 0.7;
+}

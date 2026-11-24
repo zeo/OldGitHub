@@ -1,0 +1,527 @@
+/* ===== single issue / pull view ===== */
+.oldgh-issue {
+  padding-bottom: 40px;
+}
+.oldgh-issue__header {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 0;
+  margin-bottom: 18px;
+}
+.oldgh-issue__pr-tabs {
+  margin-top: 14px;
+}
+.oldgh-issue__pr-tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0;
+  border-bottom: 0;
+}
+.oldgh-issue__pr-tabs li { margin: 0; }
+.oldgh-issue__pr-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-top-left-radius: var(--gh-radius);
+  border-top-right-radius: var(--gh-radius);
+  text-decoration: none;
+  position: relative;
+  top: 1px;
+}
+.oldgh-issue__pr-tabs a:hover {
+  color: var(--gh-fg);
+  text-decoration: none;
+}
+.oldgh-issue__pr-tabs li.is-active a {
+  color: var(--gh-fg);
+  font-weight: bold;
+  background: var(--gh-bg);
+  border-color: var(--gh-border);
+}
+.oldgh-issue__pr-tab-count {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: var(--gh-size-xs);
+  font-weight: normal;
+  color: var(--gh-fg-muted);
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border-faint);
+  border-radius: 10px;
+}
+
+.oldgh-issue__subtab {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 14px 16px;
+  min-height: 200px;
+}
+.oldgh-issue__subtab-empty {
+  color: var(--gh-fg-faint);
+  margin: 16px 0;
+  text-align: center;
+}
+.oldgh-issue__subtab .Box,
+.oldgh-issue__subtab .Box-row,
+.oldgh-issue__subtab .file-info,
+.oldgh-issue__subtab .file-header {
+  background: var(--gh-bg-elev);
+  color: var(--gh-fg);
+  border-color: var(--gh-border);
+}
+.oldgh-issue__subtab a { color: var(--gh-link); }
+
+.oldgh-issue__title {
+  font-size: 24px;
+  font-weight: 300;
+  margin: 0 0 6px;
+  color: var(--gh-fg);
+  word-break: break-word;
+}
+.oldgh-issue__title :is(code, g-emoji) {
+  font-size: 20px;
+}
+.oldgh-issue__number {
+  color: var(--gh-fg-muted);
+  font-weight: 300;
+  margin-left: 6px;
+}
+.oldgh-issue__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-issue__byline a {
+  color: var(--gh-link);
+}
+.oldgh-issue__ref {
+  background: var(--gh-bg-stripe);
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+  font-family: var(--gh-font-mono);
+  font-size: 11px;
+}
+.oldgh-issue__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--gh-radius);
+  font-size: var(--gh-size-sm);
+  font-weight: bold;
+  color: #fff;
+}
+.oldgh-issue__state--open { background: var(--gh-state-open); }
+.oldgh-issue__state--closed { background: var(--gh-state-closed); }
+.oldgh-issue__state--merged { background: var(--gh-state-merged); }
+.oldgh-issue__state--draft { background: var(--gh-fg-muted); }
+
+.oldgh-issue__layout {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 24px;
+}
+.oldgh-issue__main {
+  min-width: 0;
+}
+.oldgh-issue__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+.oldgh-issue__timeline::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gh-border);
+  z-index: 0;
+}
+.oldgh-issue__comment {
+  display: flex;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+.oldgh-issue__avatar img {
+  display: block;
+  border-radius: 3px;
+  border: 1px solid var(--gh-border);
+  background: var(--gh-bg-elev);
+}
+.oldgh-issue__comment-card {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  position: relative;
+}
+.oldgh-issue__comment-card::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-right-color: var(--gh-border);
+  border-left: 0;
+}
+.oldgh-issue__comment-card::after {
+  content: "";
+  position: absolute;
+  top: 13px;
+  left: -7px;
+  width: 0;
+  height: 0;
+  border: 7px solid transparent;
+  border-right-color: var(--gh-bg-elev);
+  border-left: 0;
+}
+.oldgh-issue__comment--opener .oldgh-issue__comment-card {
+  border-color: var(--gh-link);
+}
+.oldgh-issue__comment--opener .oldgh-issue__comment-card::before {
+  border-right-color: var(--gh-link);
+}
+.oldgh-issue__comment-head {
+  padding: 8px 12px;
+  background: var(--gh-bg-stripe);
+  border-bottom: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-issue__comment-author {
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+.oldgh-issue__association {
+  margin-left: auto;
+  border: 1px solid var(--gh-border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--gh-fg-muted);
+}
+.oldgh-issue__body {
+  min-width: 0;
+  padding: 14px;
+  line-height: 1.6;
+  color: var(--gh-fg);
+  font-size: var(--gh-size-sm);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.oldgh-issue__body p { margin: 0 0 12px; }
+.oldgh-issue__body p:last-child { margin-bottom: 0; }
+.oldgh-issue__body pre {
+  max-width: 100%;
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 10px 12px;
+  overflow: auto;
+  font-family: var(--gh-font-mono);
+  font-size: 12px;
+}
+.oldgh-issue__body code {
+  background: var(--gh-bg-stripe);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--gh-font-mono);
+  font-size: 12px;
+}
+.oldgh-issue__body pre code { background: none; padding: 0; }
+.oldgh-issue__body img { max-width: 100%; }
+.oldgh-issue__body blockquote {
+  border-left: 4px solid var(--gh-border);
+  padding-left: 12px;
+  margin: 0 0 12px;
+  color: var(--gh-fg-muted);
+}
+.oldgh-issue__body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+}
+.oldgh-issue__body table th,
+.oldgh-issue__body table td {
+  border: 1px solid var(--gh-border);
+  padding: 4px 10px;
+}
+.oldgh-issue__body h1,
+.oldgh-issue__body h2 {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 4px;
+}
+.oldgh-issue__empty {
+  color: var(--gh-fg-muted);
+  font-style: italic;
+}
+.oldgh-issue__reactions {
+  border-top: 1px solid var(--gh-border);
+  padding: 6px 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.oldgh-issue__reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--gh-fg-muted);
+  background: var(--gh-bg);
+  transition: background-color 100ms ease-out, border-color 100ms ease-out, color 100ms ease-out;
+  cursor: default;
+}
+.oldgh-issue__reaction:hover {
+  background: var(--gh-accent-tint);
+  border-color: var(--gh-accent-tint-border);
+  color: var(--gh-link);
+}
+.oldgh-issue__event {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 4px 12px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+  position: relative;
+  z-index: 1;
+}
+.oldgh-issue__event-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  align-items: center;
+  justify-content: center;
+  color: var(--gh-fg-muted);
+  flex-shrink: 0;
+}
+.oldgh-issue__event a { color: var(--gh-link); font-weight: bold; }
+.oldgh-issue__event code {
+  font-family: var(--gh-font-mono);
+  background: var(--gh-bg-stripe);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.oldgh-issue__sidebar {
+  font-size: var(--gh-size-sm);
+}
+.oldgh-issue__sidebar-section {
+  border-bottom: 1px solid var(--gh-border);
+  padding: 10px 0;
+}
+.oldgh-issue__sidebar-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--gh-fg-muted);
+  margin: 0 0 6px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+}
+.oldgh-issue__sidebar-empty {
+  color: var(--gh-fg-muted);
+  font-style: italic;
+  margin: 0;
+  font-size: 11px;
+}
+.oldgh-issue__assignees,
+.oldgh-issue__labels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.oldgh-issue__labels {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.oldgh-issue__assignees a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gh-fg);
+}
+.oldgh-issue__assignees img {
+  border-radius: 3px;
+  border: 1px solid var(--gh-border);
+}
+.oldgh-issue__label {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: var(--gh-radius);
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.4;
+}
+.oldgh-issue__label:not([style]) {
+  background: var(--gh-bg-subtle);
+  box-shadow: inset 0 0 0 1px var(--gh-border);
+  color: var(--gh-fg-muted);
+}
+
+/* ===== wiki ===== */
+.oldgh-wiki__header {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+.oldgh-wiki__empty {
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+}
+.oldgh-wiki__empty h2 {
+  font-size: 20px;
+  font-weight: 300;
+  margin: 0 0 10px;
+  color: var(--gh-fg);
+}
+.oldgh-wiki__empty p {
+  margin: 0 auto;
+  max-width: 56ch;
+  color: var(--gh-fg-muted);
+  line-height: 1.6;
+}
+.oldgh-wiki__title {
+  font-size: 22px;
+  font-weight: 300;
+  margin: 0;
+  color: var(--gh-fg);
+}
+.oldgh-wiki__meta {
+  margin: 4px 0 0;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-wiki__layout {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 24px;
+}
+.oldgh-wiki__content {
+  min-width: 0;
+  font-size: var(--gh-size-sm);
+  line-height: 1.6;
+  color: var(--gh-fg);
+}
+.oldgh-wiki__content h1,
+.oldgh-wiki__content h2 {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 4px;
+  margin-top: 24px;
+}
+.oldgh-wiki__content pre {
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 10px 12px;
+  overflow: auto;
+  font-family: var(--gh-font-mono);
+  font-size: 12px;
+}
+.oldgh-wiki__content code {
+  background: var(--gh-bg-stripe);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--gh-font-mono);
+  font-size: 12px;
+}
+.oldgh-wiki__content pre code { background: none; padding: 0; }
+.oldgh-wiki__sidebar {
+  font-size: var(--gh-size-sm);
+}
+.oldgh-wiki__sidebar h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--gh-fg-muted);
+  margin: 0 0 6px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.oldgh-wiki__pages-count {
+  background: var(--gh-bg-stripe);
+  border-radius: 8px;
+  padding: 0 6px;
+  font-size: 10px;
+  color: var(--gh-fg-muted);
+  margin-left: auto;
+}
+.oldgh-wiki__pages ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.oldgh-wiki__pages a {
+  display: block;
+  padding: 2px 0;
+  color: var(--gh-link);
+  font-size: 12px;
+}
+.oldgh-wiki__pages a:hover { text-decoration: underline; }
+.oldgh-wiki__pages-more {
+  font-size: 11px;
+  color: var(--gh-fg-muted);
+  margin: 4px 0 0;
+}
+.oldgh-wiki__clone {
+  margin-top: 18px;
+}
+.oldgh-wiki__clone-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.oldgh-wiki__clone-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  background: var(--gh-bg);
+  color: var(--gh-fg);
+  font-family: var(--gh-font-mono);
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: var(--gh-radius);
+}
+.oldgh-wiki__clone-copy {
+  padding: 4px 8px;
+  flex: 0 0 auto;
+}

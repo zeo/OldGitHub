@@ -1,0 +1,687 @@
+/* Account Settings — share layout with repo settings */
+.oldgh-account-settings { padding-top: 14px; padding-bottom: 60px; }
+.oldgh-account-settings__header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  margin-bottom: 16px;
+}
+.oldgh-account-settings__header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.oldgh-account-settings__header h1 .octicon { color: var(--gh-fg-muted); }
+.oldgh-account-settings__layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.oldgh-account-settings__sidebar { font-size: var(--gh-size-sm); }
+.oldgh-account-settings__sidebar-group {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gh-fg-faint);
+  font-weight: bold;
+  margin: 14px 0 4px;
+  padding: 0 4px;
+}
+.oldgh-account-settings__sidebar-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+.oldgh-account-settings__sidebar-list li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--gh-fg);
+  border-radius: 3px;
+  border-left: 3px solid transparent;
+  margin-left: -3px;
+}
+.oldgh-account-settings__sidebar-list li a:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+.oldgh-account-settings__sidebar-list li.is-active a {
+  background: var(--gh-bg-stripe);
+  border-left-color: var(--gh-link);
+  font-weight: bold;
+}
+.oldgh-account-settings__sidebar-list .octicon { color: var(--gh-fg-muted); }
+.oldgh-account-settings__sidebar-list li.is-active .octicon { color: var(--gh-link); }
+.oldgh-account-settings__main { min-width: 0; }
+.oldgh-account-settings__loading,
+.oldgh-account-settings__empty {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--gh-fg-muted);
+}
+.oldgh-account-settings__native {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 16px 18px;
+}
+/* coerce scraped primer form elements into 2013 style — reuse the same rules
+   as repo-settings by aliasing the class prefix */
+.oldgh-account-settings__native h2,
+.oldgh-account-settings__native h3 {
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  margin: 18px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+.oldgh-account-settings__native h2:first-child,
+.oldgh-account-settings__native h3:first-child { margin-top: 0; }
+.oldgh-account-settings__native input[type="text"],
+.oldgh-account-settings__native input[type="search"],
+.oldgh-account-settings__native input[type="email"],
+.oldgh-account-settings__native input[type="url"],
+.oldgh-account-settings__native input[type="number"],
+.oldgh-account-settings__native input[type="password"],
+.oldgh-account-settings__native textarea,
+.oldgh-account-settings__native select {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border-strong, var(--gh-border));
+  border-radius: var(--gh-radius);
+  padding: 4px 8px;
+  color: var(--gh-fg);
+  font-family: inherit;
+  font-size: var(--gh-size-md);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="text"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="search"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="email"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="url"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="number"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native input[type="password"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native textarea,
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native select {
+  background: #1c1c1c;
+  border-color: #3a3a3a;
+}
+.oldgh-account-settings__native .btn,
+.oldgh-account-settings__native button[type="submit"],
+.oldgh-account-settings__native .Button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: var(--gh-size-sm);
+  font-weight: bold;
+  color: var(--gh-btn-fg);
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+  border: 1px solid var(--gh-btn-border);
+  border-radius: var(--gh-radius);
+  cursor: pointer;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--gh-shadow-inset);
+}
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native .btn,
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native button[type="submit"],
+html[data-oldgh-theme="dark"] .oldgh-account-settings__native .Button {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.oldgh-account-settings__native .btn-primary,
+.oldgh-account-settings__native .Button--primary {
+  color: var(--gh-btn-primary-fg);
+  background: linear-gradient(to bottom, var(--gh-btn-primary-bg-top), var(--gh-btn-primary-bg-bottom));
+  border-color: var(--gh-btn-primary-border);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.oldgh-account-settings__native .btn-danger,
+.oldgh-account-settings__native .Button--danger {
+  color: #fff;
+  background: linear-gradient(to bottom, #d75147 0%, #ad3a30 100%);
+  border-color: #8a2c25;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.oldgh-account-settings__native .Layout {
+  display: block !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+}
+.oldgh-account-settings__native .Layout-main,
+.oldgh-account-settings__native .Layout-main-centered-md,
+.oldgh-account-settings__native .Layout-main-centered-lg,
+.oldgh-account-settings__native .Layout-main-centered-xl {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+  flex: 1 1 100% !important;
+}
+.oldgh-account-settings__native .d-flex.flex-justify-between {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oldgh-account-settings__native .d-flex.flex-justify-between > * { min-width: 0; }
+.oldgh-account-settings__native a { color: var(--gh-link); }
+.oldgh-account-settings__native a:hover { color: var(--gh-link); text-decoration: underline; }
+
+/* Primer Box → 2013 boxed-group treatment (account settings) */
+.oldgh-account-settings__native .Box,
+.oldgh-account-settings__native .Box-body,
+.oldgh-account-settings__native .Box-header,
+.oldgh-account-settings__native .Box-footer {
+  background: transparent;
+  border-color: var(--gh-border-faint);
+}
+.oldgh-account-settings__native .Box-header {
+  background: var(--gh-bg-stripe);
+  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+}
+.oldgh-account-settings__native .Box {
+  border: 1px solid var(--gh-border-faint);
+  border-radius: var(--gh-radius);
+  margin-bottom: 12px;
+}
+.oldgh-account-settings__native .Box-row {
+  padding: 10px 14px;
+  border-top: 1px solid var(--gh-border-faint);
+  background: transparent;
+}
+.oldgh-account-settings__native .Box-row:first-child { border-top: 0; }
+.oldgh-account-settings__native .form-group {
+  margin-bottom: 14px;
+}
+.oldgh-account-settings__native dl.form-group > dt,
+.oldgh-account-settings__native label.form-label,
+.oldgh-account-settings__native label[for] {
+  font-weight: bold;
+  color: var(--gh-fg);
+  display: block;
+  margin-bottom: 4px;
+}
+.oldgh-account-settings__native .note,
+.oldgh-account-settings__native .text-small,
+.oldgh-account-settings__native .color-fg-muted,
+.oldgh-account-settings__native .color-fg-subtle,
+.oldgh-account-settings__native .css-truncate {
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-sm);
+}
+/* hide modern UI noise inside scraped settings */
+.oldgh-account-settings__native [aria-label*="Save changes is disabled"],
+.oldgh-account-settings__native tool-tip,
+.oldgh-account-settings__native template-shadowroot,
+.oldgh-account-settings__native include-fragment[loading="lazy"]:empty,
+.oldgh-account-settings__native [class*="js-avatar-upload-error"],
+.oldgh-account-settings__native [class*="js-upload-error"],
+.oldgh-account-settings__native .error-message:empty,
+.oldgh-account-settings__native [data-error-text],
+.oldgh-account-settings__native .js-avatar-image,
+.oldgh-account-settings__native .js-empty-avatar-error,
+.oldgh-account-settings__native .js-large-avatar-error,
+.oldgh-account-settings__native .js-large-pixel-avatar-error,
+.oldgh-account-settings__native .js-invalid-extension-avatar-error,
+.oldgh-account-settings__native .js-unprocessable-avatar-error,
+.oldgh-account-settings__native .js-mismatch-extension-avatar-error,
+.oldgh-account-settings__native [class*="error"]:not(.flash):not(.btn-danger):not(.btn-link):not(:has(input)):not(:has(textarea)):not(:has(select)) {
+  display: none !important;
+}
+.oldgh-account-settings__native .danger-zone,
+.oldgh-account-settings__native .border-red {
+  border-color: rgba(215, 81, 71, 0.4) !important;
+}
+
+/* ============================================================ */
+/* shared settings polish — applies to BOTH __native scrape areas */
+/* ============================================================ */
+.oldgh-account-settings__native .flash,
+.oldgh-settings__native .flash {
+  padding: 10px 14px;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-stripe);
+  color: var(--gh-fg);
+  margin: 10px 0;
+}
+.oldgh-account-settings__native .flash-error,
+.oldgh-settings__native .flash-error {
+  border-color: #d75147;
+  background: rgba(215, 81, 71, 0.08);
+}
+.oldgh-account-settings__native .flash-success,
+.oldgh-settings__native .flash-success {
+  border-color: var(--gh-btn-primary-border);
+  background: rgba(98, 196, 98, 0.10);
+}
+.oldgh-account-settings__native .flash-warn,
+.oldgh-settings__native .flash-warn {
+  border-color: #d8b658;
+  background: rgba(216, 182, 88, 0.12);
+}
+/* Toggle-switch — modern Primer toggle, restyled to flat 2013 pill */
+.oldgh-account-settings__native .Toggle-switch,
+.oldgh-settings__native .Toggle-switch {
+  width: 32px;
+  height: 18px;
+  background: var(--gh-border);
+  border-radius: 10px;
+  border: 1px solid var(--gh-border-strong);
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+.oldgh-account-settings__native .Toggle-switch[aria-pressed="true"],
+.oldgh-settings__native .Toggle-switch[aria-pressed="true"] {
+  background: var(--gh-btn-primary-bg-bottom);
+  border-color: var(--gh-btn-primary-border);
+}
+/* checkbox + radio — strip native UA chrome, give 2013 box */
+.oldgh-account-settings__native input[type="checkbox"],
+.oldgh-account-settings__native input[type="radio"],
+.oldgh-settings__native input[type="checkbox"],
+.oldgh-settings__native input[type="radio"] {
+  accent-color: var(--gh-link);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+/* text-link buttons */
+.oldgh-account-settings__native .btn-link,
+.oldgh-settings__native .btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--gh-link);
+  font-weight: normal;
+  font-size: inherit;
+  cursor: pointer;
+  text-shadow: none;
+  box-shadow: none;
+}
+.oldgh-account-settings__native .btn-link:hover,
+.oldgh-settings__native .btn-link:hover {
+  background: none;
+  text-decoration: underline;
+}
+/* counter badges next to row labels */
+.oldgh-account-settings__native .Counter,
+.oldgh-settings__native .Counter {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: bold;
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border);
+  border-radius: 9px;
+  color: var(--gh-fg-muted);
+  vertical-align: middle;
+}
+/* avatar / image previews — match 2013 grey ring */
+.oldgh-account-settings__native .avatar,
+.oldgh-account-settings__native .avatar-user,
+.oldgh-account-settings__native [class*="prc-Avatar-Avatar"],
+.oldgh-settings__native .avatar,
+.oldgh-settings__native .avatar-user {
+  /* 3px-square ring matches every other avatar in the skin (header/profile/
+     issue/repo-list); 2013 never used circular avatars */
+  border-radius: var(--gh-radius);
+  border: 1px solid var(--gh-border);
+}
+/* the modern "ORCID" / "Sponsor" gradient buttons inside settings — keep
+   their color but drop the white box-shadow halo that looks foreign */
+.oldgh-account-settings__native .gh-buttoned,
+.oldgh-settings__native .gh-buttoned {
+  box-shadow: none !important;
+}
+/* avatar upload + edit row */
+.oldgh-account-settings__native .position-relative.d-flex {
+  align-items: flex-start;
+}
+/* dropdown menus surfaced inside settings (e.g. timezone picker) */
+.oldgh-account-settings__native .SelectMenu,
+.oldgh-account-settings__native .dropdown-menu,
+.oldgh-settings__native .SelectMenu,
+.oldgh-settings__native .dropdown-menu {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) [popover],
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-modal {
+  min-width: 220px;
+  max-width: 320px;
+  padding: 0;
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+/* github's anchored-position script never runs, so pin the popover to its popovertarget button */
+@supports (position-area: block-end) {
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) [popover] {
+    inset: auto;
+    margin: 4px 0 0;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+  }
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .details-reset > summary { list-style: none; cursor: pointer; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .details-reset > summary::-webkit-details-marker { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.select-menu, .dropdown) { position: relative; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown > .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown-menu .dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 4px 12px;
+  color: var(--gh-fg);
+  font: inherit;
+  font-size: var(--gh-size-sm);
+  font-weight: normal;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown-menu .dropdown-item:hover {
+  color: #fff;
+  text-decoration: none;
+  background: var(--gh-link);
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-modal {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListWrap {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListItem, .select-menu-item) + :is(.ActionListItem, .select-menu-item) {
+  border-top: 1px solid var(--gh-border-faint);
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListContent, label.select-menu-item) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  color: inherit;
+  font: inherit;
+  font-size: var(--gh-size-sm);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListContent:hover { background: var(--gh-bg-subtle); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-item:has(input:disabled) { cursor: default; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-item input { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListContent, .select-menu-item)[aria-checked="false"] > :is(.ActionListItem-visual, svg) { visibility: hidden; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-descriptionWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-label { font-weight: bold; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-description { color: var(--gh-fg-muted); font-weight: normal; }
+
+/* Repo Settings */
+.oldgh-repo-settings { padding-top: 14px; padding-bottom: 60px; }
+.oldgh-settings__header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  margin-bottom: 16px;
+}
+.oldgh-settings__header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.oldgh-settings__header h1 .octicon { color: var(--gh-fg-muted); }
+.oldgh-settings__head-repo { color: var(--gh-fg-muted); font-weight: 300; }
+.oldgh-settings__layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.oldgh-settings__sidebar {
+  font-size: var(--gh-size-sm);
+}
+.oldgh-settings__sidebar-group {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gh-fg-faint);
+  font-weight: bold;
+  margin: 14px 0 4px;
+  padding: 0 4px;
+}
+.oldgh-settings__sidebar-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+.oldgh-settings__sidebar-list li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--gh-fg);
+  border-radius: 3px;
+  border-left: 3px solid transparent;
+  margin-left: -3px;
+}
+.oldgh-settings__sidebar-list li a:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+.oldgh-settings__sidebar-list li.is-active a {
+  background: var(--gh-bg-stripe);
+  border-left-color: var(--gh-link);
+  font-weight: bold;
+}
+.oldgh-settings__sidebar-list .octicon { color: var(--gh-fg-muted); }
+.oldgh-settings__sidebar-list li.is-active .octicon { color: var(--gh-link); }
+.oldgh-settings__main { min-width: 0; }
+.oldgh-settings__loading,
+.oldgh-settings__empty {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--gh-fg-muted);
+}
+.oldgh-settings__native {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 16px 18px;
+}
+/* coerce primer form elements inside the scraped settings panel into 2013 style */
+.oldgh-settings__native h2,
+.oldgh-settings__native h3 {
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  margin: 18px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+.oldgh-settings__native h2:first-child,
+.oldgh-settings__native h3:first-child { margin-top: 0; }
+.oldgh-settings__native input[type="text"],
+.oldgh-settings__native input[type="search"],
+.oldgh-settings__native input[type="email"],
+.oldgh-settings__native input[type="url"],
+.oldgh-settings__native input[type="number"],
+.oldgh-settings__native input[type="password"],
+.oldgh-settings__native textarea,
+.oldgh-settings__native select {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border-strong, var(--gh-border));
+  border-radius: var(--gh-radius);
+  padding: 4px 8px;
+  color: var(--gh-fg);
+  font-family: inherit;
+  font-size: var(--gh-size-md);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="text"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="search"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="email"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="url"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="number"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native input[type="password"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native textarea,
+html[data-oldgh-theme="dark"] .oldgh-settings__native select {
+  background: #1c1c1c;
+  border-color: #3a3a3a;
+}
+.oldgh-settings__native .btn,
+.oldgh-settings__native button[type="submit"],
+.oldgh-settings__native .Button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: var(--gh-size-sm);
+  font-weight: bold;
+  color: var(--gh-btn-fg);
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+  border: 1px solid var(--gh-btn-border);
+  border-radius: var(--gh-radius);
+  cursor: pointer;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--gh-shadow-inset);
+}
+html[data-oldgh-theme="dark"] .oldgh-settings__native .btn,
+html[data-oldgh-theme="dark"] .oldgh-settings__native button[type="submit"],
+html[data-oldgh-theme="dark"] .oldgh-settings__native .Button {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.oldgh-settings__native .btn-primary,
+.oldgh-settings__native .Button--primary {
+  color: var(--gh-btn-primary-fg);
+  background: linear-gradient(to bottom, var(--gh-btn-primary-bg-top), var(--gh-btn-primary-bg-bottom));
+  border-color: var(--gh-btn-primary-border);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.oldgh-settings__native .btn-danger,
+.oldgh-settings__native .Button--danger {
+  color: #fff;
+  background: linear-gradient(to bottom, #d75147 0%, #ad3a30 100%);
+  border-color: #8a2c25;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.oldgh-settings__native .Box,
+.oldgh-settings__native .Box-body,
+.oldgh-settings__native .Box-header,
+.oldgh-settings__native .Box-footer {
+  background: transparent;
+  border-color: var(--gh-border-faint);
+}
+.oldgh-settings__native .Box-header {
+  background: var(--gh-bg-stripe);
+  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+}
+.oldgh-settings__native .Box {
+  border: 1px solid var(--gh-border-faint);
+  border-radius: var(--gh-radius);
+  margin-bottom: 12px;
+}
+.oldgh-settings__native .form-group {
+  margin-bottom: 14px;
+}
+.oldgh-settings__native dl.form-group > dt,
+.oldgh-settings__native label.form-label,
+.oldgh-settings__native label[for] {
+  font-weight: bold;
+  color: var(--gh-fg);
+  display: block;
+  margin-bottom: 4px;
+}
+.oldgh-settings__native .note,
+.oldgh-settings__native .text-small,
+.oldgh-settings__native .color-fg-muted,
+.oldgh-settings__native .css-truncate {
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-sm);
+}
+.oldgh-settings__native a {
+  color: var(--gh-link);
+}
+.oldgh-settings__native a:hover {
+  color: var(--gh-link);
+  text-decoration: underline;
+}
+/* hide modern UI noise inside scraped settings */
+.oldgh-settings__native [aria-label*="Save changes is disabled"],
+.oldgh-settings__native tool-tip,
+.oldgh-settings__native template-shadowroot,
+.oldgh-settings__native include-fragment[loading="lazy"]:empty {
+  display: none;
+}
+/* force Layout-main full width since we strip Layout-sidebar */
+.oldgh-settings__native .Layout {
+  display: block !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+}
+.oldgh-settings__native .Layout-main,
+.oldgh-settings__native .Layout-main-centered-md,
+.oldgh-settings__native .Layout-main-centered-lg,
+.oldgh-settings__native .Layout-main-centered-xl {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+  flex: 1 1 100% !important;
+}
+/* the Primer Box flex layouts compact inside our narrow container; let
+   inline 'd-flex' that GitHub uses for split-button rows stay row, but
+   wrap to two lines instead of squeezing the description column */
+.oldgh-settings__native .d-flex.flex-justify-between {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oldgh-settings__native .d-flex.flex-justify-between > * {
+  min-width: 0;
+}
+/* danger zone */
+.oldgh-settings__native .danger-zone,
+.oldgh-settings__native .border-red {
+  border-color: rgba(215, 81, 71, 0.4) !important;
+}

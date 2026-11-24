@@ -5,6 +5,7 @@ import { buildManifest } from "./src/manifest.config";
 
 const contentEntry = resolve(import.meta.dirname, "src/content/index.ts");
 const backgroundEntry = resolve(import.meta.dirname, "src/background/service-worker.ts");
+const cssEntry = resolve(import.meta.dirname, "src/styles/2013.css");
 
 function extensionManifest(mode: "development" | "production"): Plugin {
   return {
@@ -14,6 +15,13 @@ function extensionManifest(mode: "development" | "production"): Plugin {
       const content = chunks.find((chunk) => chunk.facadeModuleId && normalizePath(chunk.facadeModuleId) === normalizePath(contentEntry));
       const background = chunks.find((chunk) => chunk.facadeModuleId && normalizePath(chunk.facadeModuleId) === normalizePath(backgroundEntry));
       if (!content || !background) throw new Error("extension entry chunk missing from build");
+
+      // drop empty js wrapper emitted for the css-only entry
+      for (const [key, output] of Object.entries(bundle)) {
+        if (output.type === "chunk" && output.facadeModuleId && normalizePath(output.facadeModuleId) === normalizePath(cssEntry)) {
+          delete bundle[key];
+        }
+      }
 
       this.emitFile({
         type: "asset",
@@ -48,6 +56,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "chrome110",
     minify: mode === "production",
+    cssMinify: mode === "production" ? "lightningcss" : false,
     sourcemap: mode === "development",
     emptyOutDir: true,
     rolldownOptions: {
@@ -55,6 +64,13 @@ export default defineConfig(({ mode }) => ({
         options: resolve(import.meta.dirname, "src/options/index.html"),
         content: contentEntry,
         background: backgroundEntry,
+        "styles/2013": cssEntry,
+      },
+      output: {
+        assetFileNames: (assetInfo) =>
+          assetInfo.names?.includes("2013.css") || assetInfo.originalFileNames?.some((n) => n.endsWith("styles/2013.css"))
+            ? "styles/2013.css"
+            : "assets/[name]-[hash][extname]",
       },
     },
   },

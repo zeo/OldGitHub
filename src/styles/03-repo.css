@@ -1,0 +1,2163 @@
+/* 2013 numbers-summary strip: commits, branches, tags, contributors */
+.oldgh-repo-numbers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-bottom: 0;
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+}
+.oldgh-repo-numbers__item {
+  margin: 0;
+  flex: 1 1 0;
+}
+.oldgh-repo-numbers:not(:has(+ .oldgh-repo-home__langs-slot .oldgh-repo-home__langs)) {
+  border-bottom: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  margin-bottom: 14px;
+}
+.oldgh-repo-numbers__item + .oldgh-repo-numbers__item {
+  border-left: 1px solid var(--gh-border-faint);
+}
+.oldgh-repo-numbers__item a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 10px 8px;
+  box-sizing: border-box;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-numbers__item:first-child a {
+  padding-left: 8px;
+}
+.oldgh-repo-numbers__item a:hover {
+  color: var(--gh-link);
+  text-decoration: none;
+}
+.oldgh-repo-numbers__item a:hover .oldgh-repo-numbers__num {
+  color: var(--gh-link);
+}
+.oldgh-repo-numbers__item .octicon {
+  color: var(--gh-fg-faint);
+}
+.oldgh-repo-numbers__num {
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+
+/* latest-release callout — quick download from the repo home */
+.oldgh-release-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0 0 14px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  font-size: var(--gh-size-sm);
+}
+.oldgh-release-callout > .octicon {
+  color: var(--gh-state-open);
+  flex-shrink: 0;
+}
+.oldgh-release-callout__label {
+  color: var(--gh-fg-muted);
+  font-weight: bold;
+  flex-shrink: 0;
+}
+.oldgh-release-callout__tag {
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg);
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border-faint);
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+  flex-shrink: 0;
+}
+.oldgh-release-callout__name {
+  color: var(--gh-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.oldgh-release-callout__pre {
+  flex-shrink: 0;
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+  color: #b08800;
+  border: 1px solid #d8b658;
+  background: rgba(176, 136, 0, 0.10);
+  border-radius: var(--gh-radius);
+  padding: 0 6px;
+}
+.oldgh-release-callout__time {
+  flex-shrink: 0;
+  color: var(--gh-fg-faint);
+  font-size: var(--gh-size-xs);
+}
+.oldgh-release-callout__dl {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.oldgh-repo-home__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.oldgh-repo-home__refbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 1 auto;
+}
+
+/* branch picker dropdown */
+.oldgh-branch-picker {
+  position: relative;
+}
+.oldgh-branch-picker > summary {
+  list-style: none;
+  font-weight: normal;
+  user-select: none;
+}
+.oldgh-branch-picker > summary::-webkit-details-marker { display: none; }
+.oldgh-branch-picker > summary strong {
+  font-weight: bold;
+  margin: 0 2px;
+}
+.oldgh-branch-picker[open] > summary {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top-hover), var(--gh-btn-bg-bottom-hover));
+}
+.oldgh-branch-picker__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 280px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+}
+html[data-oldgh-theme="dark"] .oldgh-branch-picker__panel {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+.oldgh-branch-picker__panel::before {
+  /* rotated-square notch — one corner becomes the upward point (skew sheared
+     into a parallelogram, which never read as a caret) */
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--gh-bg-elev);
+  border-top: 1px solid var(--gh-border);
+  border-left: 1px solid var(--gh-border);
+  transform: rotate(45deg);
+}
+.oldgh-branch-picker__filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  background: var(--gh-bg-subtle);
+}
+.oldgh-branch-picker__filter input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-input-border, var(--gh-border));
+  border-radius: var(--gh-radius);
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+}
+.oldgh-branch-picker__filter input:focus {
+  outline: none;
+  border-color: var(--gh-link);
+  box-shadow: 0 0 0 2px rgba(65, 131, 196, 0.25);
+}
+.oldgh-branch-picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.oldgh-branch-picker__list li {
+  margin: 0;
+  padding: 0;
+}
+.oldgh-branch-picker__list li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oldgh-branch-picker__list li a:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+.oldgh-branch-picker__list li[data-current] a {
+  font-weight: bold;
+}
+.oldgh-branch-picker__list li .octicon {
+  color: var(--gh-fg);
+  flex-shrink: 0;
+}
+.oldgh-branch-picker__check-spacer {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.oldgh-branch-picker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.oldgh-branch-picker__status {
+  padding: 10px 12px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+  text-align: center;
+}
+.oldgh-branch-picker__footer {
+  display: block;
+  padding: 6px 12px;
+  font-size: var(--gh-size-sm);
+  text-align: center;
+  color: var(--gh-link);
+  border-top: 1px solid var(--gh-border-faint);
+  background: var(--gh-bg-subtle);
+}
+.oldgh-branch-picker__footer:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+
+
+.oldgh-repo-home__clone {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: auto;
+  flex: 0 1 auto;
+}
+.oldgh-repo-home__clone-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--gh-btn-border);
+  border-right: none;
+  border-top-left-radius: var(--gh-radius);
+  border-bottom-left-radius: var(--gh-radius);
+  overflow: hidden;
+}
+.oldgh-repo-home__clone-tab {
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+  color: var(--gh-fg-muted);
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+  border: none;
+  border-right: 1px solid var(--gh-btn-border);
+  cursor: pointer;
+  line-height: 26px;
+  height: 28px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+[data-oldgh-theme="dark"] .oldgh-repo-home__clone-tab {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.oldgh-repo-home__clone-tab:last-child {
+  border-right: none;
+}
+.oldgh-repo-home__clone-tab:not([aria-selected="true"]):hover {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top-hover), var(--gh-btn-bg-bottom-hover));
+  color: var(--gh-fg);
+}
+.oldgh-repo-home__clone-tab[aria-selected="true"] {
+  background: var(--gh-bg-elev);
+  color: var(--gh-fg);
+  cursor: default;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.06);
+}
+.oldgh-repo-home__clone-body {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--gh-border);
+  background: var(--gh-bg-elev);
+}
+.oldgh-repo-home__clone-pane {
+  display: flex;
+  align-items: stretch;
+}
+.oldgh-repo-home__clone-pane input {
+  width: 240px;
+  padding: 0 8px;
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border-faint);
+  outline: none;
+  height: 28px;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+.oldgh-repo-home__clone-pane input:focus {
+  border-color: var(--gh-link);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04), 0 0 0 3px rgba(65, 131, 196, 0.18);
+}
+.oldgh-repo-home__clone-body .oldgh-repo-home__copy {
+  border-radius: 0;
+  border-top: none;
+  border-bottom: none;
+  border-right: none;
+  border-left: 1px solid var(--gh-border);
+  background: var(--gh-bg-subtle);
+  padding: 0 8px;
+  height: 28px;
+}
+/* copy-success: 2013 showed a green check, instant 'copied' read */
+.oldgh-repo-home__copy.is-copied .octicon {
+  color: var(--gh-state-open);
+}
+.oldgh-repo-home__clone-actions {
+  display: flex;
+}
+.oldgh-repo-home__clone-actions .oldgh-btn,
+.oldgh-repo-home__zip {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  height: 28px;
+  line-height: 26px;
+  padding: 0 10px;
+}
+
+/* file tree table */
+.oldgh-repo-home__tree {
+  margin-top: 4px;
+}
+.oldgh-repo-home__tree thead th {
+  background: var(--gh-bg-subtle);
+  color: var(--gh-fg-muted);
+  font-weight: normal;
+  font-size: var(--gh-size-md);
+  padding: 8px 10px;
+}
+.oldgh-repo-home__tree tbody tr:hover > td {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-repo-home__cell-icon {
+  width: 22px;
+  color: var(--gh-fg-muted);
+  text-align: center;
+}
+.oldgh-repo-home__cell-name {
+  font-weight: bold;
+  width: 28%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oldgh-repo-home__cell-name a {
+  color: var(--gh-fg);
+}
+.oldgh-repo-home__cell-name a:hover {
+  color: var(--gh-link);
+  text-decoration: underline;
+}
+.oldgh-repo-home__cell-msg {
+  color: var(--gh-fg-muted);
+  font-weight: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+.oldgh-repo-home__cell-msg a {
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-home__cell-msg a:hover {
+  color: var(--gh-link);
+}
+.oldgh-repo-home__cell-age {
+  width: 12em;
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-sm);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* readme */
+.oldgh-repo-home__readme {
+  margin-top: 20px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  overflow: hidden;
+}
+.oldgh-repo-home__readme-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--gh-bg-subtle);
+  border-bottom: 1px solid var(--gh-border);
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-home__readme-head a {
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-repo-home__readme-body {
+  padding: 20px;
+  font-size: var(--gh-size-lg);
+  line-height: 1.6;
+  color: var(--gh-fg);
+  font-family: var(--gh-font-sans);
+}
+/* GitHub's REST-rendered markdown HTML ships with primer-css class hooks
+   and inline font-family declarations that pull in Mona Sans VF. We're
+   2013, Helvetica Neue all the way down. The wildcard reset is the only
+   way to stop Mona from inheriting through deep markdown trees; the
+   companion code/pre/kbd rule below puts the monospace stack back where
+   it belongs. */
+.oldgh-repo-home__readme-body *,
+.oldgh-issue__body,
+.oldgh-issue__body *,
+:where(html[data-oldgh-mounted]) .markdown-body,
+:where(html[data-oldgh-mounted]) .markdown-body * {
+  font-family: var(--gh-font-sans);
+}
+.oldgh-repo-home__readme-body code,
+.oldgh-repo-home__readme-body pre,
+.oldgh-repo-home__readme-body kbd,
+.oldgh-repo-home__readme-body tt,
+.oldgh-repo-home__readme-body samp,
+.oldgh-issue__body code,
+.oldgh-issue__body pre,
+.oldgh-issue__body kbd,
+:where(html[data-oldgh-mounted]) .markdown-body code,
+:where(html[data-oldgh-mounted]) .markdown-body pre,
+:where(html[data-oldgh-mounted]) .markdown-body kbd,
+:where(html[data-oldgh-mounted]) .markdown-body tt,
+:where(html[data-oldgh-mounted]) .markdown-body samp {
+  font-family: var(--gh-font-mono);
+}
+.oldgh-repo-home__readme-body h1,
+.oldgh-repo-home__readme-body h2,
+.oldgh-repo-home__readme-body h3,
+.oldgh-repo-home__readme-body h4,
+.oldgh-repo-home__readme-body h5,
+.oldgh-repo-home__readme-body h6 {
+  margin: 24px 0 12px;
+  font-weight: bold;
+  line-height: 1.3;
+  border-bottom: 1px solid var(--gh-border-faint);
+  padding-bottom: 4px;
+}
+.oldgh-repo-home__readme-body h1 { font-size: 28px; }
+.oldgh-repo-home__readme-body h2 { font-size: 22px; }
+.oldgh-repo-home__readme-body h3 { font-size: 18px; border-bottom: none; }
+.oldgh-repo-home__readme-body h4 { font-size: 16px; border-bottom: none; }
+.oldgh-repo-home__readme-body h5 { font-size: 14px; border-bottom: none; }
+.oldgh-repo-home__readme-body h6 { font-size: 13px; border-bottom: none; color: var(--gh-fg-muted); }
+.oldgh-repo-home__readme-body p {
+  margin: 0 0 14px;
+}
+.oldgh-repo-home__readme-body a {
+  color: var(--gh-link);
+}
+.oldgh-repo-home__readme-body code {
+  background: var(--gh-bg-subtle);
+  padding: 0.15em 0.35em;
+  border-radius: var(--gh-radius);
+  font-size: 0.92em;
+}
+.oldgh-repo-home__readme-body pre {
+  background: var(--gh-bg-subtle);
+  padding: 12px 14px;
+  border-radius: var(--gh-radius);
+  overflow-x: auto;
+  font-size: var(--gh-size-sm);
+  line-height: 1.45;
+}
+.oldgh-repo-home__readme-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+.oldgh-repo-home__readme-body blockquote {
+  margin: 0 0 14px;
+  padding: 0 14px;
+  border-left: 4px solid var(--gh-border);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-home__readme-body ul,
+.oldgh-repo-home__readme-body ol {
+  padding-left: 26px;
+  margin: 0 0 14px;
+}
+.oldgh-repo-home__readme-body table {
+  border-collapse: collapse;
+  margin: 0 0 14px;
+}
+.oldgh-repo-home__readme-body table th,
+.oldgh-repo-home__readme-body table td {
+  padding: 6px 10px;
+  border: 1px solid var(--gh-border-faint);
+}
+.oldgh-repo-home__readme-body table th {
+  background: var(--gh-bg-subtle);
+}
+.oldgh-repo-home__readme-body img {
+  max-width: 100%;
+}
+.oldgh-repo-home__readme-body .plain pre {
+  white-space: pre-wrap;
+}
+
+/* breadcrumb for tree subdir */
+.oldgh-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 12px;
+  font-size: var(--gh-size-lg);
+  color: var(--gh-fg);
+  flex-wrap: wrap;
+}
+.oldgh-breadcrumb__ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-breadcrumb__ref strong {
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-breadcrumb__seg {
+  color: var(--gh-link);
+}
+.oldgh-breadcrumb__seg--current {
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-breadcrumb__sep {
+  color: var(--gh-fg-faint);
+}
+
+/* blob view */
+.oldgh-repo-blob > .oldgh-page {
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+
+.oldgh-repo-blob__file {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  overflow: hidden;
+}
+.oldgh-repo-blob__file-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--gh-bg-subtle);
+  border-bottom: 1px solid var(--gh-border);
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-blob__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.oldgh-repo-blob__sep {
+  color: var(--gh-fg-faint);
+}
+.oldgh-repo-blob__lang {
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-repo-blob__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.oldgh-repo-blob__scroll {
+  overflow-x: auto;
+}
+.oldgh-repo-blob__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-sm);
+  line-height: 1.5;
+}
+.oldgh-repo-blob__num {
+  width: 1%;
+  padding: 0 10px;
+  text-align: right;
+  color: var(--gh-fg-faint);
+  background: var(--gh-bg-subtle);
+  border-right: 1px solid var(--gh-border-faint);
+  user-select: none;
+}
+.oldgh-repo-blob__num a {
+  color: inherit;
+}
+.oldgh-repo-blob__num a:hover {
+  color: var(--gh-link);
+  text-decoration: none;
+}
+.oldgh-repo-blob__code {
+  padding: 0 10px;
+  white-space: pre;
+  color: var(--gh-fg);
+}
+.oldgh-repo-blob__table tr:target .oldgh-repo-blob__code,
+.oldgh-repo-blob__table tr:target .oldgh-repo-blob__num {
+  background: #fff8c4;
+}
+html[data-oldgh-theme="dark"] .oldgh-repo-blob__table tr:target .oldgh-repo-blob__code,
+html[data-oldgh-theme="dark"] .oldgh-repo-blob__table tr:target .oldgh-repo-blob__num {
+  background: rgba(187, 128, 9, 0.20);
+}
+
+.oldgh-repo-blob__binary,
+.oldgh-repo-blob__truncated {
+  padding: 20px;
+  color: var(--gh-fg);
+}
+.oldgh-repo-blob__image {
+  padding: 20px;
+  text-align: center;
+}
+.oldgh-repo-blob__image img {
+  max-width: 100%;
+  vertical-align: middle;
+  /* a light checker keeps dark transparent images visible in the dark theme */
+  background: #fff repeating-conic-gradient(#e6e6e6 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+}
+.oldgh-repo-blob__truncated > p {
+  color: var(--gh-fg-muted);
+  background: #fff8c4;
+  border: 1px solid #e8d160;
+  padding: 8px 12px;
+  border-radius: var(--gh-radius);
+  margin: 0 0 12px;
+}
+html[data-oldgh-theme="dark"] .oldgh-repo-blob__truncated > p {
+  background: rgba(187, 128, 9, 0.18);
+  border-color: rgba(187, 128, 9, 0.45);
+}
+
+/* commits list */
+.oldgh-repo-commits > .oldgh-page {
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+.oldgh-repo-commits__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.oldgh-repo-commits__title {
+  margin: 0;
+  font-size: var(--gh-size-h2);
+  font-weight: normal;
+}
+.oldgh-repo-commits__group {
+  margin-bottom: 18px;
+  position: relative;
+}
+.oldgh-repo-commits__group-title {
+  margin: 0 0 10px;
+  padding: 6px 0 6px 22px;
+  font-size: var(--gh-size-md);
+  font-weight: normal;
+  color: var(--gh-fg-muted);
+  border-bottom: 1px solid var(--gh-border-faint);
+  position: relative;
+}
+.oldgh-repo-commits__group-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  background: var(--gh-bg-elev);
+  border: 2px solid var(--gh-border);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.oldgh-repo-commits__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-commits__item {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  align-items: center;
+  transition: background-color 80ms ease-out;
+}
+.oldgh-repo-commits__item:hover {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-repo-commits__item:last-child {
+  border-bottom: none;
+}
+.oldgh-repo-commits__avatar img {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-commits__body {
+  min-width: 0;
+}
+.oldgh-repo-commits__msg {
+  margin: 0;
+  font-size: var(--gh-size-lg);
+  line-height: 1.3;
+  color: var(--gh-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oldgh-repo-commits__msg a {
+  color: var(--gh-fg);
+}
+.oldgh-repo-commits__msg a:hover {
+  color: var(--gh-link);
+}
+.oldgh-repo-commits__meta {
+  margin: 4px 0 0;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-commits__meta strong {
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-repo-commits__author {
+  color: inherit;
+}
+.oldgh-repo-commits__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.oldgh-repo-commits__sha code {
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border-faint);
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-commits__sha:hover code {
+  color: var(--gh-link);
+  border-color: var(--gh-border);
+}
+.oldgh-repo-commits__pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.oldgh-repo-commits__pagination .oldgh-btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* single commit + unified diff */
+.oldgh-repo-commit > .oldgh-page {
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+.oldgh-repo-commit__header {
+  padding: 14px 16px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+}
+.oldgh-repo-commit__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.oldgh-repo-commit__title {
+  margin: 0;
+  font-size: var(--gh-size-h2);
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+.oldgh-repo-commit__sha code {
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border-faint);
+  padding: 2px 8px;
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-commit__body {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border-faint);
+  border-radius: var(--gh-radius);
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg);
+  line-height: 1.5;
+}
+.oldgh-repo-commit__meta {
+  margin-top: 8px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-commit__avatar {
+  border-radius: var(--gh-radius);
+  vertical-align: middle;
+}
+.oldgh-repo-commit__parents {
+  margin-top: 6px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-commit__parents code {
+  font-family: var(--gh-font-mono);
+  color: var(--gh-link);
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border-faint);
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-commit__stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border);
+  border-top: none;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg);
+  margin-bottom: 18px;
+}
+.oldgh-repo-commit__stats-sep {
+  color: var(--gh-fg-faint);
+}
+.oldgh-repo-commit__add { color: #6cc644; font-weight: bold; }
+.oldgh-repo-commit__del { color: #bd2c00; font-weight: bold; }
+html[data-oldgh-theme="dark"] .oldgh-repo-commit__add { color: #7ee787; }
+html[data-oldgh-theme="dark"] .oldgh-repo-commit__del { color: #ff7b72; }
+
+.oldgh-repo-commit__file {
+  margin-bottom: 18px;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  overflow: hidden;
+}
+.oldgh-repo-commit__file-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--gh-bg-subtle);
+  border-bottom: 1px solid var(--gh-border);
+  font-size: var(--gh-size-md);
+}
+.oldgh-repo-commit__file-path {
+  font-family: var(--gh-font-mono);
+  font-weight: bold;
+}
+.oldgh-repo-commit__file-status {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+  background: var(--gh-bg);
+  color: var(--gh-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.oldgh-repo-commit__file-status--added { background: #d3f0c7; color: #2e7212; }
+.oldgh-repo-commit__file-status--deleted { background: #fbcfc5; color: #8a1a08; }
+.oldgh-repo-commit__file-status--renamed { background: #d9e6f6; color: #1a4a82; }
+html[data-oldgh-theme="dark"] .oldgh-repo-commit__file-status--added {
+  background: rgba(46, 160, 67, 0.20); color: #7ee787;
+}
+html[data-oldgh-theme="dark"] .oldgh-repo-commit__file-status--deleted {
+  background: rgba(248, 81, 73, 0.20); color: #ff7b72;
+}
+html[data-oldgh-theme="dark"] .oldgh-repo-commit__file-status--renamed {
+  background: rgba(56, 139, 253, 0.18); color: #79c0ff;
+}
+.oldgh-repo-commit__file-counts {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  font-size: var(--gh-size-sm);
+}
+
+.oldgh-diff-scroll {
+  overflow-x: auto;
+}
+.oldgh-diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--gh-font-mono);
+  font-size: var(--gh-size-sm);
+  line-height: 1.5;
+}
+.oldgh-diff__hunk-header td {
+  background: #f0f5fa;
+  color: var(--gh-fg-muted);
+  padding: 4px 10px;
+  border-top: 1px solid var(--gh-border-faint);
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+html[data-oldgh-theme="dark"] .oldgh-diff__hunk-header td {
+  background: rgba(56, 139, 253, 0.10);
+  color: #79c0ff;
+}
+.oldgh-diff__num {
+  width: 1%;
+  padding: 0 8px;
+  text-align: right;
+  background: var(--gh-bg-subtle);
+  color: var(--gh-fg-faint);
+  border-right: 1px solid var(--gh-border-faint);
+  user-select: none;
+  vertical-align: top;
+}
+.oldgh-diff__code {
+  padding: 0 10px;
+  white-space: pre;
+  color: var(--gh-fg);
+}
+.oldgh-diff__sign {
+  display: inline-block;
+  width: 1ch;
+  color: var(--gh-fg-faint);
+}
+.oldgh-diff__row--add .oldgh-diff__code { background: #e6ffed; }
+.oldgh-diff__row--add .oldgh-diff__num { background: #cdffd8; color: #3a7a3a; }
+.oldgh-diff__row--add .oldgh-diff__sign { color: #2e7212; }
+.oldgh-diff__row--del .oldgh-diff__code { background: #ffeef0; }
+.oldgh-diff__row--del .oldgh-diff__num { background: #ffdce0; color: #8a1a08; }
+.oldgh-diff__row--del .oldgh-diff__sign { color: #8a1a08; }
+.oldgh-diff__row--no-newline .oldgh-diff__code {
+  background: var(--gh-bg-subtle);
+  color: var(--gh-fg-muted);
+  font-style: italic;
+}
+
+html[data-oldgh-theme="dark"] .oldgh-diff__row--add .oldgh-diff__code { background: rgba(46, 160, 67, 0.15); }
+html[data-oldgh-theme="dark"] .oldgh-diff__row--add .oldgh-diff__num { background: rgba(46, 160, 67, 0.30); color: #7ee787; }
+html[data-oldgh-theme="dark"] .oldgh-diff__row--add .oldgh-diff__sign { color: #7ee787; }
+html[data-oldgh-theme="dark"] .oldgh-diff__row--del .oldgh-diff__code { background: rgba(248, 81, 73, 0.15); }
+html[data-oldgh-theme="dark"] .oldgh-diff__row--del .oldgh-diff__num { background: rgba(248, 81, 73, 0.30); color: #ff7b72; }
+html[data-oldgh-theme="dark"] .oldgh-diff__row--del .oldgh-diff__sign { color: #ff7b72; }
+
+.oldgh-repo-commit__binary {
+  padding: 14px 16px;
+  color: var(--gh-fg-muted);
+  font-style: italic;
+}
+
+/* 2013 syntax theme — applies when blob body has been highlighted via hljs */
+.oldgh-hljs .oldgh-repo-blob__code { color: #333; }
+.oldgh-hljs .hljs-comment,
+.oldgh-hljs .hljs-quote { color: #998; font-style: italic; }
+.oldgh-hljs .hljs-keyword,
+.oldgh-hljs .hljs-selector-tag,
+.oldgh-hljs .hljs-subst { color: #000; font-weight: bold; }
+.oldgh-hljs .hljs-built_in { color: #0086b3; }
+.oldgh-hljs .hljs-type { color: #458; font-weight: bold; }
+.oldgh-hljs .hljs-class .hljs-title,
+.oldgh-hljs .hljs-title.class_ { color: #458; font-weight: bold; }
+.oldgh-hljs .hljs-function .hljs-title,
+.oldgh-hljs .hljs-title.function_ { color: #900; font-weight: bold; }
+.oldgh-hljs .hljs-number,
+.oldgh-hljs .hljs-literal { color: #099; }
+.oldgh-hljs .hljs-string,
+.oldgh-hljs .hljs-doctag { color: #d14; }
+.oldgh-hljs .hljs-symbol,
+.oldgh-hljs .hljs-bullet { color: #990073; }
+.oldgh-hljs .hljs-params { color: #008080; }
+.oldgh-hljs .hljs-tag,
+.oldgh-hljs .hljs-section { color: #008080; }
+.oldgh-hljs .hljs-name { color: #008080; }
+.oldgh-hljs .hljs-attr,
+.oldgh-hljs .hljs-attribute { color: #008080; }
+.oldgh-hljs .hljs-variable,
+.oldgh-hljs .hljs-template-variable { color: #008080; }
+.oldgh-hljs .hljs-meta { color: #999; font-weight: bold; }
+.oldgh-hljs .hljs-regexp { color: #009926; }
+.oldgh-hljs .hljs-link { color: var(--gh-link); text-decoration: underline; }
+.oldgh-hljs .hljs-emphasis { font-style: italic; }
+.oldgh-hljs .hljs-strong { font-weight: bold; }
+.oldgh-hljs .hljs-deletion { color: #8a1a08; background: #ffeef0; }
+.oldgh-hljs .hljs-addition { color: #2e7212; background: #e6ffed; }
+
+/* dark syntax theme */
+html[data-oldgh-theme="dark"] .oldgh-hljs .oldgh-repo-blob__code { color: #e6e6e6; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-comment,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-quote { color: #8b949e; font-style: italic; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-keyword,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-selector-tag,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-subst { color: #ff7b72; font-weight: normal; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-built_in { color: #79c0ff; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-type,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-class .hljs-title,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-title.class_ { color: #ffa657; font-weight: normal; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-function .hljs-title,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-title.function_ { color: #d2a8ff; font-weight: normal; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-number,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-literal { color: #79c0ff; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-string,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-doctag { color: #a5d6ff; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-symbol,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-bullet { color: #d2a8ff; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-params,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-tag,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-section,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-name,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-attr,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-attribute,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-variable,
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-template-variable { color: #79c0ff; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-meta { color: #8b949e; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-regexp { color: #7ee787; }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-link { color: var(--gh-link); }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-deletion { color: #ff7b72; background: rgba(248, 81, 73, 0.15); }
+html[data-oldgh-theme="dark"] .oldgh-hljs .hljs-addition { color: #7ee787; background: rgba(46, 160, 67, 0.15); }
+
+/* compare view */
+.oldgh-repo-compare > .oldgh-page {
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+.oldgh-repo-compare__header {
+  margin-bottom: 16px;
+}
+.oldgh-repo-compare__title {
+  margin: 0 0 6px;
+  font-size: var(--gh-size-h1);
+  font-weight: normal;
+}
+.oldgh-repo-compare__intro {
+  margin: 0 0 12px;
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-md);
+}
+.oldgh-repo-compare__refs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--gh-size-md);
+}
+.oldgh-repo-compare__sep {
+  color: var(--gh-fg-faint);
+}
+
+/* profile */
+html[data-oldgh-hide-modern-profile] turbo-frame#user-profile-frame-wide,
+html[data-oldgh-hide-modern-profile] react-app[app-name="profile"],
+html[data-oldgh-hide-modern-profile] body > div.application-main > main,
+html[data-oldgh-hide-modern-profile] [data-pjax-container] > main {
+  display: none !important;
+}
+
+.oldgh-profile {
+  background: var(--gh-bg);
+  min-height: 100vh;
+}
+.oldgh-profile__page {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  padding-top: 24px;
+  padding-bottom: 60px;
+}
+
+.oldgh-profile__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.oldgh-profile__avatar {
+  display: block;
+  padding: 4px;
+  box-sizing: border-box;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  line-height: 0;
+}
+.oldgh-profile__avatar img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 0;
+  border-radius: 2px;
+  background: var(--gh-bg-elev);
+}
+.oldgh-profile__name {
+  margin: 8px 0 0;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--gh-fg);
+  line-height: 1.2;
+}
+.oldgh-profile__login {
+  margin: 0;
+  font-size: 18px;
+  color: var(--gh-fg-muted);
+  font-weight: normal;
+}
+.oldgh-profile__bio {
+  margin: 8px 0 0;
+  color: var(--gh-fg);
+  font-size: var(--gh-size-md);
+  line-height: 1.5;
+}
+.oldgh-profile__detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+.oldgh-profile__detail a {
+  color: var(--gh-link);
+}
+.oldgh-profile__edit,
+.oldgh-profile__follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  width: 100%;
+  justify-content: center;
+  text-decoration: none;
+}
+.oldgh-profile__stats {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  display: flex;
+  overflow: hidden;
+}
+.oldgh-profile__stats li {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-right: 1px solid var(--gh-border-faint);
+}
+.oldgh-profile__stats li:last-child { border-right: none; }
+.oldgh-profile__stats a {
+  display: block;
+  padding: 6px 6px;
+  text-align: center;
+  color: var(--gh-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oldgh-profile__stats a:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+.oldgh-profile__stats strong {
+  display: block;
+  font-size: 15px;
+  color: var(--gh-fg);
+}
+.oldgh-profile__stats span {
+  display: block;
+  font-size: 10px;
+  color: var(--gh-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oldgh-profile__orgs,
+.oldgh-profile__achievements,
+.oldgh-profile__highlights {
+  margin-top: 16px;
+}
+.oldgh-profile__orgs h3,
+.oldgh-profile__achievements h3,
+.oldgh-profile__highlights h3 {
+  margin: 0 0 8px;
+  font-size: var(--gh-size-md);
+  font-weight: bold;
+  color: var(--gh-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  padding-bottom: 4px;
+}
+
+.oldgh-profile__highlight-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.oldgh-profile__highlight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg);
+}
+.oldgh-profile__highlight a {
+  color: var(--gh-link);
+}
+.oldgh-profile__pro {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--gh-radius);
+  background: linear-gradient(to bottom, #f9d05a, #d8a624);
+  color: #5a4408;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  border: 1px solid #b08613;
+}
+.oldgh-profile__org-list,
+.oldgh-profile__badges {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.oldgh-profile__org-list img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--gh-radius);
+  border: 1px solid var(--gh-border-faint);
+}
+.oldgh-profile__badges img {
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+
+.oldgh-profile__main {
+  min-width: 0;
+}
+.oldgh-profile__tabnav {
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+.oldgh-profile__tabnav .oldgh-tabs {
+  margin: 0;
+}
+/* the panel directly below the profile tabnav merges flush with the tabs'
+   bottom border so the active tab's -1px overlap covers the join. */
+.oldgh-profile__repos,
+.oldgh-profile__scraped {
+  margin-top: -1px;
+}
+.oldgh-profile__repos > .oldgh-repo-list,
+.oldgh-profile__repos > .oldgh-profile__repos-list,
+.oldgh-profile__scraped > .oldgh-repo-list,
+.oldgh-profile__scraped > .oldgh-profile__repos-list {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  /* match the panel fill so the 1px overlap with the tabs' bottom border is
+     invisible at any sub-pixel rounding */
+  border-top-color: var(--gh-bg-elev);
+}
+/* the first row keeps the full default padding (14px) so the title isn't
+   "trimmed" against the panel's top edge — earlier we cut this to 4px to kill
+   what looked like dead bg-elev space, but the cramped result felt worse. */
+.oldgh-profile__muted {
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-md);
+}
+
+/* empty state — used by Stars/Followers/Following/Repositories tabs when
+   the result list comes back with zero items. matches the panel chrome of
+   the populated states so the box doesn't change height as you switch tabs. */
+.oldgh-profile__empty {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-top-color: var(--gh-bg-elev);
+  border-radius: 0 0 var(--gh-radius) var(--gh-radius);
+  padding: 28px 24px;
+  text-align: center;
+}
+.oldgh-profile__empty p { margin: 0; }
+
+/* user-repositories tab list */
+.oldgh-repo-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+}
+.oldgh-repo-list__item {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  transition: background-color 80ms ease-out;
+}
+.oldgh-repo-list__item:hover {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-repo-list__item:last-child {
+  border-bottom: none;
+}
+.oldgh-repo-list__title {
+  margin: 0 0 4px;
+  font-size: var(--gh-size-lg);
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oldgh-repo-list__title a {
+  color: var(--gh-link);
+}
+.oldgh-repo-list__title strong {
+  font-weight: bold;
+}
+.oldgh-repo-list__visibility {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+  background: var(--gh-bg-subtle);
+}
+.oldgh-repo-list__visibility--public {
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-list__type {
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-list__desc {
+  margin: 0 0 6px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+  line-height: 1.4;
+}
+.oldgh-repo-list__meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-repo-list__meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.oldgh-repo-list__pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* profile stars tab — renders same repo items as the repos tab */
+.oldgh-profile__repos-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+}
+.oldgh-profile__repo {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+.oldgh-profile__repo:last-child { border-bottom: none; }
+.oldgh-profile__repo-name {
+  margin: 0 0 4px;
+  font-size: var(--gh-size-lg);
+  font-weight: normal;
+}
+.oldgh-profile__repo-name a { color: var(--gh-link); font-weight: bold; }
+.oldgh-profile__repo-desc {
+  margin: 0 0 6px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+  line-height: 1.4;
+}
+.oldgh-profile__repo-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-profile__repo-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* contribution legend */
+.oldgh-profile__contribs-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+}
+.oldgh-profile__contribs-legend-cell {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: #eeeeee;
+}
+.oldgh-profile__contribs-legend-cell[data-level="1"] { background: #d6e685; }
+.oldgh-profile__contribs-legend-cell[data-level="2"] { background: #8cc665; }
+.oldgh-profile__contribs-legend-cell[data-level="3"] { background: #44a340; }
+.oldgh-profile__contribs-legend-cell[data-level="4"] { background: #1e6823; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell { background: #383838; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="1"] { background: #0e4429; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="2"] { background: #006d32; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="3"] { background: #26a641; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-legend-cell[data-level="4"] { background: #39d353; }
+.oldgh-profile__section-title {
+  margin: 0 0 10px;
+  font-size: var(--gh-size-lg);
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+
+.oldgh-profile__pinned {
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+.oldgh-profile__contribs {
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+.oldgh-profile__pinned-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.oldgh-profile__pinned-card {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+.oldgh-profile__pinned-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-soft);
+}
+.oldgh-profile__pinned-title {
+  margin: 0 0 6px;
+  font-size: var(--gh-size-md);
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.oldgh-profile__pinned-title .octicon {
+  color: var(--gh-fg-muted);
+}
+.oldgh-profile__pinned-title a {
+  color: var(--gh-link);
+}
+.oldgh-profile__pinned-title strong {
+  font-weight: bold;
+}
+.oldgh-profile__pinned-desc {
+  margin: 0 0 8px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+  line-height: 1.4;
+}
+.oldgh-profile__pinned-meta {
+  margin: auto 0 0;
+  display: flex;
+  gap: 14px;
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-muted);
+}
+.oldgh-profile__pinned-lang,
+.oldgh-profile__pinned-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.oldgh-profile__lang-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gh-border-strong);
+}
+.oldgh-lang-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gh-border-strong);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.oldgh-profile__contribs-empty {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 14px 16px;
+}
+.oldgh-profile__activity-link {
+  margin: 0;
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-md);
+  line-height: 1.5;
+}
+.oldgh-profile__activity-link .octicon {
+  vertical-align: text-bottom;
+  margin-right: 4px;
+}
+.oldgh-profile__activity-link a {
+  color: var(--gh-link);
+}
+
+/* contribution graph (scraped from modern GH, restyled to 2013 palette) */
+.oldgh-profile__contribs-row {
+  display: block;
+}
+.oldgh-profile__contribs-main {
+  min-width: 0;
+}
+/* year selector — horizontal pill row under the graph. keeps the graph at
+   full main-column width so all 53 weeks fit at 1280px viewport without an
+   overflow scroll bar. */
+.oldgh-profile__contribs-years {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: var(--gh-size-sm);
+}
+.oldgh-profile__contribs-years li {
+  margin: 0;
+}
+.oldgh-profile__contribs-years li a {
+  display: inline-block;
+  padding: 2px 10px;
+  color: var(--gh-fg-muted);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.oldgh-profile__contribs-years li a:hover {
+  background: var(--gh-bg-stripe);
+  border-color: var(--gh-border-faint);
+  text-decoration: none;
+}
+.oldgh-profile__contribs-years li.is-active a {
+  background: var(--gh-bg-stripe);
+  border-color: var(--gh-border);
+  color: var(--gh-fg);
+  font-weight: bold;
+}
+.oldgh-profile__contribs-graph {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 10px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.oldgh-profile__contribs-graph table {
+  border-collapse: separate;
+  /* github's inline 3px spacing pushes 53 weeks past the 740px column */
+  border-spacing: 2px !important;
+  margin: 0;
+  /* the 53 fixed cells and day label fit inside the 740px profile column */
+  width: auto;
+  max-width: 100%;
+  table-layout: auto;
+}
+.oldgh-profile__contribs-graph thead th,
+.oldgh-profile__contribs-graph tbody th {
+  font-size: 9px;
+  font-weight: normal;
+  color: var(--gh-fg-muted);
+  padding: 0 4px 0 0;
+  text-align: left;
+  height: 11px;
+  white-space: nowrap;
+}
+.oldgh-profile__contribs-graph td.ContributionCalendar-day,
+.oldgh-profile__contribs-graph td.day {
+  /* authentic 2013 contribution cells */
+  width: 11px !important;
+  min-width: 11px;
+  max-width: 11px;
+  height: 11px !important;
+  background: #eeeeee;
+  border-radius: 2px;
+  padding: 0 !important;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.oldgh-profile__contribs-graph td.ContributionCalendar-day:hover,
+.oldgh-profile__contribs-graph td.day:hover {
+  outline: 1px solid var(--gh-fg-muted);
+  outline-offset: -1px;
+}
+.oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="1"],
+.oldgh-profile__contribs-graph td.day[data-level="1"] { background: #d6e685; }
+.oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="2"],
+.oldgh-profile__contribs-graph td.day[data-level="2"] { background: #8cc665; }
+.oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="3"],
+.oldgh-profile__contribs-graph td.day[data-level="3"] { background: #44a340; }
+.oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="4"],
+.oldgh-profile__contribs-graph td.day[data-level="4"] { background: #1e6823; }
+.oldgh-profile__contribs-graph td:not(.ContributionCalendar-day):not(.day) {
+  padding: 0;
+  width: auto !important;
+}
+.oldgh-profile__contribs-graph tbody tr > td.ContributionCalendar-label:first-child,
+.oldgh-profile__contribs-graph tbody tr > th.ContributionCalendar-label:first-child {
+  width: 28px !important;
+  min-width: 28px;
+  text-align: right;
+  padding: 0 6px 0 0 !important;
+  vertical-align: middle;
+  position: static !important;
+  clip-path: none !important;
+  overflow: visible !important;
+}
+.oldgh-profile__contribs-graph .ContributionCalendar-label {
+  font-size: 9px !important;
+  color: var(--gh-fg-muted) !important;
+  font-weight: normal !important;
+  padding: 0 4px 0 0 !important;
+  text-align: left;
+  line-height: 11px;
+}
+.oldgh-profile__contribs-graph thead .ContributionCalendar-label {
+  padding-bottom: 2px !important;
+}
+/* modern github day label spans use position:absolute + bottom:-3px; since we
+   force the parent td to position:static those spans escape the cell — reset them */
+.oldgh-profile__contribs-graph tbody tr > td.ContributionCalendar-label span,
+.oldgh-profile__contribs-graph tbody tr > th.ContributionCalendar-label span {
+  position: static !important;
+  bottom: auto !important;
+  font-size: 9px !important;
+  color: var(--gh-fg-muted) !important;
+}
+/* hide day rows github visually clips with Circle(0) — sun/tue/thu/sat */
+.oldgh-profile__contribs-graph tbody tr > td.ContributionCalendar-label span[style*="Circle"],
+.oldgh-profile__contribs-graph tbody tr > th.ContributionCalendar-label span[style*="Circle"] {
+  display: none !important;
+}
+/* hide the modern "tooltip" / "scoping" auxiliary content that may render */
+.oldgh-profile__contribs-graph tool-tip,
+.oldgh-profile__contribs-graph .sr-only {
+  display: none;
+}
+/* defensive cell sizing — GitHub occasionally renders cells as a non-td
+   element (svg <rect>, <button>, inner <div>) that the td-scoped rules
+   above miss. catch any element carrying the contribution-day signal
+   and force it back to 11x11 with the same per-level palette. */
+.oldgh-profile__contribs-graph [data-level],
+.oldgh-profile__contribs-graph .ContributionCalendar-day {
+  width: 11px !important;
+  height: 11px !important;
+  min-width: 11px;
+  max-width: 11px;
+  min-height: 11px;
+  max-height: 11px;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: 2px;
+}
+.oldgh-profile__contribs-graph rect.ContributionCalendar-day,
+.oldgh-profile__contribs-graph rect[data-level] {
+  /* svg <rect> ignores html box-model; explicit svg geometry props */
+  rx: 2;
+  ry: 2;
+}
+/* !important so the 2013 palette beats any inline background-color/fill that
+   GitHub ships on the scraped contribution cells (the markup is injected
+   verbatim, so without this an inline modern-green style wins) */
+.oldgh-profile__contribs-graph [data-level="0"] { background: #eeeeee !important; fill: #eeeeee !important; }
+.oldgh-profile__contribs-graph [data-level="1"] { background: #d6e685 !important; fill: #d6e685 !important; }
+.oldgh-profile__contribs-graph [data-level="2"] { background: #8cc665 !important; fill: #8cc665 !important; }
+.oldgh-profile__contribs-graph [data-level="3"] { background: #44a340 !important; fill: #44a340 !important; }
+.oldgh-profile__contribs-graph [data-level="4"] { background: #1e6823 !important; fill: #1e6823 !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="0"] { background: #383838 !important; fill: #383838 !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="1"] { background: #0e4429 !important; fill: #0e4429 !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="2"] { background: #006d32 !important; fill: #006d32 !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="3"] { background: #26a641 !important; fill: #26a641 !important; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph [data-level="4"] { background: #39d353 !important; fill: #39d353 !important; }
+/* if GH ships a parallel <svg> next to the <table>, hide the svg so we
+   don't show both representations. tables come first in the markup. */
+.oldgh-profile__contribs-graph table ~ svg {
+  display: none !important;
+}
+
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day,
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day { background: #383838; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="1"],
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="1"] { background: #0e4429; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="2"],
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="2"] { background: #006d32; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="3"],
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="3"] { background: #26a641; }
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.ContributionCalendar-day[data-level="4"],
+html[data-oldgh-theme="dark"] .oldgh-profile__contribs-graph td.day[data-level="4"] { background: #39d353; }
+
+/* contribution day hover tooltip */
+.oldgh-contrib-tip {
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+  padding: 6px 9px;
+  background: #1c1c1c;
+  color: #f1f1f1;
+  border: 1px solid #000;
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.oldgh-contrib-tip[hidden] { display: none; }
+.oldgh-contrib-tip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: #1c1c1c;
+  border-bottom: 0;
+}
+
+.oldgh-profile__contribs-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  overflow: hidden;
+}
+.oldgh-profile__streak {
+  padding: 12px 14px;
+  text-align: center;
+  border-right: 1px solid var(--gh-border);
+}
+.oldgh-profile__streak:last-child {
+  border-right: 0;
+}
+.oldgh-profile__streak-num {
+  display: block;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--gh-fg);
+  line-height: 1.1;
+}
+.oldgh-profile__streak-label {
+  display: block;
+  font-size: 11px;
+  color: var(--gh-fg-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.oldgh-profile__streak-label small {
+  display: block;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 2px;
+  color: var(--gh-fg-faint);
+}
+
+/* profile public activity feed */
+.oldgh-profile__activity {
+  margin-top: 24px;
+}
+.oldgh-activity {
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  overflow: hidden;
+}
+.oldgh-activity__group {
+  border-bottom: 1px solid var(--gh-border);
+}
+.oldgh-activity__group:last-child {
+  border-bottom: 0;
+}
+.oldgh-activity__month {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--gh-bg-subtle);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--gh-fg);
+  user-select: none;
+}
+.oldgh-activity__month::-webkit-details-marker {
+  display: none;
+}
+.oldgh-activity__month::before {
+  content: "▸";
+  display: inline-block;
+  width: 12px;
+  font-size: 9px;
+  color: var(--gh-fg-muted);
+  transition: transform 0.1s;
+}
+.oldgh-activity__group[open] > .oldgh-activity__month::before {
+  transform: rotate(90deg);
+}
+.oldgh-activity__month-label {
+  flex: 1;
+  margin-left: 4px;
+}
+.oldgh-activity__month-count {
+  font-weight: normal;
+  color: var(--gh-fg-muted);
+  font-size: 11px;
+}
+.oldgh-activity__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+.oldgh-activity__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gh-fg);
+}
+.oldgh-activity__item:hover {
+  background: var(--gh-bg-subtle);
+}
+.oldgh-activity__icon {
+  flex: 0 0 16px;
+  color: var(--gh-fg-muted);
+  margin-top: 2px;
+}
+.oldgh-activity__line {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+}
+.oldgh-activity__line a {
+  color: var(--gh-link);
+}
+.oldgh-activity__line code {
+  font-size: 11px;
+  padding: 1px 4px;
+  background: var(--gh-bg-subtle);
+  border-radius: 3px;
+}
+.oldgh-activity__when {
+  color: var(--gh-fg-muted);
+  font-size: 11px;
+}
+.oldgh-activity__detail {
+  display: block;
+  color: var(--gh-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oldgh-activity__detail a {
+  color: inherit;
+}
+
+/* issues + pulls list */
+.oldgh-repo-issues > .oldgh-page {
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+
+.oldgh-issues__toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.oldgh-issues__search {
+  flex: 1;
+}
+.oldgh-issues__search input {
+  width: 100%;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+}
+.oldgh-issues__new {
+  flex-shrink: 0;
+}
+
+.oldgh-issues__state-tabs {
+  margin: 0 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 0;
+  background: var(--gh-bg-subtle);
+  border: 1px solid var(--gh-border);
+  border-bottom: none;
+  border-radius: var(--gh-radius) var(--gh-radius) 0 0;
+}
+.oldgh-issues__state-tabs li {
+  border-right: 1px solid var(--gh-border-faint);
+}
+.oldgh-issues__state-tabs li:last-child { border-right: none; }
+.oldgh-issues__state-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+.oldgh-issues__state-tabs a strong {
+  font-weight: bold;
+}
+.oldgh-issues__state-tabs a[aria-current="page"] {
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+}
+.oldgh-issues__state-tabs a:hover {
+  color: var(--gh-fg);
+  text-decoration: none;
+}
+
+.oldgh-issues__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: 0 0 var(--gh-radius) var(--gh-radius);
+}
+.oldgh-issues__row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  align-items: start;
+  transition: background-color 80ms ease-out;
+}
+.oldgh-issues__row:hover {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-issues__row:last-child { border-bottom: none; }
+.oldgh-issues__state {
+  padding-top: 2px;
+}
+.oldgh-issues__state-icon--open { color: var(--gh-state-open); }
+.oldgh-issues__state-icon--closed { color: var(--gh-state-closed); }
+.oldgh-issues__state-icon--merged { color: var(--gh-state-merged); }
+.oldgh-issues__comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-sm);
+}
+.oldgh-issues__comments:hover {
+  color: var(--gh-link);
+  text-decoration: none;
+}
+
+.oldgh-issues__body { min-width: 0; }
+.oldgh-issues__title {
+  margin: 0 0 4px;
+  font-size: var(--gh-size-lg);
+  font-weight: bold;
+  line-height: 1.3;
+}
+.oldgh-issues__title a {
+  color: var(--gh-fg);
+}
+.oldgh-issues__title a:hover {
+  color: var(--gh-link);
+  text-decoration: underline;
+}
+.oldgh-issues__labels {
+  margin-left: 6px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: middle;
+}
+.oldgh-issues__label {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: var(--gh-radius);
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.oldgh-issues__label:hover {
+  text-decoration: none;
+  opacity: 0.85;
+}
+.oldgh-issues__meta {
+  margin: 0;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+}
+.oldgh-issues__meta a {
+  color: var(--gh-fg-muted);
+}
+.oldgh-issues__meta a:hover {
+  color: var(--gh-link);
+}
+.oldgh-issues__milestone {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+}
+.oldgh-issues__meta-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  flex-shrink: 0;
+}
+.oldgh-issues__assignees {
+  display: inline-flex;
+  gap: 2px;
+}
+.oldgh-issues__assignees img {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--gh-radius);
+  border: 1px solid var(--gh-border-faint);
+}
+.oldgh-issues__pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.oldgh-issues__filter-empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--gh-fg-muted);
+  font-size: var(--gh-size-md);
+  text-align: center;
+}

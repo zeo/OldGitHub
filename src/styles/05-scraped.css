@@ -1,0 +1,1630 @@
+/* ===== actions ===== */
+.oldgh-actions__layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+}
+.oldgh-actions__sidebar {
+  font-size: var(--gh-size-sm);
+}
+.oldgh-actions__sidebar h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--gh-fg-muted);
+  margin: 0 0 6px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.oldgh-actions__workflows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.oldgh-actions__workflows a {
+  display: block;
+  padding: 4px 8px;
+  color: var(--gh-link);
+  border-radius: var(--gh-radius);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oldgh-actions__workflows a:hover {
+  background: var(--gh-bg-stripe);
+  text-decoration: none;
+}
+.oldgh-actions__wf-all {
+  background: var(--gh-bg-stripe);
+}
+.oldgh-actions__wf--selected {
+  background: var(--gh-bg-accent-subtle) !important;
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+html[data-oldgh-theme="dark"] .oldgh-actions__wf--selected {
+  background: rgba(106, 169, 224, 0.15) !important;
+}
+.oldgh-actions__sub {
+  margin: 4px 0 0;
+  color: var(--gh-fg-muted);
+  font-size: 12px;
+}
+.oldgh-actions__sub code {
+  background: var(--gh-bg-subtle, #f6f8fa);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.oldgh-actions__main {
+  min-width: 0;
+}
+.oldgh-actions__header {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.oldgh-actions__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+.oldgh-actions__runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+}
+.oldgh-actions__run {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gh-border);
+  align-items: flex-start;
+}
+.oldgh-actions__run:last-child { border-bottom: 0; }
+.oldgh-actions__run:hover { background: var(--gh-bg-stripe); }
+.oldgh-actions__run-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #fff;
+  overflow: hidden;
+}
+.oldgh-actions__run-status svg {
+  width: 11px !important;
+  height: 11px !important;
+}
+.oldgh-actions__run-status--success { background: var(--gh-state-open); }
+.oldgh-actions__run-status--failure,
+.oldgh-actions__run-status--timed_out { background: var(--gh-state-closed); }
+.oldgh-actions__run-status--in_progress,
+.oldgh-actions__run-status--queued,
+.oldgh-actions__run-status--pending { background: #cc8500; }
+.oldgh-actions__run-status--cancelled,
+.oldgh-actions__run-status--skipped { background: var(--gh-fg-muted); }
+.oldgh-actions__run-status--action_required { background: #d29922; }
+.oldgh-actions__run-status--neutral,
+.oldgh-actions__run-status--stale,
+.oldgh-actions__run-status--unknown { background: var(--gh-fg-muted); }
+.oldgh-actions__run-body {
+  flex: 1;
+  min-width: 0;
+}
+.oldgh-actions__run-title a {
+  font-weight: bold;
+  color: var(--gh-link);
+  font-size: 13px;
+}
+.oldgh-actions__run-number {
+  color: var(--gh-fg-muted);
+  font-size: 12px;
+  margin-left: 6px;
+}
+.oldgh-actions__run-meta {
+  font-size: 11px;
+  color: var(--gh-fg-muted);
+  margin-top: 2px;
+}
+.oldgh-actions__run-meta code {
+  font-family: var(--gh-font-mono);
+  background: var(--gh-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.oldgh-actions__empty {
+  color: var(--gh-fg-muted);
+  font-style: italic;
+  margin: 12px 0;
+}
+.oldgh-actions__pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+}
+
+/* ===== generic scraped section (pulse/graphs/projects/security) ===== */
+.oldgh-section__header {
+  border-bottom: 1px solid var(--gh-border);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.oldgh-section__header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--gh-fg);
+}
+.oldgh-section__content {
+  font-size: var(--gh-size-sm);
+}
+.oldgh-section__content .Box,
+.oldgh-section__content .Box-row,
+.oldgh-section__content .Box-header,
+.oldgh-section__content .Box-footer {
+  background: var(--gh-bg-elev);
+  border-color: var(--gh-border);
+  color: var(--gh-fg);
+}
+.oldgh-section__content a { color: var(--gh-link); }
+.oldgh-section__content h1,
+.oldgh-section__content h2,
+.oldgh-section__content h3,
+.oldgh-section__content h4 { color: var(--gh-fg); }
+
+/* ===== top-level scraped pages ===== */
+.oldgh-top-level {
+  margin-top: 16px;
+}
+.oldgh-top-level .oldgh-section__content .Box,
+.oldgh-top-level .oldgh-section__content .Box-row {
+  background: var(--gh-bg-elev);
+  border-color: var(--gh-border);
+  color: var(--gh-fg);
+}
+.oldgh-top-level .oldgh-section__content article {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+/* profile scraped tab */
+.oldgh-profile__scraped {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 4px 16px 16px;
+  min-height: 100px;
+}
+/* when the scraped panel directly contains its own bordered list (Stars,
+   scraped Repositories fallback) or its own bordered section (Achievements),
+   the panel's chrome is redundant — collapse it so the inner element IS the
+   panel. */
+.oldgh-profile__scraped:has(> .oldgh-repo-list),
+.oldgh-profile__scraped:has(> .oldgh-profile__repos-list),
+.oldgh-profile__scraped:has(> .oldgh-achievements) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  min-height: 0;
+}
+.oldgh-profile__scraped .Box,
+.oldgh-profile__scraped .Box-row {
+  background: var(--gh-bg-elev);
+  border-color: var(--gh-border);
+  color: var(--gh-fg);
+}
+.oldgh-profile__scraped a { color: var(--gh-link); }
+.oldgh-profile__scraped h2,
+.oldgh-profile__scraped h3 { color: var(--gh-fg); }
+
+/* ─── Notifications (2013 inbox) ────────────────────────────── */
+.oldgh-notifications {
+  max-width: 980px;
+  margin: 16px auto;
+  padding: 0 10px;
+}
+.oldgh-notif__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--gh-border);
+  margin-bottom: 16px;
+}
+.oldgh-notif__header h1 {
+  margin: 0;
+  font-size: var(--gh-size-h1);
+  font-weight: normal;
+  color: var(--gh-fg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.oldgh-notif__header h1 .octicon { color: var(--gh-fg-faint); }
+.oldgh-notif__counts {
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-faint);
+}
+.oldgh-notif__count-sep { margin: 0 4px; }
+
+.oldgh-notif__layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.oldgh-notif__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.oldgh-notif__box {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  overflow: hidden;
+}
+.oldgh-notif__box-head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+}
+.oldgh-notif__box-head h3 {
+  margin: 0;
+  font-size: var(--gh-size-md);
+  font-weight: bold;
+}
+.oldgh-notif__filters,
+.oldgh-notif__repo-rail {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+.oldgh-notif__filters li,
+.oldgh-notif__repo-rail li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: var(--gh-size-sm);
+}
+.oldgh-notif__filters li.is-active { background: var(--gh-bg-stripe); }
+.oldgh-notif__filters a,
+.oldgh-notif__repo-rail a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.oldgh-notif__repo-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  font-size: 10px;
+  text-align: center;
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  color: var(--gh-fg-muted);
+}
+
+.oldgh-notif__main {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  overflow: hidden;
+}
+.oldgh-notif__group {
+  border-bottom: 1px solid var(--gh-border);
+}
+.oldgh-notif__group:last-child {
+  border-bottom: 0;
+}
+.oldgh-notif__group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--gh-bg-stripe);
+  border-bottom: 1px solid var(--gh-border-faint);
+  font-size: var(--gh-size-md);
+}
+.oldgh-notif__group-head .octicon { color: var(--gh-fg-faint); }
+.oldgh-notif__group-slug {
+  font-weight: bold;
+}
+.oldgh-notif__group-unread {
+  margin-left: 4px;
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  text-align: center;
+  background: var(--gh-link);
+  color: #fff;
+  border-radius: 10px;
+}
+.oldgh-notif__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.oldgh-notif__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  font-size: var(--gh-size-md);
+  transition: background-color 80ms ease-out;
+}
+.oldgh-notif__item:hover { background: var(--gh-bg-stripe); }
+.oldgh-notif__item:last-child { border-bottom: 0; }
+.oldgh-notif__item.is-unread {
+  background: linear-gradient(to right, rgba(65, 131, 196, 0.08), transparent 200px);
+  border-left: 3px solid var(--gh-link);
+  padding-left: 11px;
+}
+.oldgh-notif__item-icon {
+  color: var(--gh-fg-faint);
+  flex-shrink: 0;
+}
+.oldgh-notif__item.is-unread .oldgh-notif__item-icon { color: var(--gh-link); }
+.oldgh-notif__item-link {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  color: var(--gh-fg);
+}
+.oldgh-notif__item-link:hover { text-decoration: none; }
+.oldgh-notif__item-link:hover .oldgh-notif__item-title { color: var(--gh-link); text-decoration: underline; }
+.oldgh-notif__item.is-unread .oldgh-notif__item-title { font-weight: bold; }
+.oldgh-notif__item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oldgh-notif__item-num {
+  color: var(--gh-fg-faint);
+  font-size: var(--gh-size-sm);
+  flex-shrink: 0;
+}
+.oldgh-notif__item-reason {
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 6px;
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border-faint);
+  border-radius: 3px;
+}
+.oldgh-notif__item-time {
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+  flex-shrink: 0;
+}
+.oldgh-notif__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--gh-fg-faint);
+}
+.oldgh-notif__empty .octicon { color: var(--gh-state-open); }
+.oldgh-notif__empty p { margin: 8px 0 0; }
+
+/* ─── Scraped-section reskin pass ─────────────────────────────── */
+/* Applies to every place we drop modern HTML inside our 2013 shell:
+   marketplace / settings / explore / search / discussions / pulse /
+   projects / security / pr-subtab fallback / notifications-error. */
+.oldgh-section__content,
+.oldgh-issue__subtab,
+.oldgh-profile__scraped {
+  font-family: var(--gh-font-sans);
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg);
+}
+.oldgh-section__content a,
+.oldgh-issue__subtab a,
+.oldgh-profile__scraped a { color: var(--gh-link); }
+
+.oldgh-section__content .Box,
+.oldgh-section__content .Box-row,
+.oldgh-section__content .Box-header,
+.oldgh-section__content .Box-footer,
+.oldgh-issue__subtab .Box,
+.oldgh-issue__subtab .Box-row,
+.oldgh-issue__subtab .Box-header,
+.oldgh-issue__subtab .Box-footer,
+.oldgh-profile__scraped .Box,
+.oldgh-profile__scraped .Box-row {
+  background: var(--gh-bg-elev);
+  border-color: var(--gh-border) !important;
+  border-radius: var(--gh-radius);
+  color: var(--gh-fg);
+  box-shadow: none;
+}
+.oldgh-section__content .Box-header,
+.oldgh-issue__subtab .Box-header {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+  font-weight: bold;
+  padding: 8px 12px;
+}
+.oldgh-section__content .Box-row + .Box-row,
+.oldgh-issue__subtab .Box-row + .Box-row {
+  border-top: 1px solid var(--gh-border-faint);
+}
+
+/* Buttons (Primer .btn, .Button, .prc-Button) inside scraped content */
+.oldgh-section__content .btn,
+.oldgh-section__content .Button,
+.oldgh-section__content button.Button,
+.oldgh-section__content [class*="prc-Button-ButtonBase"],
+.oldgh-issue__subtab .btn,
+.oldgh-issue__subtab .Button,
+.oldgh-issue__subtab [class*="prc-Button-ButtonBase"] {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  border: 1px solid var(--gh-btn-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-btn-fg) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--gh-shadow-inset);
+  padding: 3px 10px !important;
+  font-size: var(--gh-size-md) !important;
+  font-weight: bold;
+  line-height: 20px;
+  min-height: unset !important;
+}
+[data-oldgh-theme="dark"] .oldgh-section__content .btn,
+[data-oldgh-theme="dark"] .oldgh-section__content .Button,
+[data-oldgh-theme="dark"] .oldgh-section__content [class*="prc-Button-ButtonBase"],
+[data-oldgh-theme="dark"] .oldgh-issue__subtab [class*="prc-Button-ButtonBase"] {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.oldgh-section__content .btn-primary,
+.oldgh-section__content .Button--primary,
+.oldgh-section__content [class*="prc-Button-ButtonBase"][data-variant="primary"] {
+  background: linear-gradient(to bottom, var(--gh-btn-primary-bg-top), var(--gh-btn-primary-bg-bottom)) !important;
+  border-color: var(--gh-btn-primary-border) !important;
+  color: var(--gh-btn-primary-fg) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Counter labels / counts */
+.oldgh-section__content .Counter,
+.oldgh-section__content .CounterLabel,
+.oldgh-issue__subtab .Counter,
+.oldgh-issue__subtab .CounterLabel {
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border-faint);
+  border-radius: 10px;
+  color: var(--gh-fg-muted);
+  padding: 1px 7px;
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+}
+
+/* State labels (Open / Closed / Merged badges) */
+.oldgh-section__content .State,
+.oldgh-section__content [class*="prc-Label-Label"][data-state="open"],
+.oldgh-issue__subtab .State {
+  border-radius: var(--gh-radius);
+  padding: 2px 7px;
+  font-weight: bold;
+  font-size: var(--gh-size-xs);
+}
+
+/* Inputs */
+.oldgh-section__content .form-control,
+.oldgh-section__content input.FormControl-input,
+.oldgh-section__content textarea,
+.oldgh-section__content select,
+.oldgh-issue__subtab .form-control,
+.oldgh-issue__subtab input.FormControl-input,
+.oldgh-issue__subtab textarea {
+  background: var(--gh-bg-elev) !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-fg) !important;
+  padding: 4px 8px !important;
+  font-size: var(--gh-size-md) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Underline tab navs that survived stripping (e.g. inner secondary navs) */
+.oldgh-section__content .UnderlineNav,
+.oldgh-issue__subtab .UnderlineNav,
+.oldgh-profile__scraped .UnderlineNav {
+  border-bottom: 1px solid var(--gh-border);
+  background: transparent;
+}
+.oldgh-section__content .UnderlineNav-item,
+.oldgh-issue__subtab .UnderlineNav-item,
+.oldgh-profile__scraped .UnderlineNav-item {
+  color: var(--gh-fg-muted);
+  padding: 8px 12px;
+}
+.oldgh-section__content .UnderlineNav-item.selected,
+.oldgh-section__content .UnderlineNav-item[aria-current],
+.oldgh-issue__subtab .UnderlineNav-item.selected,
+.oldgh-issue__subtab .UnderlineNav-item[aria-current],
+.oldgh-profile__scraped .UnderlineNav-item.selected,
+.oldgh-profile__scraped .UnderlineNav-item[aria-current] {
+  color: var(--gh-fg);
+  font-weight: bold;
+  border-bottom: 2px solid var(--gh-link);
+}
+
+/* Avatars retain their roundness in 2013 we used border-radius:3px instead */
+.oldgh-section__content .avatar,
+.oldgh-section__content img[class*="avatar"],
+.oldgh-issue__subtab .avatar,
+.oldgh-issue__subtab img[class*="avatar"] {
+  border-radius: 3px;
+}
+
+/* Hide modern decorative chrome that often slips through scraping */
+.oldgh-section__content .js-feature-preview-indicator-container,
+.oldgh-section__content [aria-label="Help"],
+.oldgh-section__content [data-component="UpgradeBanner"],
+.oldgh-issue__subtab [data-component="UpgradeBanner"] {
+  display: none;
+}
+
+/* Scraped unified-diff tables (private-repo PR/issue fallback). GitHub ships
+   light-mode green/red hex inline, which is unreadable on the dark page; force
+   token-based backgrounds so both themes read correctly. */
+.oldgh-section__content .diff-table,
+.oldgh-section__content .blob-code,
+.oldgh-section__content .blob-num,
+.oldgh-issue__subtab .diff-table,
+.oldgh-issue__subtab .blob-code,
+.oldgh-issue__subtab .blob-num {
+  background: var(--gh-bg-elev) !important;
+  color: var(--gh-fg) !important;
+  border-color: var(--gh-border-faint) !important;
+}
+.oldgh-section__content .blob-num,
+.oldgh-issue__subtab .blob-num { color: var(--gh-fg-faint) !important; }
+.oldgh-section__content .blob-code-addition,
+.oldgh-issue__subtab .blob-code-addition { background: rgba(108, 198, 68, 0.12) !important; }
+.oldgh-section__content .blob-code-deletion,
+.oldgh-issue__subtab .blob-code-deletion { background: rgba(189, 44, 0, 0.12) !important; }
+html[data-oldgh-theme="dark"] .oldgh-section__content .blob-code-addition,
+html[data-oldgh-theme="dark"] .oldgh-issue__subtab .blob-code-addition { background: rgba(126, 231, 135, 0.10) !important; }
+html[data-oldgh-theme="dark"] .oldgh-section__content .blob-code-deletion,
+html[data-oldgh-theme="dark"] .oldgh-issue__subtab .blob-code-deletion { background: rgba(255, 123, 114, 0.12) !important; }
+.oldgh-section__content .blob-code-inner,
+.oldgh-issue__subtab .blob-code-inner { color: var(--gh-fg) !important; }
+
+/* Dark-mode readability for scraped fragments: Primer's stylesheet is blocked,
+   so native HTML keeps default-black text and inline light-mode colors that
+   vanish on the dark page. Force a readable foreground, map Primer fg utility
+   classes to tokens, and override inline text colors. */
+[data-oldgh-theme="dark"] .oldgh-section__content,
+[data-oldgh-theme="dark"] .oldgh-issue__subtab,
+[data-oldgh-theme="dark"] .oldgh-profile__scraped {
+  color: var(--gh-fg);
+}
+[data-oldgh-theme="dark"] .oldgh-section__content .color-fg-default,
+[data-oldgh-theme="dark"] .oldgh-section__content .color-fg-emphasis,
+[data-oldgh-theme="dark"] .oldgh-issue__subtab .color-fg-default,
+[data-oldgh-theme="dark"] .oldgh-profile__scraped .color-fg-default {
+  color: var(--gh-fg) !important;
+}
+[data-oldgh-theme="dark"] .oldgh-section__content .color-fg-muted,
+[data-oldgh-theme="dark"] .oldgh-section__content .color-fg-subtle,
+[data-oldgh-theme="dark"] .oldgh-section__content .text-gray,
+[data-oldgh-theme="dark"] .oldgh-section__content .text-gray-light,
+[data-oldgh-theme="dark"] .oldgh-issue__subtab .color-fg-muted,
+[data-oldgh-theme="dark"] .oldgh-profile__scraped .color-fg-muted {
+  color: var(--gh-fg-muted) !important;
+}
+[data-oldgh-theme="dark"] .oldgh-section__content [style*="color:#"],
+[data-oldgh-theme="dark"] .oldgh-section__content [style*="color: #"],
+[data-oldgh-theme="dark"] .oldgh-section__content [style*="color: rgb"],
+[data-oldgh-theme="dark"] .oldgh-issue__subtab [style*="color:#"],
+[data-oldgh-theme="dark"] .oldgh-issue__subtab [style*="color: #"] {
+  color: var(--gh-fg) !important;
+}
+
+/* ─── Settings: full modern-Primer (prc-*) reskin ──────────────── */
+/* The /settings/* and /:owner/:repo/settings/* pages are pure Primer
+   React: buttons/inputs/toggles/cards/banners all carry hashed prc-*
+   classes that the legacy-class rules in the __native blocks above miss,
+   so modern UI bleeds through. This block covers the modern component
+   set for BOTH settings scopes. Substring [class*="prc-..."] matches the
+   hashed suffixes; !important beats Primer's high-specificity hashed
+   rules. All colors via --gh-* so light+dark adapt. */
+
+/* the primer utilities github's settings markup leans on, since its own css is blocked */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-flex { display: flex; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-inline-flex { display: inline-flex; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-inline-block { display: inline-block; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-block { display: block; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .d-none { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column { flex-direction: column; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-wrap { flex-wrap: wrap; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column-reverse { flex-direction: column-reverse; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-start { align-items: flex-start; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-center { align-items: center; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-justify-between { justify-content: space-between; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-self-end { align-self: flex-end; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-1 { flex: 1; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-auto { flex: auto; min-width: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-shrink-0 { flex-shrink: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-order-2 { order: 2; }
+@media (min-width: 768px) {
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-row { flex-direction: row; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-items-center { align-items: center; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-md-order-1 { order: 1; }
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-md-0 { margin-bottom: 0; }
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-0 { margin-top: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-1 { margin-top: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mt-2 { margin-top: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-0 { margin-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mb-2 { margin-bottom: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .my-0 { margin-top: 0; margin-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .my-2 { margin-top: 8px; margin-bottom: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ml-1 { margin-left: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ml-2 { margin-left: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .mr-2 { margin-right: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .px-2 { padding-left: 8px; padding-right: 8px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .py-0 { padding-top: 0; padding-bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .py-1 { padding-top: 4px; padding-bottom: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .f6 { font-size: 12px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .text-normal { font-weight: normal; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .text-bold { font-weight: bold; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .width-full { width: 100%; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .position-relative { position: relative; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .position-absolute { position: absolute; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .left-0 { left: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .bottom-0 { bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .top-0 { top: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .right-0 { right: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .m-1 { margin: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .gutter-condensed { margin-right: -4px; margin-left: -4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .gutter-condensed > [class*="col-"] { padding-right: 4px; padding-left: 4px; }
+/* col-lg-4 is left out: primer keys it to the viewport, but this column stays narrow at any width */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .col-6 { width: 50%; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .col-6 img { max-width: 100%; height: auto; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .color-bg-default { background: var(--gh-bg); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .color-fg-default { color: var(--gh-fg); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .rounded-2 { border-radius: var(--gh-radius); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .border { border: 1px solid var(--gh-border); }
+/* file-attachment shows one of these upload errors at a time through scripts that don't run here */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .upload-state { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox {
+  position: relative;
+  padding-left: 20px;
+  margin: 15px 0;
+}
+/* some rows put the label before the input, so a float would drop the box below it */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.form-checkbox, .form-checkbox > form) > input:is([type="checkbox"], [type="radio"]) {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  margin: 0;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox label {
+  display: inline;
+  margin: 0;
+  font-weight: bold;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox .note {
+  display: block;
+  margin: 2px 0 0;
+  font-weight: normal;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .Box-row { list-style: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .Label {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--gh-border);
+  border-radius: 2em;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 18px;
+}
+
+/* buttons */
+.oldgh-account-settings__native [class*="prc-Button-ButtonBase"],
+.oldgh-settings__native [class*="prc-Button-ButtonBase"] {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  border: 1px solid var(--gh-btn-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-btn-fg) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--gh-shadow-inset);
+  padding: 3px 12px !important;
+  font-size: var(--gh-size-md) !important;
+  font-weight: bold;
+  min-height: unset !important;
+}
+[data-oldgh-theme="dark"] .oldgh-account-settings__native [class*="prc-Button-ButtonBase"],
+[data-oldgh-theme="dark"] .oldgh-settings__native [class*="prc-Button-ButtonBase"] {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.oldgh-account-settings__native [class*="prc-Button-ButtonBase"][data-variant="primary"],
+.oldgh-settings__native [class*="prc-Button-ButtonBase"][data-variant="primary"] {
+  background: linear-gradient(to bottom, var(--gh-btn-primary-bg-top), var(--gh-btn-primary-bg-bottom)) !important;
+  border-color: var(--gh-btn-primary-border) !important;
+  color: var(--gh-btn-primary-fg) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+.oldgh-account-settings__native [class*="prc-Button-ButtonBase"][data-variant="danger"],
+.oldgh-settings__native [class*="prc-Button-ButtonBase"][data-variant="danger"] {
+  color: #fff !important;
+  background: linear-gradient(to bottom, #d75147, #ad3a30) !important;
+  border-color: #8a2c25 !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.oldgh-account-settings__native [class*="prc-Button-ButtonBase"][data-variant="invisible"],
+.oldgh-settings__native [class*="prc-Button-ButtonBase"][data-variant="invisible"] {
+  background: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  color: var(--gh-link) !important;
+}
+/* never gradient-ify a toggle switch that happens to be a <button> */
+.oldgh-account-settings__native [class*="prc-ToggleSwitch"],
+.oldgh-settings__native [class*="prc-ToggleSwitch"] {
+  background: var(--gh-border) !important;
+}
+
+/* text inputs / selects (modern wraps the input in a bordered span) */
+.oldgh-account-settings__native input.FormControl-input,
+.oldgh-account-settings__native [class*="prc-TextInput"] input,
+.oldgh-account-settings__native [class*="prc-components-Input"],
+.oldgh-account-settings__native [class*="prc-Select-"] select,
+.oldgh-settings__native input.FormControl-input,
+.oldgh-settings__native .form-control,
+.oldgh-settings__native [class*="prc-TextInput"] input,
+.oldgh-settings__native [class*="prc-components-Input"],
+.oldgh-settings__native [class*="prc-Select-"] select {
+  background: var(--gh-bg-elev) !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-fg) !important;
+  padding: 4px 8px !important;
+  font-size: var(--gh-size-md) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+/* neutralize the modern wrapper span's own border so there's no double box */
+.oldgh-account-settings__native [class*="prc-TextInput-Wrapper"],
+.oldgh-account-settings__native span[class*="prc-TextInput"],
+.oldgh-settings__native [class*="prc-TextInput-Wrapper"],
+.oldgh-settings__native span[class*="prc-TextInput"] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* ToggleSwitch — flatten the modern pill to the 2013 toggle */
+.oldgh-account-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"],
+.oldgh-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"],
+.oldgh-account-settings__native .ToggleSwitch,
+.oldgh-settings__native .ToggleSwitch {
+  width: 32px !important;
+  height: 18px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: var(--gh-border) !important;
+  border: 1px solid var(--gh-border-strong) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+.oldgh-account-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"][aria-checked="true"],
+.oldgh-account-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"][aria-pressed="true"],
+.oldgh-account-settings__native .ToggleSwitch[aria-pressed="true"],
+.oldgh-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"][aria-checked="true"],
+.oldgh-settings__native [class*="prc-ToggleSwitch-ToggleSwitch"][aria-pressed="true"],
+.oldgh-settings__native .ToggleSwitch[aria-pressed="true"] {
+  background: var(--gh-btn-primary-bg-bottom) !important;
+  border-color: var(--gh-btn-primary-border) !important;
+}
+.oldgh-account-settings__native [class*="prc-ToggleSwitch-Status"],
+.oldgh-settings__native [class*="prc-ToggleSwitch-Status"],
+.oldgh-account-settings__native .ToggleSwitch-status,
+.oldgh-settings__native .ToggleSwitch-status {
+  display: none !important;
+}
+.oldgh-account-settings__native [class*="prc-ToggleSwitch-Knob"],
+.oldgh-settings__native [class*="prc-ToggleSwitch-Knob"],
+.oldgh-account-settings__native .ToggleSwitch-knob,
+.oldgh-settings__native .ToggleSwitch-knob {
+  box-shadow: none !important;
+}
+
+/* containers: collapse the modern PageLayout grid, theme the modern Box */
+.oldgh-account-settings__native [class*="prc-PageLayout-PageLayoutRoot"],
+.oldgh-account-settings__native [class*="prc-PageLayout-PageLayoutWrapper"],
+.oldgh-account-settings__native [class*="prc-PageLayout-PageLayoutContent"],
+.oldgh-settings__native [class*="prc-PageLayout-PageLayoutRoot"],
+.oldgh-settings__native [class*="prc-PageLayout-PageLayoutWrapper"],
+.oldgh-settings__native [class*="prc-PageLayout-PageLayoutContent"] {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.oldgh-account-settings__native [class*="prc-PageLayout-PaneWrapper"],
+.oldgh-account-settings__native [class*="prc-PageLayout-HorizontalDivider"],
+.oldgh-account-settings__native [class*="prc-PageLayout-VerticalDivider"],
+.oldgh-settings__native [class*="prc-PageLayout-PaneWrapper"],
+.oldgh-settings__native [class*="prc-PageLayout-HorizontalDivider"],
+.oldgh-settings__native [class*="prc-PageLayout-VerticalDivider"] {
+  display: none !important;
+}
+.oldgh-account-settings__native [class*="prc-Box-"],
+.oldgh-settings__native [class*="prc-Box-"] {
+  background: transparent;
+  border-color: var(--gh-border-faint);
+}
+.oldgh-account-settings__native [class*="prc-Heading-Heading"],
+.oldgh-settings__native [class*="prc-Heading-Heading"] {
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  margin: 18px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+/* legacy + modern .Box-row separators (the dominant element on the General page) */
+.oldgh-settings__native .Box-row {
+  padding: 10px 14px;
+  border-top: 1px solid var(--gh-border-faint);
+  background: transparent;
+}
+.oldgh-settings__native .Box-row:first-child { border-top: 0; }
+
+/* Subhead section dividers */
+.oldgh-account-settings__native .Subhead,
+.oldgh-settings__native .Subhead {
+  border-bottom: 1px solid var(--gh-border-faint);
+  padding-bottom: 6px;
+  margin: 18px 0 8px;
+}
+.oldgh-account-settings__native .Subhead-heading,
+.oldgh-settings__native .Subhead-heading {
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--gh-fg);
+  border-bottom: 0;
+}
+
+/* Banner / flash notices (modern prc-Banner + legacy .flash) */
+.oldgh-account-settings__native [class*="prc-Banner-Banner"],
+.oldgh-settings__native [class*="prc-Banner-Banner"] {
+  padding: 10px 14px;
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-stripe);
+  color: var(--gh-fg);
+  margin: 10px 0;
+}
+.oldgh-account-settings__native [class*="prc-Banner-Banner"][data-variant="critical"],
+.oldgh-settings__native [class*="prc-Banner-Banner"][data-variant="critical"] {
+  border-color: #d75147;
+  background: rgba(215, 81, 71, 0.08);
+}
+.oldgh-account-settings__native [class*="prc-Banner-Banner"][data-variant="warning"],
+.oldgh-settings__native [class*="prc-Banner-Banner"][data-variant="warning"] {
+  border-color: #d8b658;
+  background: rgba(216, 182, 88, 0.12);
+}
+.oldgh-account-settings__native [class*="prc-Banner-Banner"][data-variant="success"],
+.oldgh-settings__native [class*="prc-Banner-Banner"][data-variant="success"] {
+  border-color: var(--gh-btn-primary-border);
+  background: rgba(98, 196, 98, 0.10);
+}
+.oldgh-account-settings__native [class*="prc-Banner-Icon"],
+.oldgh-account-settings__native [class*="prc-Banner-Title"],
+.oldgh-settings__native [class*="prc-Banner-Icon"],
+.oldgh-settings__native [class*="prc-Banner-Title"] {
+  color: inherit;
+}
+
+/* Token / Label pills */
+.oldgh-account-settings__native [class*="prc-Token-Token"],
+.oldgh-account-settings__native [class*="prc-Label-Label"],
+.oldgh-settings__native [class*="prc-Token-Token"],
+.oldgh-settings__native [class*="prc-Label-Label"],
+.oldgh-settings__native .Label {
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  color: var(--gh-fg-muted);
+  padding: 1px 7px;
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+}
+
+/* ActionList / SelectPanel / Overlay dropdown menus */
+.oldgh-account-settings__native [class*="prc-ActionList-ActionList"],
+.oldgh-account-settings__native [class*="prc-Overlay-Overlay"][role="menu"],
+.oldgh-account-settings__native [class*="prc-SelectPanel"],
+.oldgh-settings__native [class*="prc-ActionList-ActionList"],
+.oldgh-settings__native [class*="prc-Overlay-Overlay"][role="menu"],
+.oldgh-settings__native [class*="prc-SelectPanel"] {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+}
+.oldgh-account-settings__native [class*="prc-ActionList-Item"][aria-selected="true"],
+.oldgh-account-settings__native [class*="prc-ActionList-Item"]:hover,
+.oldgh-settings__native [class*="prc-ActionList-Item"][aria-selected="true"],
+.oldgh-settings__native [class*="prc-ActionList-Item"]:hover {
+  background: var(--gh-bg-stripe);
+}
+
+/* Avatar */
+.oldgh-account-settings__native [class*="prc-Avatar-Avatar"],
+.oldgh-settings__native [class*="prc-Avatar-Avatar"] {
+  border: 1px solid var(--gh-border);
+}
+
+/* exposed danger-zone dialog: strip leftover modern overlay chrome */
+.oldgh-account-settings__exposed-dialog [class*="prc-Dialog"],
+.oldgh-account-settings__exposed-dialog [class*="prc-Overlay"] {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* First-party scraped-content polish: kill the remaining modern      */
+/* Primer tells that bleed through any scraped surface. Scoped to the */
+/* five scrape wrappers. All tokenized for light+dark.                */
+/* ════════════════════════════════════════════════════════════════ */
+
+/* native <select> + modern Select/ActionMenu trigger buttons render as
+   unstyled OS controls / hatched chevrons because Primer CSS is blocked.
+   appearance:none + a clean token caret on real selects; gradient-pill the
+   trigger buttons. This is the fix for the hatched Public-email/Pronouns
+   pickers and any scraped dropdown. */
+.oldgh-account-settings__native select,
+.oldgh-settings__native select,
+.oldgh-section__content select,
+.oldgh-issue__subtab select,
+.oldgh-profile__scraped select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--gh-bg-elev) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23777' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-fg) !important;
+  padding: 4px 26px 4px 8px !important;
+  font-size: var(--gh-size-md) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+.oldgh-account-settings__native [class*="prc-Select-"],
+.oldgh-account-settings__native button[aria-haspopup="true"][class*="prc-Button-ButtonBase"],
+.oldgh-settings__native [class*="prc-Select-"],
+.oldgh-settings__native button[aria-haspopup="true"][class*="prc-Button-ButtonBase"],
+.oldgh-section__content [class*="prc-Select-"],
+.oldgh-section__content button[aria-haspopup][class*="prc-Button-ButtonBase"],
+.oldgh-profile__scraped [class*="prc-Select-"],
+.oldgh-profile__scraped button[aria-haspopup][class*="prc-Button-ButtonBase"] {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  background-image: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  border: 1px solid var(--gh-btn-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-btn-fg) !important;
+  box-shadow: var(--gh-shadow-inset) !important;
+  padding: 3px 12px !important;
+  font-weight: normal !important;
+}
+
+/* repo-settings feature checkboxes (.form-checkbox .js-toggler-container) leak
+   the JS-toggled green ✓ / red ✗ octicons because Primer JS never runs. Hide
+   only those status glyphs — the real <input> + label stay. */
+.oldgh-settings__native .js-toggler-container .octicon-check,
+.oldgh-settings__native .js-toggler-container .octicon-x,
+.oldgh-settings__native .js-toggler-container > .text-green,
+.oldgh-settings__native .js-toggler-container > .text-red,
+.oldgh-account-settings__native .js-toggler-container .octicon-check,
+.oldgh-account-settings__native .js-toggler-container .octicon-x {
+  display: none !important;
+}
+
+/* native checkbox/radio across scraped surfaces — tint to the link color */
+.oldgh-section__content input[type="checkbox"],
+.oldgh-section__content input[type="radio"],
+.oldgh-issue__subtab input[type="checkbox"],
+.oldgh-issue__subtab input[type="radio"],
+.oldgh-profile__scraped input[type="checkbox"],
+.oldgh-profile__scraped input[type="radio"] {
+  accent-color: var(--gh-link);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* profile scraped tabs (people/packages/sponsoring/projects fallback) were
+   omitted from the button/counter/input reskin — add them so modern Primer
+   controls don't show through. */
+.oldgh-profile__scraped .btn,
+.oldgh-profile__scraped .Button,
+.oldgh-profile__scraped [class*="prc-Button-ButtonBase"] {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  border: 1px solid var(--gh-btn-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-btn-fg) !important;
+  box-shadow: var(--gh-shadow-inset);
+  padding: 3px 10px !important;
+  font-size: var(--gh-size-md) !important;
+  font-weight: bold;
+}
+.oldgh-profile__scraped .Counter,
+.oldgh-profile__scraped .CounterLabel,
+.oldgh-profile__scraped [class*="prc-CounterLabel"] {
+  background: var(--gh-bg-stripe);
+  border: 1px solid var(--gh-border-faint);
+  border-radius: 10px;
+  color: var(--gh-fg-muted);
+  padding: 1px 7px;
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+}
+.oldgh-profile__scraped .form-control,
+.oldgh-profile__scraped input.FormControl-input,
+.oldgh-profile__scraped textarea {
+  background: var(--gh-bg-elev) !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: var(--gh-radius) !important;
+  color: var(--gh-fg) !important;
+  padding: 4px 8px !important;
+  font-size: var(--gh-size-md) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* modern UnderlineNav draws its active indicator with an orange ::after bar —
+   the single most recognizable modern tell. Kill it, reinstate the 2013 blue
+   underline via box-shadow. */
+.oldgh-section__content .UnderlineNav-item::after,
+.oldgh-issue__subtab .UnderlineNav-item::after,
+.oldgh-profile__scraped .UnderlineNav-item::after,
+.oldgh-account-settings__native .UnderlineNav-item::after,
+.oldgh-settings__native .UnderlineNav-item::after {
+  display: none !important;
+}
+.oldgh-section__content .UnderlineNav-item[aria-current]:not([aria-current="false"]),
+.oldgh-issue__subtab .UnderlineNav-item[aria-current]:not([aria-current="false"]),
+.oldgh-profile__scraped .UnderlineNav-item[aria-current]:not([aria-current="false"]) {
+  box-shadow: inset 0 -2px 0 var(--gh-link) !important;
+  font-weight: bold;
+}
+
+/* Primer empty-state blankslate -> 2013 muted panel */
+.oldgh-section__content .blankslate,
+.oldgh-section__content [class*="prc-Blankslate-Blankslate"],
+.oldgh-issue__subtab .blankslate,
+.oldgh-profile__scraped .blankslate,
+.oldgh-profile__scraped [class*="prc-Blankslate-Blankslate"] {
+  background: var(--gh-bg-subtle) !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: var(--gh-radius) !important;
+  box-shadow: none !important;
+  padding: 32px 16px !important;
+  text-align: center;
+  color: var(--gh-fg-muted);
+}
+.oldgh-section__content .blankslate .octicon,
+.oldgh-section__content [class*="prc-Blankslate"] svg,
+.oldgh-profile__scraped .blankslate .octicon {
+  color: var(--gh-fg-faint) !important;
+  fill: var(--gh-fg-faint) !important;
+}
+
+/* Primer SegmentedControl -> 2013 grouped-button (flat track, raised selected) */
+.oldgh-section__content [class*="prc-SegmentedControl"],
+.oldgh-section__content .SegmentedControl,
+.oldgh-profile__scraped [class*="prc-SegmentedControl"],
+.oldgh-profile__scraped .SegmentedControl {
+  background: var(--gh-bg-stripe) !important;
+  border: 1px solid var(--gh-btn-border) !important;
+  border-radius: var(--gh-radius) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.oldgh-section__content [class*="prc-SegmentedControl"] [aria-current="true"],
+.oldgh-section__content .SegmentedControl-item[aria-current="true"],
+.oldgh-profile__scraped [class*="prc-SegmentedControl"] [aria-current="true"] {
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom)) !important;
+  box-shadow: var(--gh-shadow-inset) !important;
+  font-weight: bold;
+}
+
+/* dead Primer chrome on a static scrape: tooltips need JS to position,
+   spinners are loaders that never resolve — hide them. */
+.oldgh-section__content tool-tip,
+.oldgh-section__content [class*="prc-Tooltip"],
+.oldgh-section__content [class*="prc-Spinner"],
+.oldgh-section__content .Spinner,
+.oldgh-issue__subtab tool-tip,
+.oldgh-issue__subtab [class*="prc-Tooltip"],
+.oldgh-profile__scraped tool-tip,
+.oldgh-profile__scraped [class*="prc-Tooltip"],
+.oldgh-profile__scraped [class*="prc-Spinner"],
+.oldgh-profile__scraped .Spinner {
+  display: none !important;
+}
+
+/* Primer font-size utility classes do nothing (stylesheet blocked), collapsing
+   scraped headings to body size — map them to the 2013 scale. */
+.oldgh-section__content .f1, .oldgh-profile__scraped .f1 { font-size: 26px; font-weight: 300; }
+.oldgh-section__content .f2, .oldgh-profile__scraped .f2 { font-size: 22px; font-weight: 300; }
+.oldgh-section__content .f3, .oldgh-profile__scraped .f3 { font-size: 18px; font-weight: 300; }
+.oldgh-section__content .f4, .oldgh-profile__scraped .f4 { font-size: 16px; }
+.oldgh-section__content .f5, .oldgh-profile__scraped .f5 { font-size: var(--gh-size-lg); }
+.oldgh-section__content .f6, .oldgh-profile__scraped .f6 { font-size: var(--gh-size-sm); color: var(--gh-fg-muted); }
+.oldgh-section__content .text-bold, .oldgh-section__content .text-semibold,
+.oldgh-profile__scraped .text-bold { font-weight: bold; }
+
+/* Timeline / AvatarStack — keep 2013 square avatars + faint rails */
+.oldgh-issue__subtab .TimelineItem,
+.oldgh-section__content .TimelineItem { border: 0; }
+.oldgh-issue__subtab .TimelineItem-badge,
+.oldgh-section__content .TimelineItem-badge {
+  background: var(--gh-bg-stripe) !important;
+  border: 1px solid var(--gh-border) !important;
+  color: var(--gh-fg-muted) !important;
+  box-shadow: none !important;
+}
+.oldgh-issue__subtab [class*="AvatarStack"] img,
+.oldgh-section__content [class*="AvatarStack"] img,
+.oldgh-profile__scraped [class*="AvatarStack"] img {
+  border-radius: 3px !important;
+  box-shadow: 0 0 0 1px var(--gh-bg-elev) !important;
+}
+
+/* Primer ProgressBar / Breadcrumb */
+.oldgh-section__content [class*="prc-ProgressBar"],
+.oldgh-section__content .Progress,
+.oldgh-profile__scraped .Progress {
+  background: var(--gh-bg-stripe) !important;
+  border: 1px solid var(--gh-border-faint) !important;
+  border-radius: 3px !important;
+  height: 8px !important;
+  overflow: hidden;
+}
+.oldgh-section__content [class*="prc-ProgressBar"] > *,
+.oldgh-section__content .Progress-item,
+.oldgh-profile__scraped .Progress-item {
+  background: var(--gh-btn-primary-bg-bottom) !important;
+}
+.oldgh-section__content .breadcrumb-item,
+.oldgh-profile__scraped .breadcrumb-item { color: var(--gh-fg-muted); }
+.oldgh-section__content .breadcrumb-item-selected,
+.oldgh-profile__scraped .breadcrumb-item-selected { color: var(--gh-fg); font-weight: bold; }
+
+/* light-mode: scraped inline color set via a (blocked) Primer CSS var resolves
+   to nothing — force a readable fg only for those var()-based inline colors so
+   literal-hex swatches (language dots) are untouched. */
+.oldgh-section__content [style*="color: var(--fgColor"],
+.oldgh-section__content [style*="color:var(--fgColor"],
+.oldgh-section__content [style*="color: var(--color-fg"],
+.oldgh-issue__subtab [style*="color: var(--fgColor"],
+.oldgh-profile__scraped [style*="color: var(--fgColor"] {
+  color: var(--gh-fg) !important;
+}
+
+/* ─── Dashboard (2013-style news feed) ─────────────────────────── */
+.oldgh-dashboard {
+  max-width: 980px;
+  margin: 20px auto;
+  padding: 0 10px;
+}
+.oldgh-dash__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+.oldgh-dash__main {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+}
+.oldgh-dash__feed-head {
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+.oldgh-dash__feed-head h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--gh-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.oldgh-dash__feed-tabs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0;
+}
+.oldgh-dash__feed-tabs li {
+  margin: 0;
+  padding: 0;
+}
+.oldgh-dash__feed-tabs a {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+  border-bottom: 2px solid transparent;
+  text-decoration: none;
+}
+.oldgh-dash__feed-tabs a:hover {
+  color: var(--gh-fg);
+  text-decoration: none;
+}
+.oldgh-dash__feed-tabs li.is-active a {
+  color: var(--gh-fg);
+  border-bottom-color: var(--gh-link);
+  font-weight: bold;
+}
+.oldgh-dash__feed-tabs .octicon {
+  margin-right: 4px;
+}
+
+.oldgh-dash__feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.oldgh-dash__feed-item {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--gh-border-faint);
+}
+.oldgh-dash__feed-item:last-child {
+  border-bottom: 0;
+}
+.oldgh-dash__feed-icon {
+  flex: 0 0 26px;
+  color: var(--gh-fg-faint);
+  padding-top: 2px;
+  text-align: center;
+}
+.oldgh-dash__feed-body-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.oldgh-dash__feed-headline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.oldgh-dash__feed-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.oldgh-dash__feed-text {
+  color: var(--gh-fg);
+  font-size: var(--gh-size-md);
+}
+.oldgh-dash__feed-actor {
+  font-weight: bold;
+  color: var(--gh-link);
+}
+.oldgh-dash__feed-time {
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-faint);
+  margin-left: auto;
+}
+.oldgh-dash__feed-title {
+  margin: 6px 0 0;
+  font-size: var(--gh-size-lg);
+  font-weight: bold;
+}
+.oldgh-dash__feed-title a {
+  color: var(--gh-fg);
+}
+.oldgh-dash__feed-title a:hover {
+  color: var(--gh-link);
+  text-decoration: underline;
+}
+.oldgh-dash__feed-body {
+  margin: 4px 0 0;
+  font-size: var(--gh-size-md);
+  color: var(--gh-fg-muted);
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.oldgh-dash__feed-body-label {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--gh-border);
+  border-radius: 3px;
+  background: var(--gh-bg-subtle);
+  font-size: var(--gh-size-xs);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gh-fg-muted);
+  line-height: 16px;
+  vertical-align: 1px;
+}
+
+.oldgh-dash__repo-cards {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.oldgh-dash__repo-card {
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  padding: 8px 10px;
+  background: var(--gh-bg-subtle);
+  transition: border-color 100ms ease-out, background-color 100ms ease-out;
+}
+.oldgh-dash__repo-card:hover {
+  background: var(--gh-bg-elev);
+  border-color: var(--gh-border-strong);
+}
+.oldgh-dash__repo-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.oldgh-dash__repo-card-slug {
+  font-weight: bold;
+  font-size: var(--gh-size-md);
+}
+.oldgh-dash__repo-card-stars {
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+}
+.oldgh-dash__repo-card-desc {
+  margin-top: 4px;
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+  line-height: 1.4;
+}
+.oldgh-dash__repo-card-lang {
+  margin-top: 4px;
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+}
+
+/* right rail */
+.oldgh-dash__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.oldgh-dash__box {
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  overflow: hidden;
+}
+.oldgh-dash__box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  background: linear-gradient(to bottom, var(--gh-btn-bg-top), var(--gh-btn-bg-bottom));
+}
+.oldgh-dash__box-head h3 {
+  margin: 0;
+  font-size: var(--gh-size-md);
+  font-weight: bold;
+  color: var(--gh-fg);
+}
+.oldgh-dash__repo-filter {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  background: var(--gh-bg-subtle);
+}
+.oldgh-dash__repo-filter-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: var(--gh-size-sm);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-bg-elev);
+  color: var(--gh-fg);
+  box-sizing: border-box;
+}
+.oldgh-dash__repo-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+.oldgh-dash__repo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: var(--gh-size-md);
+}
+.oldgh-dash__repo-row .octicon {
+  color: var(--gh-fg-faint);
+  flex-shrink: 0;
+}
+.oldgh-dash__repo-row a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oldgh-dash__box-link {
+  font-size: var(--gh-size-sm);
+  color: var(--gh-link);
+}
+
+.oldgh-dash__trending-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+.oldgh-dash__trending-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gh-border-faint);
+  font-size: var(--gh-size-sm);
+}
+.oldgh-dash__trending-row:last-child {
+  border-bottom: 0;
+}
+.oldgh-dash__trending-slug {
+  font-weight: bold;
+  font-size: var(--gh-size-md);
+}
+.oldgh-dash__trending-desc {
+  margin: 2px 0 4px;
+  color: var(--gh-fg-muted);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.oldgh-dash__trending-meta {
+  display: flex;
+  gap: 10px;
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+}
+.oldgh-dash__trending-meta .octicon {
+  vertical-align: middle;
+}
+
+.oldgh-dash__broadcast .oldgh-dash__box-head {
+  background: linear-gradient(to bottom, #fff5b1, #fde994);
+  border-bottom-color: #e6c200;
+  color: #735c0f;
+}
+.oldgh-dash__broadcast .oldgh-dash__box-head h3 {
+  color: #735c0f;
+}
+.oldgh-dash__broadcast-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+.oldgh-dash__broadcast-list li {
+  padding: 4px 12px;
+  font-size: var(--gh-size-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.oldgh-dash__broadcast-list a {
+  color: var(--gh-link);
+  line-height: 1.3;
+}
+.oldgh-dash__broadcast-date {
+  font-size: var(--gh-size-xs);
+  color: var(--gh-fg-faint);
+}
+
+.oldgh-dash__protip {
+  padding: 10px 12px 10px 14px;
+  background: linear-gradient(to right, #fffbe6 0, #fffbe6 4px, var(--gh-bg-elev) 4px);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: var(--gh-shadow-soft);
+  font-size: var(--gh-size-sm);
+  color: var(--gh-fg-muted);
+  line-height: 1.5;
+}
+html[data-oldgh-theme="dark"] .oldgh-dash__protip {
+  background: linear-gradient(to right, #3a2f0e 0, #3a2f0e 4px, var(--gh-bg-elev) 4px);
+}
+.oldgh-dash__protip strong {
+  color: #735c0f;
+  font-weight: bold;
+  margin-right: 2px;
+}
+html[data-oldgh-theme="dark"] .oldgh-dash__protip strong {
+  color: #d4a72c;
+}
+.oldgh-dash__protip kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  margin: 0 1px;
+  font-family: var(--gh-font-mono);
+  font-size: 11px;
+  border: 1px solid var(--gh-border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--gh-bg-subtle);
+  color: var(--gh-fg);
+}
+
+.oldgh-dash__empty,
+.oldgh-dash__empty-row {
+  padding: 24px 14px;
+  color: var(--gh-fg-faint);
+  font-size: var(--gh-size-md);
+  text-align: center;
+}
+.oldgh-dash__empty-row {
+  padding: 12px;
+}
+
+[data-oldgh-theme="dark"] .oldgh-dash__broadcast .oldgh-dash__box-head {
+  background: linear-gradient(to bottom, #5a4a14, #443710);
+  border-bottom-color: #7a6520;
+  color: #f5e6a8;
+}
+[data-oldgh-theme="dark"] .oldgh-dash__broadcast .oldgh-dash__box-head h3 {
+  color: #f5e6a8;
+}
