@@ -191,7 +191,7 @@ function cleanScrapedContent(el: Element): void {
     el.querySelectorAll(sel).forEach((n) => {
       // never strip a hidden node that holds a form/dialog/tabpanel — that's
       // real content GitHub reveals on interaction, not an error stub
-      if (n.matches("dialog, [role='tabpanel']") || n.querySelector("form, button[type='submit'], input[type='submit']")) return;
+      if (n.matches("dialog, [role='tabpanel']") || n.querySelector(`form, ${SUBMIT_BTN_SELECTOR}`)) return;
       n.remove();
     });
   }
@@ -212,7 +212,7 @@ function rewireAccountDialogs(main: HTMLElement): void {
     const hasInnerForm = !!dialog.querySelector("form");
     const hasAncestorForm = !!dialog.closest("form");
     if (!hasInnerForm && !hasAncestorForm) continue;
-    if (!dialog.querySelector('button[type="submit"], input[type="submit"]')) continue;
+    if (!dialog.querySelector(SUBMIT_BTN_SELECTOR)) continue;
     const section = document.createElement("section");
     section.className = "oldgh-account-settings__exposed-dialog";
     while (dialog.firstChild) section.appendChild(dialog.firstChild);

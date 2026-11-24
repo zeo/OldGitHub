@@ -25,6 +25,13 @@ const routedPages = [
   ["/octocat/Hello-World/discussions/7", "", "repo-discussion"],
   ["/octocat/Hello-World/settings/branches", "", "repo-settings"],
   ["/octocat/Hello-World/releases", "", "repo-other"],
+  ["/orgs/google", "", "profile"],
+  ["/orgs/google/repositories", "", "profile"],
+  ["/orgs/google/people", "", "profile"],
+  ["/orgs/google/projects", "", "profile"],
+  ["/orgs/google/packages", "", "profile"],
+  ["/orgs/google/sponsoring", "", "profile"],
+  ["/marketplace", "type=actions", "top-level"],
 ];
 
 test("routes supported pages to their renderer", () => {
@@ -42,15 +49,24 @@ test("keeps interactive and embedded pages native", () => {
     "/mobile",
     "/education",
     "/open-source/sponsors",
+    "/marketplace/actions/checkout",
+    "/orgs/google/settings",
+    "/orgs/google/teams",
+    "/orgs/google/billing",
     "/octocat/Hello-World/issues/new",
+    "/octocat/Hello-World/issues/123abc",
+    "/octocat/Hello-World/milestone/not-a-number",
     "/octocat/Hello-World/compare/main",
     "/octocat/Hello-World/releases/new",
+    "/octocat/Hello-World/raw/main/README.md",
     "/octocat/Hello-World/fork",
     "/octocat/Hello-World/wiki/_edit",
     "/octocat/Hello-World/community/license/new",
     "/octocat/Hello-World/network/dependencies",
     "/octocat/Hello-World/projects/1",
     "/octocat/Hello-World/security/policy",
+    "/octocat/Hello-World/security/dependabot",
+    "/octocat/Hello-World/security/advisories/GHSA-1234",
   ];
   for (const pathname of nativePages) {
     assert.equal(resolveRoute(pathname, "").kind, "out-of-scope", pathname);
@@ -67,8 +83,18 @@ test("preserves route details used by views", () => {
     query: "author=octocat",
   });
   assert.equal(resolveRoute("/octocat", "tab=packages").tab, "packages");
+  assert.equal(resolveRoute("/orgs/google/people", "").tab, "people");
+  assert.equal(resolveRoute("/orgs/google/repositories", "").login, "google");
   assert.equal(resolveRoute("/octocat/Hello-World/pull/42/changes", "").tab, "files");
   assert.equal(resolveRoute("/octocat/Hello-World/actions/workflows/ci.yml", "page=2").workflowPath, "ci.yml");
+  assert.deepEqual(resolveRoute("/octocat/Hello-World/milestone/3", "q=is%3Aopen"), {
+    kind: "repo-issues",
+    owner: "octocat",
+    repo: "Hello-World",
+    query: "q=is%3Aopen&milestone=3",
+    subkind: "issues",
+  });
+  assert.equal(resolveRoute("/octocat/Hello-World/tree/feat/a/b", "").refAndPath, "feat/a/b");
 });
 
 test("decodes wiki page titles once", () => {

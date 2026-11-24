@@ -160,3 +160,31 @@ test("reports the anonymous core quota once it runs out, but not search limits o
   assert.equal(resets.length, 1);
   api.clearRateLimit();
 });
+
+test("isolates search rate-limit bucket from core API calls", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
+  api.clearApiCache();
+  api.clearRateLimit();
+  const reset = Math.ceil(Date.now() / 1000) + 60;
+  let calls = 0;
+  globalThis.fetch = async (url) => {
+    calls++;
+    if (String(url).includes("/search/")) {
+      return new Response(null, {
+        status: 429,
+        headers: { "x-ratelimit-resource": "search", "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+      });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+
+  assert.equal((await api.fetchApi("https://api.github.com/search/repositories?q=test")).status, 429);
+  assert.equal(api.isApiRateLimited("search"), true);
+  assert.equal(api.isApiRateLimited("core"), false);
+
+  const coreResp = await api.fetchApi("https://api.github.com/users/octocat");
+  assert.equal(coreResp.status, 200);
+  assert.equal(calls, 2);
+  api.clearRateLimit();
+});
