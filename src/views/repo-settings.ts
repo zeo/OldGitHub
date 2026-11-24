@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
+import { askDataConfirm, escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-settings";
 
@@ -113,6 +113,7 @@ export async function mountRepoSettings(owner: string, repo: string, subPath: st
     rewireDialogActions(owner, repo, main);
     disableAutosaveToggles(main);
     fillMenuLabels(main);
+    askDataConfirm(main);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-settings__empty">Couldn't load settings: ${escapeText(msg)}</div>`;

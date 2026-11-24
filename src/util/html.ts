@@ -73,3 +73,13 @@ export function cleanScrapedPage(root: Element, extraSelectors: readonly string[
   }
   sanitizeTree(root);
 }
+
+// github asks data-confirm questions from its own js, which never runs on scraped pages
+export function askDataConfirm(root: HTMLElement): void {
+  root.addEventListener("click", (e) => {
+    const control = (e.target as Element | null)?.closest<HTMLElement>("[data-confirm]");
+    if (!control || window.confirm(control.dataset["confirm"] ?? "")) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, { capture: true });
+}

@@ -1,6 +1,6 @@
 import { octicon } from "@/icons";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
+import { askDataConfirm, escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-account-settings";
 
@@ -114,6 +114,12 @@ export async function mountAccountSettings(pathname: string, search: string): Pr
     cleanScrapedContent(native);
     main.innerHTML = `<div class="oldgh-account-settings__native">${native.innerHTML}</div>`;
     rewireAccountDialogs(main);
+    askDataConfirm(main);
+    // the upload runs through github's file-attachment element, so hand it to the native page
+    for (const label of Array.from(main.querySelectorAll<HTMLLabelElement>("label[for='avatar_upload']"))) {
+      label.removeAttribute("for");
+      label.setAttribute("data-oldgh-show-native", "");
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-account-settings__empty">Couldn't load settings: ${escapeText(msg)}</div>`;
@@ -234,7 +240,7 @@ const DESTRUCTIVE = /\b(delete|remove|revoke|disable|reset|regenerate|leave|unli
 function requireSecondClick(section: HTMLElement): void {
   for (const button of Array.from(section.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]'))) {
     const text = (button instanceof HTMLInputElement ? button.value : button.textContent || "").replace(/\s+/g, " ").trim();
-    if (!button.classList.contains("btn-danger") && !DESTRUCTIVE.test(text)) continue;
+    if (button.hasAttribute("data-confirm") || (!button.classList.contains("btn-danger") && !DESTRUCTIVE.test(text))) continue;
     const original = button instanceof HTMLInputElement ? button.value : button.innerHTML;
     const confirmText = `Yes, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
     let timer = 0;

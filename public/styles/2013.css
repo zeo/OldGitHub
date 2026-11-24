@@ -116,8 +116,8 @@
   --gh-focus-glow: 0 0 5px rgba(106, 169, 224, 0.45);
 }
 
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]),
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]) body {
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]),
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body {
   font-family: var(--gh-font-sans);
   font-size: var(--gh-size-md);
   line-height: var(--gh-line);
@@ -128,15 +128,17 @@ html[data-oldgh="active"]:not([data-oldgh-host="gist"]) body {
    and markdown render — native github fragments occasionally measure wider
    than the viewport for a frame before our content swap completes. inner
    scrollable surfaces (pre, table, blob source) keep their own overflow */
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]) body {
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) body {
   overflow-x: clip;
 }
 
-/* on gist subdomain we only theme our own header; the gist body keeps its
-   native typography */
-html[data-oldgh-host="gist"] .oldgh-header {
+/* on gist and on pages handed back to github we only theme our own surfaces;
+   the page body keeps its native typography */
+:where(html[data-oldgh="active"]:not([data-oldgh-mounted]) :is(.oldgh-header, .oldgh-repo-header, .oldgh-hovercard, .oldgh-confirm-overlay, .oldgh-quota-notice)),
+:where(html[data-oldgh-host="gist"] .oldgh-header) {
   font-family: var(--gh-font-sans);
   font-size: var(--gh-size-md);
+  line-height: var(--gh-line);
   color: var(--gh-fg);
 }
 
@@ -144,11 +146,11 @@ html[data-oldgh-host="gist"] .oldgh-header {
    wins automatically. without :where() this rule was 0,3,1 and was beating
    .oldgh-tabs__link / .oldgh-account-settings__sidebar-list li a, painting
    every nav-like surface link-blue in dark mode. */
-:where(html[data-oldgh="active"]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)) {
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)) {
   color: var(--gh-link);
   text-decoration: none;
 }
-:where(html[data-oldgh="active"]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)):hover {
+:where(html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) a:not(.oldgh-btn)):hover {
   text-decoration: underline;
 }
 
@@ -224,9 +226,9 @@ html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) tool-tip {
   display: none !important;
 }
 
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]) code,
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]) pre,
-html[data-oldgh="active"]:not([data-oldgh-host="gist"]) tt {
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) code,
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) pre,
+html[data-oldgh-mounted]:not([data-oldgh-host="gist"]) tt {
   font-family: var(--gh-font-mono);
   font-size: var(--gh-size-sm);
 }
@@ -1922,8 +1924,8 @@ html[data-oldgh-theme="dark"] .oldgh-branch-picker__panel {
 .oldgh-release__body *,
 .oldgh-discussion__body,
 .oldgh-discussion__body *,
-.markdown-body,
-.markdown-body * {
+:where(html[data-oldgh-mounted]) .markdown-body,
+:where(html[data-oldgh-mounted]) .markdown-body * {
   font-family: var(--gh-font-sans);
 }
 .oldgh-repo-home__readme-body code,
@@ -1944,11 +1946,11 @@ html[data-oldgh-theme="dark"] .oldgh-branch-picker__panel {
 .oldgh-release__body pre,
 .oldgh-discussion__body code,
 .oldgh-discussion__body pre,
-.markdown-body code,
-.markdown-body pre,
-.markdown-body kbd,
-.markdown-body tt,
-.markdown-body samp {
+:where(html[data-oldgh-mounted]) .markdown-body code,
+:where(html[data-oldgh-mounted]) .markdown-body pre,
+:where(html[data-oldgh-mounted]) .markdown-body kbd,
+:where(html[data-oldgh-mounted]) .markdown-body tt,
+:where(html[data-oldgh-mounted]) .markdown-body samp {
   font-family: var(--gh-font-mono);
 }
 .oldgh-repo-home__readme-body h1,
@@ -4863,6 +4865,7 @@ html[data-oldgh-theme="dark"] .oldgh-issue__subtab .blob-code-deletion { backgro
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .d-block { display: block; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .d-none { display: none; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column { flex-direction: column; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-wrap { flex-wrap: wrap; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-column-reverse { flex-direction: column-reverse; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-start { align-items: flex-start; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .flex-items-center { align-items: center; }
@@ -4896,6 +4899,21 @@ html[data-oldgh-theme="dark"] .oldgh-issue__subtab .blob-code-deletion { backgro
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .text-bold { font-weight: bold; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .width-full { width: 100%; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .position-relative { position: relative; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .position-absolute { position: absolute; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .left-0 { left: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .bottom-0 { bottom: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .top-0 { top: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .right-0 { right: 0; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .m-1 { margin: 4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .gutter-condensed { margin-right: -4px; margin-left: -4px; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .gutter-condensed > [class*="col-"] { padding-right: 4px; padding-left: 4px; }
+/* col-lg-4 is left out: primer keys it to the viewport, but this column stays narrow at any width */
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .col-6 { width: 50%; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .col-6 img { max-width: 100%; height: auto; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .color-bg-default { background: var(--gh-bg); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .color-fg-default { color: var(--gh-fg); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .rounded-2 { border-radius: var(--gh-radius); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .border { border: 1px solid var(--gh-border); }
 /* file-attachment shows one of these upload errors at a time through scripts that don't run here */
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .upload-state { display: none; }
 :is(.oldgh-settings__native, .oldgh-account-settings__native) .form-checkbox {
@@ -11249,50 +11267,50 @@ html[data-oldgh-theme="dark"] .oldgh-profile__readme .oldgh-profile__section-tit
 /* (profile readme, issue body, wiki body, etc.). Scoped under data-oldgh */
 /* so we don't pollute GitHub's own pages.                               */
 /* ======================= */
-html[data-oldgh="active"] .markdown-body {
+html[data-oldgh-mounted] .markdown-body {
   font-size: var(--gh-size-lg);
   line-height: 1.6;
   color: var(--gh-fg);
   word-wrap: break-word;
 }
-html[data-oldgh="active"] .markdown-body h1,
-html[data-oldgh="active"] .markdown-body h2,
-html[data-oldgh="active"] .markdown-body h3,
-html[data-oldgh="active"] .markdown-body h4,
-html[data-oldgh="active"] .markdown-body h5,
-html[data-oldgh="active"] .markdown-body h6 {
+html[data-oldgh-mounted] .markdown-body h1,
+html[data-oldgh-mounted] .markdown-body h2,
+html[data-oldgh-mounted] .markdown-body h3,
+html[data-oldgh-mounted] .markdown-body h4,
+html[data-oldgh-mounted] .markdown-body h5,
+html[data-oldgh-mounted] .markdown-body h6 {
   margin: 22px 0 12px;
   font-weight: bold;
   line-height: 1.3;
 }
-html[data-oldgh="active"] .markdown-body h1,
-html[data-oldgh="active"] .markdown-body h2 {
+html[data-oldgh-mounted] .markdown-body h1,
+html[data-oldgh-mounted] .markdown-body h2 {
   padding-bottom: 4px;
   border-bottom: 1px solid var(--gh-border-faint);
 }
-html[data-oldgh="active"] .markdown-body h1 { font-size: 28px; }
-html[data-oldgh="active"] .markdown-body h2 { font-size: 22px; }
-html[data-oldgh="active"] .markdown-body h3 { font-size: 18px; }
-html[data-oldgh="active"] .markdown-body h4 { font-size: 16px; }
-html[data-oldgh="active"] .markdown-body h5 { font-size: 14px; }
-html[data-oldgh="active"] .markdown-body h6 { font-size: 13px; color: var(--gh-fg-muted); }
-html[data-oldgh="active"] .markdown-body p {
+html[data-oldgh-mounted] .markdown-body h1 { font-size: 28px; }
+html[data-oldgh-mounted] .markdown-body h2 { font-size: 22px; }
+html[data-oldgh-mounted] .markdown-body h3 { font-size: 18px; }
+html[data-oldgh-mounted] .markdown-body h4 { font-size: 16px; }
+html[data-oldgh-mounted] .markdown-body h5 { font-size: 14px; }
+html[data-oldgh-mounted] .markdown-body h6 { font-size: 13px; color: var(--gh-fg-muted); }
+html[data-oldgh-mounted] .markdown-body p {
   margin: 0 0 14px;
 }
-html[data-oldgh="active"] .markdown-body a {
+html[data-oldgh-mounted] .markdown-body a {
   color: var(--gh-link);
 }
-html[data-oldgh="active"] .markdown-body a:hover {
+html[data-oldgh-mounted] .markdown-body a:hover {
   text-decoration: underline;
 }
-html[data-oldgh="active"] .markdown-body code {
+html[data-oldgh-mounted] .markdown-body code {
   background: var(--gh-bg-subtle);
   padding: 0.15em 0.35em;
   border-radius: var(--gh-radius);
   font-family: var(--gh-font-mono);
   font-size: 0.92em;
 }
-html[data-oldgh="active"] .markdown-body pre {
+html[data-oldgh-mounted] .markdown-body pre {
   background: var(--gh-bg-subtle);
   padding: 12px 14px;
   border-radius: var(--gh-radius);
@@ -11302,31 +11320,31 @@ html[data-oldgh="active"] .markdown-body pre {
   line-height: 1.45;
   margin: 0 0 14px;
 }
-html[data-oldgh="active"] .markdown-body pre code {
+html[data-oldgh-mounted] .markdown-body pre code {
   background: transparent;
   padding: 0;
   border-radius: 0;
   font-size: inherit;
 }
-html[data-oldgh="active"] .markdown-body blockquote {
+html[data-oldgh-mounted] .markdown-body blockquote {
   margin: 0 0 14px;
   padding: 0 14px;
   border-left: 4px solid var(--gh-border);
   color: var(--gh-fg-muted);
 }
-html[data-oldgh="active"] .markdown-body ul,
-html[data-oldgh="active"] .markdown-body ol {
+html[data-oldgh-mounted] .markdown-body ul,
+html[data-oldgh-mounted] .markdown-body ol {
   padding-left: 28px;
   margin: 0 0 14px;
 }
-html[data-oldgh="active"] .markdown-body li + li {
+html[data-oldgh-mounted] .markdown-body li + li {
   margin-top: 4px;
 }
-html[data-oldgh="active"] .markdown-body img {
+html[data-oldgh-mounted] .markdown-body img {
   max-width: 100%;
   height: auto;
 }
-html[data-oldgh="active"] .markdown-body table {
+html[data-oldgh-mounted] .markdown-body table {
   border-collapse: collapse;
   margin: 0 0 14px;
   display: block;
@@ -11334,22 +11352,22 @@ html[data-oldgh="active"] .markdown-body table {
   max-width: 100%;
   overflow-x: auto;
 }
-html[data-oldgh="active"] .markdown-body table th,
-html[data-oldgh="active"] .markdown-body table td {
+html[data-oldgh-mounted] .markdown-body table th,
+html[data-oldgh-mounted] .markdown-body table td {
   border: 1px solid var(--gh-border);
   padding: 6px 12px;
 }
-html[data-oldgh="active"] .markdown-body table th {
+html[data-oldgh-mounted] .markdown-body table th {
   background: var(--gh-bg-subtle);
   font-weight: bold;
 }
-html[data-oldgh="active"] .markdown-body table tr:nth-child(2n) td {
+html[data-oldgh-mounted] .markdown-body table tr:nth-child(2n) td {
   background: var(--gh-bg-subtle);
 }
-html[data-oldgh="active"] .markdown-body .markdown-heading {
+html[data-oldgh-mounted] .markdown-body .markdown-heading {
   position: relative;
 }
-html[data-oldgh="active"] .markdown-body .markdown-heading .anchor {
+html[data-oldgh-mounted] .markdown-body .markdown-heading .anchor {
   position: absolute;
   top: 50%;
   left: -18px;
@@ -11358,26 +11376,26 @@ html[data-oldgh="active"] .markdown-body .markdown-heading .anchor {
   color: var(--gh-fg-muted);
   opacity: 0;
 }
-html[data-oldgh="active"] .markdown-body .markdown-heading:hover .anchor,
-html[data-oldgh="active"] .markdown-body .markdown-heading .anchor:focus {
+html[data-oldgh-mounted] .markdown-body .markdown-heading:hover .anchor,
+html[data-oldgh-mounted] .markdown-body .markdown-heading .anchor:focus {
   opacity: 1;
   text-decoration: none;
 }
-html[data-oldgh="active"] .markdown-body .task-list-item {
+html[data-oldgh-mounted] .markdown-body .task-list-item {
   list-style-type: none;
 }
-html[data-oldgh="active"] .markdown-body .task-list-item-checkbox {
+html[data-oldgh-mounted] .markdown-body .task-list-item-checkbox {
   margin: 0 0.2em 0.25em -1.4em;
   vertical-align: middle;
 }
-html[data-oldgh="active"] .markdown-body hr {
+html[data-oldgh-mounted] .markdown-body hr {
   height: 4px;
   padding: 0;
   margin: 18px 0;
   background: var(--gh-border);
   border: 0;
 }
-html[data-oldgh="active"] .markdown-body kbd {
+html[data-oldgh-mounted] .markdown-body kbd {
   display: inline-block;
   padding: 2px 5px;
   font-family: var(--gh-font-mono);
@@ -11751,6 +11769,97 @@ html[data-oldgh-theme="dark"] .oldgh-account-settings__native .Button {
   border-radius: var(--gh-radius);
   box-shadow: var(--gh-shadow-soft);
 }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) [popover],
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-modal {
+  min-width: 220px;
+  max-width: 320px;
+  padding: 0;
+  color: var(--gh-fg);
+  background: var(--gh-bg-elev);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+/* github's anchored-position script never runs, so pin the popover to its popovertarget button */
+@supports (position-area: block-end) {
+  :is(.oldgh-settings__native, .oldgh-account-settings__native) [popover] {
+    inset: auto;
+    margin: 4px 0 0;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+  }
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .details-reset > summary { list-style: none; cursor: pointer; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .details-reset > summary::-webkit-details-marker { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.select-menu, .dropdown) { position: relative; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown > .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown-menu .dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 4px 12px;
+  color: var(--gh-fg);
+  font: inherit;
+  font-size: var(--gh-size-sm);
+  font-weight: normal;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .dropdown-menu .dropdown-item:hover {
+  color: #fff;
+  text-decoration: none;
+  background: var(--gh-link);
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-modal {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListWrap {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListItem, .select-menu-item) + :is(.ActionListItem, .select-menu-item) {
+  border-top: 1px solid var(--gh-border-faint);
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListContent, label.select-menu-item) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  color: inherit;
+  font: inherit;
+  font-size: var(--gh-size-sm);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListContent:hover { background: var(--gh-bg-subtle); }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-item:has(input:disabled) { cursor: default; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .select-menu-item input { display: none; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) :is(.ActionListContent, .select-menu-item)[aria-checked="false"] > :is(.ActionListItem-visual, svg) { visibility: hidden; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-descriptionWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-label { font-weight: bold; }
+:is(.oldgh-settings__native, .oldgh-account-settings__native) .ActionListItem-description { color: var(--gh-fg-muted); font-weight: normal; }
 
 /* Repo Settings */
 .oldgh-repo-settings { padding-top: 14px; padding-bottom: 60px; }
@@ -11993,16 +12102,16 @@ html[data-oldgh-theme="dark"] .oldgh-settings__native .Button {
 /* GitHub-flavored markdown alert blocks                                  */
 /* > [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION] in markdown */
 /* ====================================================================== */
-.markdown-alert {
+:where(html[data-oldgh-mounted]) .markdown-alert {
   padding: 10px 14px;
   margin: 12px 0;
   border-left: 4px solid var(--gh-border-strong, var(--gh-border));
   border-radius: 0 var(--gh-radius) var(--gh-radius) 0;
   background: var(--gh-bg-stripe);
 }
-.markdown-alert > :first-child { margin-top: 0; }
-.markdown-alert > :last-child { margin-bottom: 0; }
-.markdown-alert .markdown-alert-title {
+:where(html[data-oldgh-mounted]) .markdown-alert > :first-child { margin-top: 0; }
+:where(html[data-oldgh-mounted]) .markdown-alert > :last-child { margin-bottom: 0; }
+:where(html[data-oldgh-mounted]) .markdown-alert .markdown-alert-title {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -12011,90 +12120,90 @@ html[data-oldgh-theme="dark"] .oldgh-settings__native .Button {
   font-size: var(--gh-size-md);
   line-height: 1.25;
 }
-.markdown-alert .markdown-alert-title .octicon { vertical-align: middle; }
-.markdown-alert p { margin-top: 4px; margin-bottom: 4px; }
+:where(html[data-oldgh-mounted]) .markdown-alert .markdown-alert-title .octicon { vertical-align: middle; }
+:where(html[data-oldgh-mounted]) .markdown-alert p { margin-top: 4px; margin-bottom: 4px; }
 
 /* GFM alerts retinted to 2013 functional hues (translucent fills read on
    both themes; border/title use the period tokens). */
-.markdown-alert-note {
+:where(html[data-oldgh-mounted]) .markdown-alert-note {
   border-left-color: var(--gh-link);
   background: rgba(65, 131, 196, 0.08);
 }
-.markdown-alert-note .markdown-alert-title { color: var(--gh-link); }
-.markdown-alert-tip {
+:where(html[data-oldgh-mounted]) .markdown-alert-note .markdown-alert-title { color: var(--gh-link); }
+:where(html[data-oldgh-mounted]) .markdown-alert-tip {
   border-left-color: var(--gh-state-open);
   background: rgba(108, 198, 68, 0.10);
 }
-.markdown-alert-tip .markdown-alert-title { color: var(--gh-state-open); }
-.markdown-alert-important {
+:where(html[data-oldgh-mounted]) .markdown-alert-tip .markdown-alert-title { color: var(--gh-state-open); }
+:where(html[data-oldgh-mounted]) .markdown-alert-important {
   border-left-color: var(--gh-state-merged);
   background: rgba(110, 84, 148, 0.12);
 }
-.markdown-alert-important .markdown-alert-title { color: var(--gh-state-merged); }
-.markdown-alert-warning {
+:where(html[data-oldgh-mounted]) .markdown-alert-important .markdown-alert-title { color: var(--gh-state-merged); }
+:where(html[data-oldgh-mounted]) .markdown-alert-warning {
   border-left-color: #b08800;
   background: rgba(176, 136, 0, 0.10);
 }
-.markdown-alert-warning .markdown-alert-title { color: #b08800; }
-.markdown-alert-caution {
+:where(html[data-oldgh-mounted]) .markdown-alert-warning .markdown-alert-title { color: #b08800; }
+:where(html[data-oldgh-mounted]) .markdown-alert-caution {
   border-left-color: var(--gh-state-closed);
   background: rgba(189, 44, 0, 0.08);
 }
-.markdown-alert-caution .markdown-alert-title { color: var(--gh-state-closed); }
+:where(html[data-oldgh-mounted]) .markdown-alert-caution .markdown-alert-title { color: var(--gh-state-closed); }
 
 /* github primer syntax classes (readme/markdown source) — mapped to the
    authentic 2013 pygments github.css palette so they match the .oldgh-hljs
    blob highlighter exactly instead of the modern 2020 Primer palette. */
-html[data-oldgh="active"] .pl-c    { color: #998; font-style: italic; }
-html[data-oldgh="active"] .pl-k    { color: #000; font-weight: bold; }
-html[data-oldgh="active"] .pl-s    { color: #d14; }
-html[data-oldgh="active"] .pl-s1   { color: var(--gh-fg); }
-html[data-oldgh="active"] .pl-c1   { color: #099; }
-html[data-oldgh="active"] .pl-v    { color: #008080; }
-html[data-oldgh="active"] .pl-en   { color: #900; font-weight: bold; }
-html[data-oldgh="active"] .pl-e    { color: #900; }
-html[data-oldgh="active"] .pl-smi  { color: var(--gh-fg); }
-html[data-oldgh="active"] .pl-pds  { color: #d14; }
-html[data-oldgh="active"] .pl-cn   { color: #099; }
-html[data-oldgh="active"] .pl-ent  { color: #008080; }
-html[data-oldgh="active"] .pl-mh,
-html[data-oldgh="active"] .pl-mh .pl-en,
-html[data-oldgh="active"] .pl-ms   { font-weight: bold; color: #900; }
-html[data-oldgh="active"] .pl-mi   { font-style: italic; color: var(--gh-fg); }
-html[data-oldgh="active"] .pl-mb   { font-weight: bold; color: var(--gh-fg); }
-html[data-oldgh="active"] .pl-md   { color: #8a1a08; background-color: #ffeef0; }
-html[data-oldgh="active"] .pl-mi1  { color: #2e7212; background-color: #e6ffed; }
-html[data-oldgh="active"] .pl-mc   { color: #953800; background-color: #ffeebb; }
-html[data-oldgh="active"] .pl-mdr  { font-weight: bold; color: #900; }
-html[data-oldgh="active"] .pl-ba   { color: var(--gh-fg-muted); }
-html[data-oldgh="active"] .pl-sg   { color: var(--gh-fg-faint); }
-html[data-oldgh="active"] .pl-corl { text-decoration: underline; color: #d14; }
-html[data-oldgh="active"] .pl-kos  { color: inherit; }
+html[data-oldgh-mounted] .pl-c    { color: #998; font-style: italic; }
+html[data-oldgh-mounted] .pl-k    { color: #000; font-weight: bold; }
+html[data-oldgh-mounted] .pl-s    { color: #d14; }
+html[data-oldgh-mounted] .pl-s1   { color: var(--gh-fg); }
+html[data-oldgh-mounted] .pl-c1   { color: #099; }
+html[data-oldgh-mounted] .pl-v    { color: #008080; }
+html[data-oldgh-mounted] .pl-en   { color: #900; font-weight: bold; }
+html[data-oldgh-mounted] .pl-e    { color: #900; }
+html[data-oldgh-mounted] .pl-smi  { color: var(--gh-fg); }
+html[data-oldgh-mounted] .pl-pds  { color: #d14; }
+html[data-oldgh-mounted] .pl-cn   { color: #099; }
+html[data-oldgh-mounted] .pl-ent  { color: #008080; }
+html[data-oldgh-mounted] .pl-mh,
+html[data-oldgh-mounted] .pl-mh .pl-en,
+html[data-oldgh-mounted] .pl-ms   { font-weight: bold; color: #900; }
+html[data-oldgh-mounted] .pl-mi   { font-style: italic; color: var(--gh-fg); }
+html[data-oldgh-mounted] .pl-mb   { font-weight: bold; color: var(--gh-fg); }
+html[data-oldgh-mounted] .pl-md   { color: #8a1a08; background-color: #ffeef0; }
+html[data-oldgh-mounted] .pl-mi1  { color: #2e7212; background-color: #e6ffed; }
+html[data-oldgh-mounted] .pl-mc   { color: #953800; background-color: #ffeebb; }
+html[data-oldgh-mounted] .pl-mdr  { font-weight: bold; color: #900; }
+html[data-oldgh-mounted] .pl-ba   { color: var(--gh-fg-muted); }
+html[data-oldgh-mounted] .pl-sg   { color: var(--gh-fg-faint); }
+html[data-oldgh-mounted] .pl-corl { text-decoration: underline; color: #d14; }
+html[data-oldgh-mounted] .pl-kos  { color: inherit; }
 
-html[data-oldgh-theme="dark"] .pl-c    { color: #8b949e; }
-html[data-oldgh-theme="dark"] .pl-k    { color: #ff7b72; font-weight: normal; }
-html[data-oldgh-theme="dark"] .pl-s    { color: #a5d6ff; }
-html[data-oldgh-theme="dark"] .pl-s1   { color: #c9d1d9; }
-html[data-oldgh-theme="dark"] .pl-c1   { color: #79c0ff; }
-html[data-oldgh-theme="dark"] .pl-v    { color: #ffa657; }
-html[data-oldgh-theme="dark"] .pl-en   { color: #d2a8ff; }
-html[data-oldgh-theme="dark"] .pl-e    { color: #d2a8ff; }
-html[data-oldgh-theme="dark"] .pl-smi  { color: #c9d1d9; }
-html[data-oldgh-theme="dark"] .pl-pds  { color: #a5d6ff; }
-html[data-oldgh-theme="dark"] .pl-cn   { color: #79c0ff; }
-html[data-oldgh-theme="dark"] .pl-ent  { color: #7ee787; }
-html[data-oldgh-theme="dark"] .pl-mh,
-html[data-oldgh-theme="dark"] .pl-mh .pl-en,
-html[data-oldgh-theme="dark"] .pl-ms   { color: #79c0ff; }
-html[data-oldgh-theme="dark"] .pl-mi   { color: #c9d1d9; }
-html[data-oldgh-theme="dark"] .pl-mb   { color: #c9d1d9; }
-html[data-oldgh-theme="dark"] .pl-md   { color: #ffdcd7; background-color: #67060c; }
-html[data-oldgh-theme="dark"] .pl-mi1  { color: #aff5b4; background-color: #033a16; }
-html[data-oldgh-theme="dark"] .pl-mc   { color: #ffdfb6; background-color: #5a1e02; }
-html[data-oldgh-theme="dark"] .pl-mdr  { color: #d2a8ff; }
-html[data-oldgh-theme="dark"] .pl-ba   { color: #8b949e; }
-html[data-oldgh-theme="dark"] .pl-sg   { color: #484f58; }
-html[data-oldgh-theme="dark"] .pl-corl { color: #a5d6ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-c    { color: #8b949e; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-k    { color: #ff7b72; font-weight: normal; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-s    { color: #a5d6ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-s1   { color: #c9d1d9; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-c1   { color: #79c0ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-v    { color: #ffa657; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-en   { color: #d2a8ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-e    { color: #d2a8ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-smi  { color: #c9d1d9; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-pds  { color: #a5d6ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-cn   { color: #79c0ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-ent  { color: #7ee787; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mh,
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mh .pl-en,
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-ms   { color: #79c0ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mi   { color: #c9d1d9; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mb   { color: #c9d1d9; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-md   { color: #ffdcd7; background-color: #67060c; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mi1  { color: #aff5b4; background-color: #033a16; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mc   { color: #ffdfb6; background-color: #5a1e02; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-mdr  { color: #d2a8ff; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-ba   { color: #8b949e; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-sg   { color: #484f58; }
+html[data-oldgh-mounted][data-oldgh-theme="dark"] .pl-corl { color: #a5d6ff; }
 
 /* native confirm dialog (replaces broken dialog-helper actions in settings) */
 .oldgh-confirm-overlay {
@@ -12227,11 +12336,11 @@ html[data-oldgh-theme="dark"] .oldgh-account-settings__exposed-dialog {
 /* ============================================================ */
 
 /* GitHub blue for text selection — pinned, not user-agent default */
-html[data-oldgh="active"] ::selection {
+html[data-oldgh-mounted] ::selection {
   background: var(--gh-link);
   color: #fff;
 }
-html[data-oldgh="active"] ::-moz-selection {
+html[data-oldgh-mounted] ::-moz-selection {
   background: var(--gh-link);
   color: #fff;
 }
@@ -12398,13 +12507,13 @@ html[data-oldgh="active"] .oldgh-repo-header__action-count:focus-visible {
   border-color: var(--gh-link);
 }
 
-html[data-oldgh="active"] input[type="text"]:focus-visible,
-html[data-oldgh="active"] input[type="search"]:focus-visible,
-html[data-oldgh="active"] input[type="email"]:focus-visible,
-html[data-oldgh="active"] input[type="url"]:focus-visible,
-html[data-oldgh="active"] input[type="password"]:focus-visible,
-html[data-oldgh="active"] textarea:focus-visible,
-html[data-oldgh="active"] select:focus-visible {
+html[data-oldgh-mounted] input[type="text"]:focus-visible,
+html[data-oldgh-mounted] input[type="search"]:focus-visible,
+html[data-oldgh-mounted] input[type="email"]:focus-visible,
+html[data-oldgh-mounted] input[type="url"]:focus-visible,
+html[data-oldgh-mounted] input[type="password"]:focus-visible,
+html[data-oldgh-mounted] textarea:focus-visible,
+html[data-oldgh-mounted] select:focus-visible {
   outline: none;
   border-color: var(--gh-focus);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075), var(--gh-focus-glow);
@@ -12429,7 +12538,7 @@ html[data-oldgh="active"] .oldgh-branch-picker__list li a:focus-visible {
 }
 
 /* link focus — subtle underline + halo, only on keyboard nav */
-html[data-oldgh="active"] a:focus-visible {
+html[data-oldgh-mounted] a:focus-visible {
   outline: none;
   text-decoration: underline;
   box-shadow: 0 0 0 2px rgba(65, 131, 196, 0.28);
