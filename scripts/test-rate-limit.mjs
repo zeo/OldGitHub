@@ -1,14 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-import ts from "typescript";
 
-const source = await readFile(new URL("../src/adapters/rate-limit.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-});
 const store = {};
 const listeners = [];
+const prevChrome = globalThis.chrome;
 globalThis.chrome = {
   storage: {
     local: {
@@ -21,9 +16,17 @@ globalThis.chrome = {
     onChanged: { addListener: (l) => listeners.push(l) },
   },
 };
-const api = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`);
 
-test("deduplicates concurrent requests and caches successful responses", async () => {
+const api = await import("../src/adapters/rate-limit.ts");
+
+test.after(() => {
+  if (prevChrome === undefined) delete globalThis.chrome;
+  else globalThis.chrome = prevChrome;
+});
+
+test("deduplicates concurrent requests and caches successful responses", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   api.clearApiCache();
   api.clearRateLimit();
   let calls = 0;
@@ -44,7 +47,9 @@ test("deduplicates concurrent requests and caches successful responses", async (
   assert.deepEqual(await third.json(), { call: 1 });
 });
 
-test("blocks locally until GitHub's reset time", async () => {
+test("blocks locally until GitHub's reset time", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   api.clearApiCache();
   api.clearRateLimit();
   let calls = 0;
@@ -64,7 +69,9 @@ test("blocks locally until GitHub's reset time", async () => {
   assert.equal(api.isApiRateLimited(), true);
 });
 
-test("serves cached data after the final allowed request", async () => {
+test("serves cached data after the final allowed request", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   api.clearApiCache();
   api.clearRateLimit();
   let calls = 0;
@@ -82,7 +89,9 @@ test("serves cached data after the final allowed request", async () => {
   assert.equal(calls, 1);
 });
 
-test("does not cache 202 accepted responses", async () => {
+test("does not cache 202 accepted responses", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   api.clearApiCache();
   api.clearRateLimit();
   let calls = 0;
@@ -96,7 +105,9 @@ test("does not cache 202 accepted responses", async () => {
   assert.equal(calls, 2);
 });
 
-test("sends the saved token only to api.github.com and drops it after a 401", async () => {
+test("sends the saved token only to api.github.com and drops it after a 401", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   api.clearRateLimit();
   await chrome.storage.local.set({ apiToken: "tok", apiTokenInvalid: false });
   const seen = [];
@@ -120,7 +131,9 @@ test("sends the saved token only to api.github.com and drops it after a 401", as
   assert.deepEqual(seen, [["https://api.github.com/users/hubot", null]]);
 });
 
-test("reports the anonymous core quota once it runs out, but not search limits or token users", async () => {
+test("reports the anonymous core quota once it runs out, but not search limits or token users", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   await chrome.storage.local.set({ apiToken: "" });
   const resets = [];
   api.onAnonymousQuotaUsed((at) => resets.push(at));

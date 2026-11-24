@@ -14,7 +14,9 @@ const comment = (id, extra) => ({
   ...extra,
 });
 
-test("groups replies under the comment that started the thread", async () => {
+test("groups replies under the comment that started the thread", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   globalThis.fetch = async () => Response.json([
     comment(1, { line: 2 }),
     comment(2, { line: null, side: "LEFT", path: "src/b.ts", pull_request_review_id: 8 }),

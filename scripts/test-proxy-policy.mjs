@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-import ts from "typescript";
-
-const source = await readFile(new URL("../src/background/proxy-policy.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-});
-const policy = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`);
+import * as policy from "../src/background/proxy-policy.ts";
 
 test("allows only raw GitHub file requests", () => {
   assert.equal(

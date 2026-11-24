@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-import ts from "typescript";
-
-const source = await readFile(new URL("../src/router/resolve.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-});
-const resolver = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`);
-const { isFullyCoveredUrl, resolveRoute } = resolver;
+import { isFullyCoveredUrl, resolveRoute } from "../src/router/resolve.ts";
 
 const routedPages = [
   ["/", "", "top-level"],

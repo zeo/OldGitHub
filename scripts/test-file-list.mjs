@@ -4,7 +4,9 @@ import { getFileList } from "../src/adapters/repo-files.ts";
 
 const page = (oid) => `<script type="application/json">{"refInfo":{"name":"feature/x","listCacheKey":"v0:1","currentOid":"${oid}"}}</script>`;
 
-test("reads the ref from the code page and the paths from tree-list", async () => {
+test("reads the ref from the code page and the paths from tree-list", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   const seen = [];
   globalThis.fetch = async (url) => {
     seen.push(url);
@@ -16,7 +18,9 @@ test("reads the ref from the code page and the paths from tree-list", async () =
   assert.deepEqual(seen, ["https://github.com/octo/hello/tree/feature/x/src", `https://github.com/octo/hello/tree-list/${"1".repeat(40)}`]);
 });
 
-test("falls back to the git trees api when tree-list fails", async () => {
+test("falls back to the git trees api when tree-list fails", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   globalThis.fetch = async (url) => {
     if (url.includes("/tree-list/")) return new Response("{}", { status: 404 });
     if (url.startsWith("https://api.github.com/")) {
@@ -28,7 +32,9 @@ test("falls back to the git trees api when tree-list fails", async () => {
   assert.deepEqual(files.paths, ["src/x.ts"]);
 });
 
-test("reports a page without refInfo", async () => {
+test("reports a page without refInfo", async (t) => {
+  const prevFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = prevFetch; });
   globalThis.fetch = async () => new Response("<html></html>");
   await assert.rejects(getFileList("octo", "hello", "/octo/hello/tree/main"), /no refInfo/);
 });

@@ -20,7 +20,8 @@
     "build": "vite build",
     "lint": "oxlint src scripts",
     "pack": "npm run typecheck && npm run lint && npm test && npm run build && node scripts/pack.mjs",
-    "test": "node scripts/test.mjs",
+    "test": "node --import ./scripts/register-ts.mjs --test \"scripts/test-*.mjs\"",
+    "test:watch": "node --import ./scripts/register-ts.mjs --test --watch \"scripts/test-*.mjs\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
