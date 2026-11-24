@@ -23,7 +23,7 @@ export async function mountRepoIssues(
 }
 
 function renderShell(v: IssueListView, kind: "issues" | "pulls"): string {
-  const showsClosed = /\bis:closed\b/i.test(v.query);
+  const showsClosed = /\b(?:is|state):closed\b/i.test(v.query) || new URLSearchParams(v.rawQuery).get("state") === "closed";
   const basePath = `/${v.owner}/${v.repo}/${kind}`;
   const openHref = `${basePath}?q=${encodeURIComponent(buildSwappedQuery(v.query, "open"))}`;
   const closedHref = `${basePath}?q=${encodeURIComponent(buildSwappedQuery(v.query, "closed"))}`;
@@ -150,7 +150,7 @@ function renderPagination(v: IssueListView, kind: "issues" | "pulls"): string {
   if (!v.pageInfo.hasNext && !v.pageInfo.hasPrevious) return "";
   const url = new URL(`https://github.com/${v.owner}/${v.repo}/${kind}`);
   const params = new URLSearchParams(v.rawQuery);
-  const current = parseInt(params.get("page") || "1", 10);
+  const current = v.pageInfo.page || parseInt(params.get("page") || "1", 10) || 1;
   const prev = makePageUrl(url, params, Math.max(1, current - 1));
   const next = makePageUrl(url, params, current + 1);
   const prevBtn = v.pageInfo.hasPrevious

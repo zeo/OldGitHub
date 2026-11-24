@@ -2,6 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoSummary, formatCount, type RepoSummary } from "@/adapters/repo";
 import { isCurrentNavigation, navigationToken } from "./_body";
 import { escapeAttr, escapeText } from "@/util/html";
+import { copyToClipboard } from "@/util/clipboard";
 import { isLoggedIn } from "@/auth/session";
 import { getRepoSocial, setStarred, setWatchMode, type RepoSocial, type WatchMode } from "@/adapters/social";
 
@@ -48,6 +49,7 @@ export async function mountRepoHeader(owner: string, repo: string, prefetched?: 
   header.className = ROOT_CLASS;
   header.dataset.oldghOwner = owner;
   header.dataset.oldghRepo = repo;
+  header.dataset.oldghPrivate = summary?.isPrivate ? "true" : "false";
   const active = currentNavKey(owner, repo, window.location.pathname);
   header.innerHTML = summary
     ? renderRepoHeaderHtml(summary, active)
@@ -95,6 +97,7 @@ function renderMinimalHeader(owner: string, repo: string, active: NavKey | null)
     hasWiki: true,
     hasProjects: true,
     hasDiscussions: false,
+    hasSettings: canSeeSettings(owner, repo),
   };
   return renderRepoHeaderHtml(minimal, active);
 }
@@ -316,12 +319,14 @@ function bindWatch(slot: HTMLElement, owner: string, repo: string, social: RepoS
   };
   slot.querySelector(".oldgh-repo-header__action-btn")?.replaceWith(menu);
   paint();
+  let watchInFlight = false;
   menu.addEventListener("click", async (event) => {
     const mode = (event.target as Element).closest<HTMLElement>("[data-watch-mode]")?.dataset["watchMode"] as WatchMode | undefined;
-    if (!mode) return;
+    if (!mode || watchInFlight) return;
     menu.open = false;
     const previous = social.watch;
     if (mode === previous) return;
+    watchInFlight = true;
     social.watch = mode;
     paint();
     try {
@@ -329,6 +334,8 @@ function bindWatch(slot: HTMLElement, owner: string, repo: string, social: RepoS
     } catch (err) {
       social.watch = previous;
       paint(`Couldn't change watching: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      watchInFlight = false;
     }
   });
 }
@@ -351,7 +358,7 @@ function isNavItemAvailable(s: RepoSummary, key: NavKey): boolean {
     case "discussions": return s.hasDiscussions;
     case "wiki": return s.hasWiki;
     case "projects": return s.hasProjects;
-    case "settings": return canSeeSettings(s.owner, s.repo);
+    case "settings": return s.hasSettings || canSeeSettings(s.owner, s.repo);
     default: return true;
   }
 }
@@ -443,24 +450,11 @@ function bindRepoHeader(header: HTMLElement): void {
 
     const copy = target?.closest<HTMLButtonElement>("[data-clone-copy]");
     if (!copy || !input) return;
-    void copyCloneUrl(copy, input);
+    void copyToClipboard(input.value, copy, () => {
+      input.focus();
+      input.select();
+    });
   });
-}
-
-async function copyCloneUrl(button: HTMLButtonElement, input: HTMLInputElement): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(input.value);
-    const previous = button.innerHTML;
-    button.innerHTML = octicon("check", { size: 14 });
-    button.classList.add("is-copied");
-    window.setTimeout(() => {
-      button.innerHTML = previous;
-      button.classList.remove("is-copied");
-    }, 1200);
-  } catch {
-    input.focus();
-    input.select();
-  }
 }
 
 function setNavigationMode(owner: string, repo: string, pathname: string): void {

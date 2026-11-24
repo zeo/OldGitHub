@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoTree, type RepoTreeView } from "@/adapters/repo-overview";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-tree";
 
@@ -53,7 +53,7 @@ function renderBreadcrumb(v: RepoTreeView): string {
     if (i === parts.length - 1) {
       pieces.push(`<span class="oldgh-breadcrumb__seg oldgh-breadcrumb__seg--current">${escapeText(seg)}</span>`);
     } else {
-      const href = `/${v.owner}/${v.repo}/tree/${encodeURIComponent(v.branch)}/${acc.split("/").map(encodeURIComponent).join("/")}`;
+      const href = `/${escapeAttr(v.owner)}/${escapeAttr(v.repo)}/tree/${encodePathSegments(v.branch)}/${encodePathSegments(acc)}`;
       pieces.push(`<a class="oldgh-breadcrumb__seg" href="${escapeAttr(href)}">${escapeText(seg)}</a>`);
     }
   }

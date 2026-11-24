@@ -1,6 +1,7 @@
 import { octicon } from "@/icons";
 import { getWiki, type WikiView } from "@/adapters/repo-wiki";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { copyToClipboard } from "@/util/clipboard";
 import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-wiki";
@@ -22,11 +23,7 @@ function bindCloneCopy(root: HTMLElement): void {
   btn.addEventListener("click", () => {
     const text = btn.dataset["copy"];
     if (!text) return;
-    void navigator.clipboard.writeText(text).then(() => {
-      const prev = btn.innerHTML;
-      btn.innerHTML = octicon("check", { size: 14 });
-      window.setTimeout(() => { btn.innerHTML = prev; }, 1200);
-    });
+    void copyToClipboard(text, btn);
   });
 }
 

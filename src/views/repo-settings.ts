@@ -131,7 +131,8 @@ function rewireDialogActions(owner: string, repo: string, main: HTMLElement): vo
     const target = dialog.getAttribute("data-new-visibility");
     if (!target) continue;
     const button = findVisibilityTrigger(dialog);
-    if (!button) continue;
+    if (!button || button.dataset["oldghBound"]) continue;
+    button.dataset["oldghBound"] = "1";
     button.addEventListener("click", (e) => {
       e.preventDefault();
       void confirmVisibilityChange(owner, repo, target, main);

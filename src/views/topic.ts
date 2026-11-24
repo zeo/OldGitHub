@@ -5,6 +5,7 @@ import { AdapterFailure } from "@/adapters";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { navigate } from "@/router";
 import { escapeAttr, escapeText } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-topic";
@@ -226,8 +227,6 @@ function bindSort(root: HTMLElement): void {
       params.set("s", value);
       params.set("o", "desc");
     }
-    const href = `${window.location.pathname}?${params.toString()}`;
-    history.pushState({}, "", href);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    navigate(`${window.location.pathname}?${params.toString()}`);
   });
 }

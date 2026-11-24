@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { getRepoCommits, type CommitEntry, type CommitsView, type PersonRef } from "@/adapters/repo-commits";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-commits";
 
@@ -64,7 +64,7 @@ function renderCommit(v: CommitsView, c: CommitEntry): string {
   const messageHtml = c.shortMessageMarkdownLink
     ? sanitizeHtml(c.shortMessageMarkdownLink)
     : `<a href="${escapeAttr(c.url)}" title="${escapeAttr(c.shortMessage)}">${escapeText(c.shortMessage)}</a>`;
-  const browseHref = `/${v.owner}/${v.repo}/tree/${c.oid}${v.path ? "/" + pathSegments(v.path) : ""}`;
+  const browseHref = `/${encodeURIComponent(v.owner)}/${encodeURIComponent(v.repo)}/tree/${encodePathSegments(c.oid)}${v.path ? "/" + encodePathSegments(v.path) : ""}`;
   return `
     <li class="oldgh-repo-commits__item">
       <div class="oldgh-repo-commits__avatar">
@@ -120,8 +120,4 @@ function renderPagination(v: CommitsView): string {
       ${older}
     </div>
   `;
-}
-
-function pathSegments(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
 }

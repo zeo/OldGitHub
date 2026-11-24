@@ -1,4 +1,5 @@
 import { octicon } from "@/icons";
+import { navigate } from "@/router";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { currentUserLogin } from "@/auth/session";
 import { fetchPageDoc, pageLinks } from "@/adapters/_page";
@@ -203,8 +204,7 @@ function renderLayout(page: StarsPage, pathname: string, params: URLSearchParams
 function bindStarsSort(root: HTMLElement): void {
   const select = root.querySelector<HTMLSelectElement>("select[data-oldgh-stars-sort]");
   select?.addEventListener("change", () => {
-    history.pushState({}, "", select.value);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    navigate(select.value);
   });
 }
 

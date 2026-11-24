@@ -172,6 +172,7 @@ function openJob(section: HTMLElement): void {
     const time = section.querySelector(".oldgh-actions-run__job-time");
     if (time && duration) time.textContent = duration;
   }, (err: unknown) => {
+    section.dataset.stepsHref = href;
     body.innerHTML = `<p class="oldgh-actions-run__empty">Couldn't load steps: ${escapeText(err instanceof Error ? err.message : String(err))}</p>`;
   });
 }

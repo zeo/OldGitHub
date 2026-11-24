@@ -19,6 +19,7 @@ import { relativeTime, absoluteTime } from "@/util/time";
 import { emojify } from "@/util/emoji";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { navigate } from "@/router";
 import { escapeAttr, escapeText, labelTextColor, relativizeGithubUrl, safeAttrHref, safeCssColor, safeHexColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-search";
@@ -394,9 +395,7 @@ function bindSortControl(root: HTMLElement): void {
       params.set("s", value);
       params.set("o", "desc");
     }
-    const href = `/search?${params.toString()}`;
-    history.pushState({}, "", href);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    navigate(`/search?${params.toString()}`);
   });
 }
 

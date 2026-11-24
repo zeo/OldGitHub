@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { fetchApi } from "@/adapters/rate-limit";
 import { adoptBodyRoot, navigationToken } from "./_body";
 import { languageColor } from "@/util/language-color";
-import { escapeAttr, escapeText, safeAttrHref, safeCssColor } from "@/util/html";
+import { escapeAttr, escapeText, safeAttrHref, safeCssColor, safeDecodeURIComponent } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-trending";
 
@@ -41,7 +41,7 @@ export async function mountTrending(pathname: string, search: string): Promise<v
   // parse /trending/developers and /trending/{language} from path
   const pathSegs = pathname.split("/").filter(Boolean);
   const isDevelopers = pathSegs[1] === "developers";
-  const pathLanguage = !isDevelopers && pathSegs[1] ? decodeURIComponent(pathSegs[1]) : "";
+  const pathLanguage = !isDevelopers && pathSegs[1] ? safeDecodeURIComponent(pathSegs[1]) : "";
   const language = params.get("language") ?? pathLanguage;
 
   root.innerHTML = renderShell(period, language, isDevelopers);
@@ -218,7 +218,7 @@ async function searchTrendingFallback(period: TrendingPeriod, language: string):
   const days = period === "daily" ? 1 : period === "weekly" ? 7 : 30;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   let q = `created:>${since}`;
-  if (language) q += ` language:${language}`;
+  if (language) q += ` language:"${language.replace(/"/g, "")}"`;
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=25`;
   const resp = await fetchApi(url, { credentials: "omit", headers: { Accept: "application/vnd.github+json" } });
   if (!resp.ok) {

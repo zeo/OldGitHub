@@ -1,5 +1,5 @@
 import { octicon } from "@/icons";
-import { adoptBodyRoot, navigationToken } from "./_body";
+import { adoptBodyRoot, isCurrentNavigation, navigationToken } from "./_body";
 import { askDataConfirm, escapeAttr, escapeText, cleanScrapedPage } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-account-settings";
@@ -104,7 +104,9 @@ export async function mountAccountSettings(pathname: string, search: string): Pr
   if (!main) return;
 
   try {
-    const html = await fetchSettingsPage(pathname + search);
+    const query = search.replace(/^\?/, "");
+    const html = await fetchSettingsPage(query ? `${pathname}?${query}` : pathname);
+    if (!isCurrentNavigation(nav)) return;
     const doc = new DOMParser().parseFromString(html, "text/html");
     const native = extractMainContent(doc);
     if (!native) {
@@ -124,6 +126,7 @@ export async function mountAccountSettings(pathname: string, search: string): Pr
       label.setAttribute("data-oldgh-show-native", "");
     }
   } catch (err) {
+    if (!isCurrentNavigation(nav)) return;
     const msg = err instanceof Error ? err.message : String(err);
     main.innerHTML = `<div class="oldgh-account-settings__empty">Couldn't load settings: ${escapeText(msg)}</div>`;
   }

@@ -2,7 +2,7 @@ import { octicon } from "@/icons";
 import { AdapterFailure } from "@/adapters";
 import { getTreeCommitInfo, type CommitInfo, type TreeItem } from "@/adapters/repo-overview";
 import { absoluteTime, relativeTime } from "@/util/time";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { escapeAttr, escapeText, encodePathSegments, sanitizeHtml } from "@/util/html";
 
 export type TreeTableContext = {
   owner: string;
@@ -43,9 +43,10 @@ function renderUpRow(ctx: TreeTableContext): string {
   const parts = ctx.basePath.split("/").filter(Boolean);
   parts.pop();
   const upPath = parts.join("/");
+  const branchSegs = encodePathSegments(ctx.branch);
   const href = upPath
-    ? `/${ctx.owner}/${ctx.repo}/tree/${encodeURIComponent(ctx.branch)}/${pathSegments(upPath)}`
-    : `/${ctx.owner}/${ctx.repo}`;
+    ? `/${ctx.owner}/${ctx.repo}/tree/${branchSegs}/${encodePathSegments(upPath)}`
+    : `/${ctx.owner}/${ctx.repo}/tree/${branchSegs}`;
   return `
     <tr data-up>
       <td class="oldgh-repo-home__cell-icon">${octicon("reply", { size: 16 })}</td>
@@ -58,9 +59,10 @@ function renderUpRow(ctx: TreeTableContext): string {
 
 function renderRow(ctx: TreeTableContext, it: TreeItem): string {
   const iconName = it.isDirectory ? "file-directory" : "file";
+  const branchSegs = encodePathSegments(ctx.branch);
   const href = it.isDirectory
-    ? `/${ctx.owner}/${ctx.repo}/tree/${encodeURIComponent(ctx.branch)}/${pathSegments(it.path)}`
-    : `/${ctx.owner}/${ctx.repo}/blob/${encodeURIComponent(ctx.branch)}/${pathSegments(it.path)}`;
+    ? `/${ctx.owner}/${ctx.repo}/tree/${branchSegs}/${encodePathSegments(it.path)}`
+    : `/${ctx.owner}/${ctx.repo}/blob/${branchSegs}/${encodePathSegments(it.path)}`;
   const relativeKey = ctx.basePath ? it.path.slice(ctx.basePath.length + 1) : it.path;
   return `
     <tr data-path="${escapeAttr(it.path)}" data-key="${escapeAttr(relativeKey)}">
@@ -106,8 +108,4 @@ export async function hydrateTreeTable(root: HTMLElement, ctx: TreeTableContext)
       }
     }
   });
-}
-
-function pathSegments(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
 }

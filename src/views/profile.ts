@@ -6,7 +6,7 @@ import { getProfileRepos, type ProfileReposView, type RepoListItem } from "@/ada
 import { absoluteTime, relativeTime } from "@/util/time";
 import { languageColor } from "@/util/language-color";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeRegExp, escapeText, safeAttrHref, safeCssColor, safeHref, sanitizeHtml, sanitizeScrapedFragment, sanitizeTree } from "@/util/html";
+import { escapeAttr, escapeRegExp, escapeText, safeAttrHref, safeCssColor, safeDecodeURIComponent, safeHref, sanitizeHtml, sanitizeScrapedFragment, sanitizeTree } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-profile";
 
@@ -184,18 +184,21 @@ function renderContributionStreaks(root: HTMLElement): void {
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const latestDay = days[days.length - 1]!.date;
+  const endRef = latestDay < today ? latestDay : today;
+  const isPastYear = latestDay < today;
   let current = 0;
   let currentStart: string | null = null;
   for (let i = days.length - 1; i >= 0; i--) {
     const d = days[i]!;
-    if (d.date > today) continue;
+    if (d.date > endRef) continue;
     if (d.active) {
       current++;
       currentStart = d.date;
     } else {
       if (current > 0) break;
-      // skip leading inactive days (today might be active later)
-      if (d.date < today) break;
+      // only skip an inactive today on a live chart; past years stop at year-end
+      if (isPastYear || d.date < today) break;
     }
   }
 
@@ -214,7 +217,7 @@ function renderContributionStreaks(root: HTMLElement): void {
     </div>
     <div class="oldgh-profile__streak">
       <span class="oldgh-profile__streak-num">${current}</span>
-      <span class="oldgh-profile__streak-label">current streak${current > 0 && currentStart ? ` <small>${formatRange(currentStart, today)}</small>` : ""}</span>
+      <span class="oldgh-profile__streak-label">${isPastYear ? "year-end streak" : "current streak"}${current > 0 && currentStart ? ` <small>${formatRange(currentStart, endRef)}</small>` : ""}</span>
     </div>
   `;
   const contribsSection = root.querySelector<HTMLElement>(".oldgh-profile__contribs");
@@ -650,7 +653,7 @@ function renderPackagesFromFrame(frame: Element, login: string): string {
     const m = /\/([\w.-]+)\/packages\/([\w.-]+)\/package\/([\w.\-@/+%]+)/.exec(href);
     if (!m) continue;
     const registry = m[2]!;
-    const name = decodeURIComponent(m[3]!);
+    const name = safeDecodeURIComponent(m[3]!);
     const key = `${registry}:${name}`;
     if (seen.has(key)) continue;
     const card = a.closest("li, article, .Box-row, .d-flex") || a;

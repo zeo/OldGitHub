@@ -1,4 +1,5 @@
 import { octicon } from "@/icons";
+import { TOP_LEVEL_NON_REPO } from "@/router/resolve";
 import { languageColor } from "@/util/language-color";
 import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
 
@@ -45,19 +46,18 @@ const userCache = new Map<string, Promise<UserCard | null>>();
 const repoCache = new Map<string, Promise<RepoCard | null>>();
 const negativeCache = new Set<string>();
 
+function rememberNegative(key: string): void {
+  if (negativeCache.size >= MAX_CACHE) {
+    const oldest = negativeCache.values().next().value;
+    if (oldest !== undefined) negativeCache.delete(oldest);
+  }
+  negativeCache.add(key);
+}
+
 let popoverEl: HTMLDivElement | null = null;
 let activeAnchor: HTMLAnchorElement | null = null;
 let showTimer: number | null = null;
 let hideTimer: number | null = null;
-
-const RESERVED = new Set([
-  "settings", "notifications", "marketplace", "explore", "trending", "search",
-  "issues", "pulls", "stars", "watching", "dashboard", "new", "login", "logout",
-  "join", "signup", "topics", "collections", "events", "feed", "gist", "gists",
-  "apps", "features", "pricing", "about", "contact", "help", "home", "users",
-  "advisories", "security", "codespaces", "sponsors", "enterprise", "enterprises",
-  "organizations", "orgs", "404", "premium-support", "site", "premium",
-]);
 
 export function mountHovercards(): void {
   if (popoverEl) return;
@@ -70,7 +70,12 @@ export function mountHovercards(): void {
 
   document.addEventListener("mouseover", onMouseOver, true);
   document.addEventListener("mouseout", onMouseOut, true);
-  document.addEventListener("scroll", hideNow, true);
+  document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+}
+
+function onScroll(): void {
+  if (!activeAnchor && (!popoverEl || popoverEl.hidden)) return;
+  hideNow();
 }
 
 function onMouseOver(e: MouseEvent): void {
@@ -146,7 +151,13 @@ function resolveTarget(a: HTMLAnchorElement): HoverTarget | null {
   const segs = path.split("/").filter(Boolean);
   if (segs.length === 0) return null;
   const first = segs[0]!;
-  if (RESERVED.has(first)) return null;
+  if (first === "orgs" && segs.length === 2 && !url.search) {
+    const org = segs[1]!;
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,38})$/.test(org)) return null;
+    if (negativeCache.has(`u:${org}`)) return null;
+    return { kind: "user", login: org };
+  }
+  if (TOP_LEVEL_NON_REPO.has(first)) return null;
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,38})$/.test(first)) return null;
   if (segs.length === 1 && !url.search) {
     if (negativeCache.has(`u:${first}`)) return null;
@@ -155,16 +166,10 @@ function resolveTarget(a: HTMLAnchorElement): HoverTarget | null {
   if (segs.length >= 2) {
     const second = segs[1]!;
     if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(second)) return null;
-    if (RESERVED.has(second)) {
-      if (url.search) return null;
-      return { kind: "user", login: first };
-    }
-    if (segs.length >= 4 && (segs[2] === "issues" || segs[2] === "pull")) {
-      const num = parseInt(segs[3]!, 10);
-      if (!Number.isNaN(num)) {
-        if (negativeCache.has(`i:${first}/${second}#${num}`)) return null;
-        return { kind: "issue", owner: first, repo: second, number: num, isPull: segs[2] === "pull" };
-      }
+    if (segs.length >= 4 && (segs[2] === "issues" || segs[2] === "pull") && /^\d+$/.test(segs[3]!)) {
+      const num = Number(segs[3]!);
+      if (negativeCache.has(`i:${first}/${second}#${num}`)) return null;
+      return { kind: "issue", owner: first, repo: second, number: num, isPull: segs[2] === "pull" };
     }
     if (segs.length === 2 && !url.search) {
       if (negativeCache.has(`r:${first}/${second}`)) return null;
@@ -175,7 +180,7 @@ function resolveTarget(a: HTMLAnchorElement): HoverTarget | null {
 }
 
 async function showCard(anchor: HTMLAnchorElement, target: HoverTarget): Promise<void> {
-  if (!popoverEl || activeAnchor !== anchor) return;
+  if (!popoverEl || activeAnchor !== anchor || !anchor.isConnected) return;
   popoverEl.innerHTML = `<div class="oldgh-hovercard__loading">Loading…</div>`;
   positionPopover(anchor);
   popoverEl.hidden = false;
@@ -183,18 +188,15 @@ async function showCard(anchor: HTMLAnchorElement, target: HoverTarget): Promise
   try {
     if (target.kind === "user") {
       const card = await fetchUser(target.login);
-      if (!card) { hideNow(); return; }
-      if (activeAnchor !== anchor) return;
+      if (!card || activeAnchor !== anchor || !anchor.isConnected) { hideNow(); return; }
       popoverEl.innerHTML = renderUserCard(card);
     } else if (target.kind === "repo") {
       const card = await fetchRepo(target.owner, target.repo);
-      if (!card) { hideNow(); return; }
-      if (activeAnchor !== anchor) return;
+      if (!card || activeAnchor !== anchor || !anchor.isConnected) { hideNow(); return; }
       popoverEl.innerHTML = renderRepoCard(card);
     } else {
       const card = await fetchIssue(target.owner, target.repo, target.number, target.isPull);
-      if (!card) { hideNow(); return; }
-      if (activeAnchor !== anchor) return;
+      if (!card || activeAnchor !== anchor || !anchor.isConnected) { hideNow(); return; }
       popoverEl.innerHTML = renderIssueCard(card);
     }
     positionPopover(anchor);
@@ -261,7 +263,7 @@ async function fetchUser(login: string): Promise<UserCard | null> {
       }
       const org = await fetchHovercard(`/orgs/${encodeURIComponent(login)}/hovercard`);
       if (!org) {
-        negativeCache.add(`u:${login}`);
+        rememberNegative(`u:${login}`);
         return null;
       }
       const links = org.querySelectorAll("a.no-underline[href]");
@@ -290,7 +292,7 @@ async function fetchRepo(owner: string, repo: string): Promise<RepoCard | null> 
     try {
       const doc = await fetchHovercard(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/hovercard`);
       if (!doc) {
-        negativeCache.add(`r:${key}`);
+        rememberNegative(`r:${key}`);
         return null;
       }
       const labels = Array.from(doc.querySelectorAll(".Label"), (el) => el.textContent ?? "");
@@ -318,7 +320,7 @@ async function fetchIssue(owner: string, repo: string, number: number, isPull: b
     try {
       const doc = await fetchHovercard(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${isPull ? "pull" : "issues"}/${number}/hovercard`);
       if (!doc) {
-        negativeCache.add(`i:${key}`);
+        rememberNegative(`i:${key}`);
         return null;
       }
       return {

@@ -3,7 +3,7 @@ import { AdapterFailure } from "@/adapters";
 import { fetchPageDoc, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, sanitizeHtml } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText, safeDecodeURIComponent, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-releases";
 
@@ -34,7 +34,7 @@ export async function mountRepoReleases(owner: string, repo: string, search: str
   const query = search.replace(/^\?/, "");
 
   try {
-    const doc = await fetchPageDoc(tag ? `${base}/tag/${encodeURIComponent(tag)}` : query ? `${base}?${query}` : base);
+    const doc = await fetchPageDoc(tag ? `${base}/tag/${encodePathSegments(tag)}` : query ? `${base}?${query}` : base);
     if (tag) {
       const card = doc.querySelector("[data-hpc] .Box");
       const release = card && parseRelease(card);
@@ -85,7 +85,7 @@ export function parseRelease(card: Element): Release | null {
   const chrome = <T extends Element>(selector: string): T[] =>
     Array.from(card.querySelectorAll<T>(selector)).filter((el) => !el.closest(".markdown-body"));
   const tree = chrome<HTMLAnchorElement>('a[href*="/tree/"]')[0]?.getAttribute("href") ?? "";
-  const tagName = decodeURIComponent(tree.split("/tree/")[1] ?? "");
+  const tagName = safeDecodeURIComponent(tree.split("/tree/")[1] ?? "");
   if (!tagName) return null;
   const avatar = card.querySelector("img.avatar-small");
   const author = avatar?.nextElementSibling instanceof HTMLAnchorElement ? avatar.nextElementSibling : null;
@@ -132,6 +132,7 @@ async function loadAssets(details: HTMLDetailsElement): Promise<void> {
       </li>
     `).join("");
   } catch (err) {
+    details.dataset.assetsUrl = url;
     list.innerHTML = `<li class="oldgh-releases__asset">Couldn't load assets: ${escapeText(err instanceof Error ? err.message : String(err))}</li>`;
   }
 }
@@ -169,7 +170,7 @@ function renderRelease(owner: string, repo: string, r: Release, openAssets: bool
     .filter((l) => BADGES[l])
     .map((l) => `<span class="oldgh-releases__badge oldgh-releases__badge--${BADGES[l]}">${escapeText(l)}</span>`);
   const repoPath = `/${escapeAttr(owner)}/${escapeAttr(repo)}`;
-  const tagHref = `${repoPath}/releases/tag/${encodeURIComponent(r.tagName)}`;
+  const tagHref = `${repoPath}/releases/tag/${encodePathSegments(r.tagName)}`;
 
   return `
     <li class="oldgh-releases__row">

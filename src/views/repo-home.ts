@@ -8,6 +8,7 @@ import { languageColor, canonicalLanguageName } from "@/util/language-color";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { hydrateTreeTable, renderTreeTable } from "./_tree-table";
 import { adoptBodyRoot, navigationToken } from "./_body";
+import { copyToClipboard } from "@/util/clipboard";
 import { encodePathSegments, escapeAttr, escapeText, safeCssColor, sanitizeHtml } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-home";
@@ -530,7 +531,7 @@ async function loadBranches(list: HTMLUListElement | null, ctx: { owner: string;
   const checkIcon = octicon("check", { size: 14 });
   list.innerHTML = names.map((name) => {
     const isCurrent = name === ctx.branch;
-    const href = `/${ctx.owner}/${ctx.repo}/tree/${encodeURIComponent(name)}`;
+    const href = `/${escapeAttr(ctx.owner)}/${escapeAttr(ctx.repo)}/tree/${encodePathSegments(name)}`;
     return `<li data-name="${escapeAttr(name)}"${isCurrent ? " data-current" : ""}><a href="${escapeAttr(href)}">${isCurrent ? checkIcon : `<span class="oldgh-branch-picker__check-spacer" aria-hidden="true"></span>`}<span class="oldgh-branch-picker__name">${escapeText(name)}</span></a></li>`;
   }).join("");
 }
@@ -541,14 +542,6 @@ function bindCopyButtons(root: HTMLElement): void {
     if (!btn) return;
     const text = btn.dataset["copy"];
     if (!text) return;
-    void navigator.clipboard.writeText(text).then(() => {
-      const prev = btn.innerHTML;
-      btn.innerHTML = octicon("check", { size: 14 });
-      btn.classList.add("is-copied");
-      window.setTimeout(() => {
-        btn.innerHTML = prev;
-        btn.classList.remove("is-copied");
-      }, 1200);
-    });
+    void copyToClipboard(text, btn);
   });
 }

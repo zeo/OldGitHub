@@ -6,10 +6,11 @@ const STORAGE_KEY = "theme";
 let mql: MediaQueryList | null = null;
 let mqlListener: ((e: MediaQueryListEvent) => void) | null = null;
 
-export async function applyTheme(): Promise<void> {
+export async function applyTheme(): Promise<Theme> {
   const theme = await readStoredTheme();
   setEffectiveTheme(resolve(theme));
   cacheTheme(theme);
+  return theme;
 }
 
 export function watchThemeChanges(): void {

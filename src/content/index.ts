@@ -105,11 +105,15 @@ async function healLoadState(): Promise<boolean> {
   const covered = isFullyCoveredUrl(location.pathname, search);
   if (assetState.healing || !(covered ? assetState.loaded : assetState.blocked)) return false;
   assetState.healing = true;
-  document.removeEventListener("load", noteAsset, true);
-  document.removeEventListener("error", noteAsset, true);
+  detachAssetListeners();
   console.warn(`[oldgh] github assets were ${covered ? "loaded on a page we render" : "blocked on a native page"}, reloading once`);
   await chrome.runtime.sendMessage({ type: "oldgh:route-change", pathname: location.pathname, search }).catch(() => undefined);
   return reloadOnce();
+}
+
+function detachAssetListeners(): void {
+  document.removeEventListener("load", noteAsset, true);
+  document.removeEventListener("error", noteAsset, true);
 }
 
 async function boot(): Promise<void> {
@@ -118,6 +122,7 @@ async function boot(): Promise<void> {
   if (!IS_GIST) {
     document.addEventListener("load", noteAsset, true);
     document.addEventListener("error", noteAsset, true);
+    window.addEventListener("load", detachAssetListeners, { once: true });
   }
   chrome.runtime.onMessage.addListener((msg: { type?: unknown; enabled?: unknown }, _sender, sendResponse) => {
     if (msg?.type !== "oldgh:set-enabled") return undefined;
@@ -135,8 +140,7 @@ async function boot(): Promise<void> {
   const mode: PageMode = !enabled ? "off" : isNativeTab() ? "native" : isLoggedIn() ? "on" : "signed-out";
   writeLocal(SIGNED_OUT_CACHE_KEY, mode === "signed-out");
   if (mode !== "on") {
-    document.removeEventListener("load", noteAsset, true);
-    document.removeEventListener("error", noteAsset, true);
+    detachAssetListeners();
     undoEagerStyle();
     if (await reportPageMode(mode) && reloadOnce()) return;
     if (mode === "native") mountNativePill();
@@ -152,6 +156,7 @@ async function boot(): Promise<void> {
   }
   assetState.armed = true;
   if (await healLoadState()) return;
+  detachAssetListeners();
   await run();
 }
 
@@ -171,12 +176,13 @@ async function run(): Promise<void> {
   await applyTheme();
   watchThemeChanges();
   console.debug("[oldgh] mounting header + router");
-  await mountHeader();
+  const headerTask = mountHeader();
   mountFooter();
   mountHovercards();
   mountQuotaNotice();
   bindShortcuts();
   mountRouter();
+  await headerTask;
 }
 
 function forceGitHubColorModeNeutral(): void {

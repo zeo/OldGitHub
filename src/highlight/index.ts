@@ -135,7 +135,7 @@ async function ensureRegistered(id: string): Promise<void> {
       loadedLanguages.add(id);
     },
     () => {
-      // language failed to load — leave it unregistered
+      inflight.delete(id);
     },
   );
   inflight.set(id, promise);

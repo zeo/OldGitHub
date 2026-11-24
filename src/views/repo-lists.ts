@@ -3,7 +3,7 @@ import { AdapterFailure } from "@/adapters";
 import { fetchPageDoc, loadPagePayload, pageLinks } from "@/adapters/_page";
 import { absoluteTime, relativeTime } from "@/util/time";
 import { adoptBodyRoot, navigationToken } from "./_body";
-import { escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor } from "@/util/html";
+import { encodePathSegments, escapeAttr, escapeText, labelTextColor, safeAttrHref, safeHexColor } from "@/util/html";
 
 const ROOT_CLASS = "oldgh-repo-list";
 
@@ -112,13 +112,13 @@ async function renderBranches(owner: string, repo: string, page: number): Promis
     return `
       <li class="oldgh-repo-list__row">
         <div class="oldgh-repo-list__main-cell">
-          <a class="oldgh-repo-list__branch" href="${repoPath}/tree/${encodeURIComponent(name)}">${octicon("git-branch", { size: 14 })} <strong>${escapeText(name)}</strong></a>
+          <a class="oldgh-repo-list__branch" href="${repoPath}/tree/${encodePathSegments(name)}">${octicon("git-branch", { size: 14 })} <strong>${escapeText(name)}</strong></a>
           ${isDefault ? `<span class="oldgh-repo-list__tag-badge">Default</span>` : ""}
           ${r["protectedByBranchProtections"] === true ? `<span class="oldgh-repo-list__tag-badge">Protected</span>` : ""}
           ${date ? `<span class="oldgh-repo-list__muted" title="${escapeAttr(absoluteTime(date))}">updated ${escapeText(relativeTime(date))}${login ? ` by <a href="/${escapeAttr(login)}">${escapeText(login)}</a>` : ""}</span>` : ""}
         </div>
         <div class="oldgh-repo-list__actions">
-          ${isDefault ? "" : `<a class="oldgh-btn" href="${repoPath}/compare/${encodeURIComponent(name)}">Compare</a>`}
+          ${isDefault ? "" : `<a class="oldgh-btn" href="${repoPath}/compare/${encodePathSegments(name)}">Compare</a>`}
         </div>
       </li>
     `;

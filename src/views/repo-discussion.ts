@@ -106,7 +106,8 @@ function parseTimeline(doc: Document): TimelineEntry[] {
   const out: TimelineEntry[] = [];
   for (const el of doc.querySelectorAll(`${COMMENT}, form[action*='/pages?']`)) {
     if (el.tagName === "FORM") {
-      out.push({ kind: "more", url: el.getAttribute("action")!, label: text(el) || "Load more…" });
+      const action = el.getAttribute("action");
+      if (action) out.push({ kind: "more", url: action, label: text(el) || "Load more…" });
       continue;
     }
     if (el.closest("[id^='child-comments-']")) continue;
@@ -121,10 +122,18 @@ function parseTimeline(doc: Document): TimelineEntry[] {
 function parseReplies(box: Element | null): Replies {
   if (!box) return { items: [], earlier: null };
   const form = box.querySelector("form[action$='/threads']");
-  const params = new URLSearchParams(Array.from(form?.querySelectorAll("input[name]") ?? [], (i) => [i.getAttribute("name")!, i.getAttribute("value") ?? ""]));
+  const action = form?.getAttribute("action");
+  const pairs: [string, string][] = [];
+  if (form) {
+    for (const input of form.querySelectorAll("input[name]")) {
+      const name = input.getAttribute("name");
+      if (name) pairs.push([name, input.getAttribute("value") ?? ""]);
+    }
+  }
+  const params = new URLSearchParams(pairs);
   return {
     items: Array.from(box.querySelectorAll(COMMENT), (el) => parseComment(el, idOf(el))),
-    earlier: form ? { url: `${form.getAttribute("action")}?${params}`, label: text(form) || "Show previous replies" } : null,
+    earlier: action ? { url: `${action}?${params}`, label: text(form) || "Show previous replies" } : null,
   };
 }
 

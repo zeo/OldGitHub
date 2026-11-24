@@ -39,5 +39,5 @@ export function adoptBodyRoot(root: HTMLElement, afterSelector?: string, nav?: n
 }
 
 export function removeAllBodyRoots(): void {
-  document.querySelectorAll(`.${BODY_ROOT_CLASS}`).forEach((el) => el.remove());
+  document.querySelectorAll(`.${BODY_ROOT_CLASS}, .oldgh-contrib-tip`).forEach((el) => el.remove());
 }
