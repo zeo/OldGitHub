@@ -1,4 +1,4 @@
-import { dispatchRoute } from "./dispatch";
+import { navigate } from "./index";
 import { resolveRoute, type Route } from "./resolve";
 import { openFileFinder } from "@/views/file-finder";
 
@@ -15,8 +15,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 function go(path: string): void {
-  history.pushState({}, "", path);
-  void dispatchRoute(new URL(path, window.location.origin), { scrollTop: true });
+  navigate(path, { scrollTop: true });
 }
 
 function currentRoute(): Route {

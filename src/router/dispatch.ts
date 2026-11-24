@@ -7,7 +7,7 @@ import type { TopLevelKind } from "@/views/top-level";
 import { beginNavigation, isCurrentNavigation, removeAllBodyRoots } from "@/views/_body";
 import { resolveRoute, type Route } from "./resolve";
 import { reportIssueUrl } from "@/native-mode";
-import { escapeAttr, escapeText } from "@/util/html";
+import { escapeAttr, escapeText, safeDecodeURIComponent } from "@/util/html";
 
 const MOUNTED_ATTR = "data-oldgh-mounted";
 
@@ -219,6 +219,8 @@ export async function dispatchRoute(loc: Location | URL, options: { scrollTop?: 
     if (!isCurrentNavigation(nav)) return;
     bodyState = { kind: "none" };
     removeAllBodyRoots();
+    const inMountedRepo = "owner" in route && "repo" in route && mountedRepo?.owner === route.owner && mountedRepo.repo === route.repo;
+    if (!inMountedRepo) teardownRepoHeader();
     if (!(err instanceof AdapterFailure)) {
       console.error("[oldgh] dispatch failed:", err);
       insertBodyError(err instanceof Error ? err.message : String(err), false);
@@ -226,9 +228,6 @@ export async function dispatchRoute(loc: Location | URL, options: { scrollTop?: 
     }
     console.debug("[oldgh] dispatch adapter failure:", err.name, err.message);
     if (err.status === 404) {
-      // a 404 from another repo must not sit under the previous repo's header
-      const inMountedRepo = "owner" in route && "repo" in route && mountedRepo?.owner === route.owner && mountedRepo.repo === route.repo;
-      if (!inMountedRepo) teardownRepoHeader();
       insertBodyNotFound(err.message, inMountedRepo);
       return;
     }
@@ -335,10 +334,8 @@ function repoOtherPath(owner: string, repo: string): { pathname: string; search:
 }
 
 function teardownRepoHeader(): void {
-  if (mountedRepo) {
-    unmountRepoHeader();
-    mountedRepo = null;
-  }
+  unmountRepoHeader();
+  mountedRepo = null;
 }
 
 async function applyBodyState(target: BodyState, nav: number): Promise<void> {
@@ -448,7 +445,7 @@ async function mountBody(target: BodyState, nav: number): Promise<void> {
       return;
     }
     if (subPath.startsWith("/releases/tag/")) {
-      const tag = decodeURIComponent(subPath.slice("/releases/tag/".length).split("/")[0] ?? "");
+      const tag = safeDecodeURIComponent(subPath.slice("/releases/tag/".length).replace(/\/+$/, ""));
       if (tag) {
         await (await load(nav, import("@/views/repo-releases"))).mountRepoReleases(target.owner, target.repo, "", tag);
         return;

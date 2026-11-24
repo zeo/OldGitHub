@@ -31,6 +31,53 @@ export function mountRouter(): void {
   }
 }
 
+export function navigate(
+  target: string | URL,
+  opts: { scrollTop?: boolean; replace?: boolean } = {},
+): void {
+  let url: URL;
+  try {
+    url = target instanceof URL ? target : new URL(target, window.location.href);
+  } catch {
+    return;
+  }
+  if (url.origin !== window.location.origin) {
+    window.location.assign(url.href);
+    return;
+  }
+  const search = url.search.startsWith("?") ? url.search.slice(1) : url.search;
+  if (!isFullyCoveredUrl(url.pathname, search)) {
+    const currentSearch = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+    if (isFullyCoveredUrl(window.location.pathname, currentSearch)) {
+      leaveCoveredPage(url.toString());
+    } else {
+      window.location.assign(url.toString());
+    }
+    return;
+  }
+  if (opts.replace) {
+    history.replaceState({}, "", url.toString());
+  } else {
+    history.pushState({}, "", url.toString());
+  }
+  void dispatchRoute(url, { scrollTop: opts.scrollTop ?? true });
+}
+
+function leaveCoveredPage(destination: string): void {
+  const go = (): void => { window.location.assign(destination); };
+  // sw may have recycled or restarted, so always fall through to navigation
+  try {
+    void chrome.runtime
+      .sendMessage({ type: "oldgh:pre-navigate-uncovered" })
+      .catch(() => undefined)
+      .finally(go);
+  } catch {
+    go();
+  }
+}
+
 function initOnce(): void {
   interceptClicks();
   window.addEventListener("popstate", () => {
@@ -48,11 +95,22 @@ function interceptClicks(): void {
       }
       const anchor = (e.target as Element | null)?.closest("a");
       if (!anchor) return;
+      if (anchor.hasAttribute("download") || anchor.hasAttribute("data-oldgh-open-options") || anchor.hasAttribute("data-oldgh-show-native")) {
+        return;
+      }
       const href = anchor.getAttribute("href");
-      if (!href) return;
-      const url = new URL(href, window.location.href);
+      if (!href || href === "#") return;
+      let url: URL;
+      try {
+        url = new URL(href, window.location.href);
+      } catch {
+        return;
+      }
       if (url.origin !== window.location.origin) return;
       if (anchor.target && anchor.target !== "_self") return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) {
+        return;
+      }
 
       const search = url.search.startsWith("?") ? url.search.slice(1) : url.search;
       if (!isFullyCoveredUrl(url.pathname, search)) {
@@ -61,17 +119,7 @@ function interceptClicks(): void {
           : window.location.search;
         if (isFullyCoveredUrl(window.location.pathname, currentSearch)) {
           e.preventDefault();
-          const go = (): void => { window.location.assign(url.toString()); };
-          // if the SW has been replaced under us, sendMessage can throw
-          // synchronously — make sure navigation still happens.
-          try {
-            void chrome.runtime
-              .sendMessage({ type: "oldgh:pre-navigate-uncovered" })
-              .catch(() => undefined)
-              .finally(go);
-          } catch {
-            go();
-          }
+          leaveCoveredPage(url.toString());
         }
         return;
       }

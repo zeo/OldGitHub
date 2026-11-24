@@ -51,7 +51,7 @@ const OUT_OF_SCOPE_PREFIXES = [
   "/education",
 ];
 
-const TOP_LEVEL_NON_REPO = new Set([
+export const TOP_LEVEL_NON_REPO = new Set([
   "search",
   "login",
   "logout",
@@ -122,6 +122,21 @@ export function resolveRoute(pathname: string, search: string): Route {
   }
 
   const first = segs[0]!;
+  if (first === "orgs" && segs.length >= 2) {
+    const org = segs[1]!;
+    const sub = segs[2];
+    if (!sub) return { kind: "profile", login: org, tab: parseProfileTab(search), query: search };
+    if (sub === "repositories") return { kind: "profile", login: org, tab: "repositories", query: search };
+    if (sub === "people" || sub === "projects" || sub === "packages" || sub === "sponsoring") {
+      return { kind: "profile", login: org, tab: sub, query: search };
+    }
+    return { kind: "out-of-scope" };
+  }
+
+  if (first === "marketplace" && segs.length > 1) {
+    return { kind: "out-of-scope" };
+  }
+
   const topLevel = matchTopLevel(first, pathname, search);
   if (topLevel) return topLevel;
 
@@ -161,6 +176,7 @@ export function resolveRoute(pathname: string, search: string): Route {
     (segs[2] === "releases" && segs[3] === "download") ||
     (segs[2] === "releases" && segs[3] === "new") ||
     (segs[2] === "releases" && segs[3] === "edit") ||
+    segs[2] === "raw" ||
     segs[2] === "fork" ||
     segs[2] === "subscription" ||
     segs[2] === "find" ||
@@ -202,10 +218,11 @@ export function resolveRoute(pathname: string, search: string): Route {
   }
 
   if (segs[2] === "milestone" && segs.length >= 4) {
-    // /owner/repo/milestone/N — redirect to issues list filtered by milestone
     const ms = segs[3]!;
-    const milestoneSearch = search ? `milestone=${ms}&${search}` : `milestone=${ms}`;
-    return { kind: "repo-issues", owner, repo, query: milestoneSearch, subkind: "issues" };
+    if (!/^\d+$/.test(ms)) return { kind: "out-of-scope" };
+    const sp = new URLSearchParams(search);
+    sp.set("milestone", ms);
+    return { kind: "repo-issues", owner, repo, query: sp.toString(), subkind: "issues" };
   }
 
   if (segs[2] === "issues" && segs.length === 3) {
@@ -216,23 +233,22 @@ export function resolveRoute(pathname: string, search: string): Route {
   }
 
   if ((segs[2] === "issues" || segs[2] === "pull") && segs.length >= 4) {
-    const num = parseInt(segs[3]!, 10);
-    if (!Number.isNaN(num)) {
-      const sub = segs[4];
-      const tab: "conversation" | "files" | "commits" | "checks" =
-        sub === "files" || sub === "changes" ? "files"
-          : sub === "commits" ? "commits"
-          : sub === "checks" ? "checks"
-          : "conversation";
-      return {
-        kind: "repo-issue",
-        owner,
-        repo,
-        number: num,
-        subkind: segs[2] === "pull" ? "pull" : "issue",
-        tab,
-      };
-    }
+    if (!/^\d+$/.test(segs[3]!)) return { kind: "out-of-scope" };
+    const num = Number(segs[3]!);
+    const sub = segs[4];
+    const tab: "conversation" | "files" | "commits" | "checks" =
+      sub === "files" || sub === "changes" ? "files"
+        : sub === "commits" ? "commits"
+        : sub === "checks" ? "checks"
+        : "conversation";
+    return {
+      kind: "repo-issue",
+      owner,
+      repo,
+      number: num,
+      subkind: segs[2] === "pull" ? "pull" : "issue",
+      tab,
+    };
   }
 
   if (segs[2] === "wiki") {
@@ -294,19 +310,14 @@ export function resolveRoute(pathname: string, search: string): Route {
   }
 
   if (segs[2] === "security") {
-    const sub = segs[3];
-    // policy editor and individual/new advisory pages → native GitHub
-    if (sub === "policy") return { kind: "out-of-scope" };
-    if (sub === "advisories" && segs.length > 4) return { kind: "out-of-scope" };
-    return { kind: "repo-security", owner, repo, subkind: sub === "advisories" ? "advisories" : "overview" };
+    if (segs.length === 3) return { kind: "repo-security", owner, repo, subkind: "overview" };
+    if (segs.length === 4 && segs[3] === "advisories") return { kind: "repo-security", owner, repo, subkind: "advisories" };
+    return { kind: "out-of-scope" };
   }
 
   if (segs[2] === "discussions") {
-    if (segs.length >= 4) {
-      const num = parseInt(segs[3]!, 10);
-      if (!Number.isNaN(num)) {
-        return { kind: "repo-discussion", owner, repo, number: num };
-      }
+    if (segs.length >= 4 && /^\d+$/.test(segs[3]!)) {
+      return { kind: "repo-discussion", owner, repo, number: Number(segs[3]!) };
     }
     const subPath = "/" + segs.slice(2).join("/");
     return { kind: "repo-discussions", owner, repo, subPath, query: search };

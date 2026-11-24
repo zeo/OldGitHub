@@ -1,3 +1,5 @@
+import { safeDecodeURIComponent } from "@/util/html";
+
 export function isLoggedIn(): boolean {
   if (/(?:^|;\s*)logged_in=yes(?:;|$)/.test(document.cookie)) return true;
   if (/(?:^|;\s*)dotcom_user=/.test(document.cookie)) return true;
@@ -10,5 +12,5 @@ export function currentUserLogin(): string | null {
   const fromMeta = meta?.content?.trim();
   if (fromMeta) return fromMeta;
   const m = /(?:^|;\s*)dotcom_user=([^;]+)/.exec(document.cookie);
-  return m && m[1] ? decodeURIComponent(m[1]) : null;
+  return m && m[1] ? safeDecodeURIComponent(m[1]) : null;
 }
