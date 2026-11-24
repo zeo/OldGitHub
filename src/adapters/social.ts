@@ -1,5 +1,6 @@
 import { AdapterFailure } from "./index";
 import { fetchRepoPage, forgetRepoPage, parseRepoPage } from "./_page";
+import { forgetRepoSummary } from "./repo";
 
 export type WatchMode = "participating" | "watching" | "ignoring";
 
@@ -59,6 +60,7 @@ export async function getRepoSocial(owner: string, repo: string): Promise<RepoSo
 export async function setStarred(owner: string, repo: string, starred: boolean, nonce: string): Promise<void> {
   await verifiedPost(`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${starred ? "star" : "unstar"}`, nonce);
   forgetRepoPage(owner, repo);
+  forgetRepoSummary(owner, repo);
 }
 
 export async function setWatchMode(owner: string, repo: string, social: RepoSocial, mode: WatchMode): Promise<void> {
@@ -68,6 +70,7 @@ export async function setWatchMode(owner: string, repo: string, social: RepoSoci
   body.append("repository_id", social.repositoryId);
   await verifiedPost("/notifications/subscribe", social.nonce, body);
   forgetRepoPage(owner, repo);
+  forgetRepoSummary(owner, repo);
 }
 
 export function readFollowForms(doc: Document): FollowForms | null {

@@ -23,10 +23,15 @@ export type RepoSummary = {
   hasWiki: boolean;
   hasProjects: boolean;
   hasDiscussions: boolean;
+  hasSettings: boolean;
 };
 
 const summaryCache = new Map<string, { value: RepoSummary; expires: number }>();
 const TTL_MS = 60_000;
+
+export function forgetRepoSummary(owner: string, repo: string): void {
+  summaryCache.delete(`${owner.toLowerCase()}/${repo.toLowerCase()}`);
+}
 
 export async function getRepoSummary(owner: string, repo: string): Promise<RepoSummary> {
   const key = `${owner.toLowerCase()}/${repo.toLowerCase()}`;
@@ -54,6 +59,7 @@ async function apiRepoSummary(owner: string, repo: string): Promise<RepoSummary>
   const fullName = typeof data["full_name"] === "string" ? (data["full_name"] as string) : `${owner}/${repo}`;
   const parent = data["parent"] && typeof data["parent"] === "object" ? (data["parent"] as Record<string, unknown>) : null;
   const license = data["license"] && typeof data["license"] === "object" ? (data["license"] as Record<string, unknown>) : null;
+  const perms = data["permissions"] && typeof data["permissions"] === "object" ? (data["permissions"] as Record<string, unknown>) : null;
 
   return {
     owner,
@@ -76,6 +82,7 @@ async function apiRepoSummary(owner: string, repo: string): Promise<RepoSummary>
     hasWiki: data["has_wiki"] !== false,
     hasProjects: data["has_projects"] !== false,
     hasDiscussions: data["has_discussions"] === true,
+    hasSettings: perms?.["admin"] === true,
   };
 }
 
@@ -104,6 +111,7 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
   let hasWiki = false;
   let hasProjects = false;
   let hasDiscussions = false;
+  let hasSettings = false;
   for (const a of Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
     const href = a.getAttribute("href") || "";
     if (!href.toLowerCase().startsWith(prefix)) continue;
@@ -112,6 +120,7 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
     else if (/^\/wiki(\?|$|\/)/.test(rest)) hasWiki = true;
     else if (/^\/projects(\?|$|\/)/.test(rest)) hasProjects = true;
     else if (/^\/discussions(\?|$|\/)/.test(rest)) hasDiscussions = true;
+    else if (/^\/settings(\?|$|\/)/.test(rest)) hasSettings = true;
   }
 
   // Topics are rendered as <a class="topic-tag"> or under a topics list.
@@ -172,6 +181,7 @@ async function scrapeRepoSummary(owner: string, repo: string): Promise<RepoSumma
     hasWiki,
     hasProjects,
     hasDiscussions,
+    hasSettings,
   };
 }
 

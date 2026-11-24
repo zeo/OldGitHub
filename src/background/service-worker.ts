@@ -47,41 +47,72 @@ function showBadge(enabled: boolean): void {
 }
 
 void stateReady.then((s) => showBadge(s.enabled));
-chrome.runtime.onStartup.addListener(() => undefined);
+chrome.runtime.onStartup.addListener(() => {
+  void stateReady.then((s) => showBadge(s.enabled));
+});
 
 chrome.action.onClicked.addListener(() => {
   void (async () => {
-    const state = await saveState({ enabled: !(await stateReady).enabled });
-    showBadge(state.enabled);
-    if (!state.enabled) await setBlocked(() => []);
+    const enabled = await runQueued(async () => {
+      const state = await saveState({ enabled: !(await stateReady).enabled });
+      showBadge(state.enabled);
+      if (!state.enabled) await syncBlockedRules([]);
+      return state.enabled;
+    });
     const tabs = await chrome.tabs.query({ url: ["https://github.com/*", "https://gist.github.com/*"] });
     for (const tab of tabs) {
       if (tab.id === undefined) continue;
-      await chrome.tabs.sendMessage(tab.id, { type: "oldgh:set-enabled", enabled: state.enabled }).catch(() => undefined);
+      await chrome.tabs.sendMessage(tab.id, { type: "oldgh:set-enabled", enabled }).catch(() => undefined);
       void chrome.tabs.reload(tab.id);
     }
   })();
 });
 
-let ruleQueue: Promise<void> = Promise.resolve();
+let stateQueue: Promise<unknown> = Promise.resolve();
 
-// rules change one at a time so two tabs updating together can't drop each other's id
-function setBlocked(update: (tabs: number[]) => number[], force = false): Promise<void> {
-  ruleQueue = ruleQueue
-    .then(async () => {
-      const state = await stateReady;
-      const next = update(state.blockedTabs);
-      if (!force && next.length === state.blockedTabs.length && next.every((id) => state.blockedTabs.includes(id))) return;
-      const current = await chrome.declarativeNetRequest.getSessionRules();
-      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: current.map((r) => r.id), addRules: blockRules(next) });
-      await saveState({ blockedTabs: next });
-    })
-    .catch((err: unknown) => console.debug("[oldgh] block rules update failed:", err));
-  return ruleQueue;
+// serialize every state and dnr transition so concurrent events cannot overwrite each other
+function runQueued<T>(op: () => Promise<T>): Promise<T> {
+  const next = stateQueue.then(op, op);
+  stateQueue = next.catch((err: unknown) => {
+    console.debug("[oldgh] worker state op failed:", err);
+  });
+  return next;
 }
 
-// also clears rules left by the per-tab id scheme of earlier versions
-void setBlocked((tabs) => tabs, true);
+function rulesMatch(current: chrome.declarativeNetRequest.Rule[], expected: chrome.declarativeNetRequest.Rule[]): boolean {
+  if (current.length !== expected.length) return false;
+  for (let i = 0; i < current.length; i++) {
+    const a = current[i]!;
+    const b = expected[i]!;
+    if (a.id !== b.id) return false;
+    const at = a.condition?.tabIds ?? [];
+    const bt = b.condition?.tabIds ?? [];
+    if (at.length !== bt.length || at.some((id, idx) => id !== bt[idx])) return false;
+  }
+  return true;
+}
+
+async function syncBlockedRules(nextTabs: number[]): Promise<void> {
+  const current = await chrome.declarativeNetRequest.getSessionRules();
+  const desired = blockRules(nextTabs);
+  if (!rulesMatch(current, desired)) {
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: current.map((r) => r.id),
+      addRules: desired,
+    });
+  }
+  await saveState({ blockedTabs: nextTabs });
+}
+
+function setBlocked(update: (tabs: number[]) => number[]): Promise<void> {
+  return runQueued(async () => {
+    const state = await stateReady;
+    await syncBlockedRules(update(state.blockedTabs));
+  });
+}
+
+// skip rewriting rules on wakeup if chrome already holds the matching session rules
+void runQueued(async () => syncBlockedRules((await stateReady).blockedTabs));
 
 async function enableForTab(tabId: number): Promise<void> {
   if (!(await mayBlock(tabId))) return disableForTab(tabId);
@@ -125,37 +156,47 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  void disableForTab(tabId);
-  void stateReady.then((s) => {
-    if (s.nativeTabs.includes(tabId)) void saveState({ nativeTabs: s.nativeTabs.filter((id) => id !== tabId) });
+  void runQueued(async () => {
+    const state = await stateReady;
+    if (state.nativeTabs.includes(tabId)) {
+      await saveState({ nativeTabs: state.nativeTabs.filter((id) => id !== tabId) });
+    }
+    await syncBlockedRules(state.blockedTabs.filter((id) => id !== tabId));
   });
 });
 
 // prerender and instant pages swap the tab id under a loaded page
 chrome.tabs.onReplaced.addListener((added, removed) => {
-  void setBlocked((tabs) => (tabs.includes(removed) ? [...tabs.filter((id) => id !== removed), added] : tabs));
+  void runQueued(async () => {
+    const state = await stateReady;
+    const nativeTabs = state.nativeTabs.includes(removed)
+      ? [...state.nativeTabs.filter((id) => id !== removed), added]
+      : state.nativeTabs;
+    if (nativeTabs !== state.nativeTabs) await saveState({ nativeTabs });
+    const nextBlocked = state.blockedTabs.includes(removed)
+      ? [...state.blockedTabs.filter((id) => id !== removed), added]
+      : state.blockedTabs;
+    await syncBlockedRules(nextBlocked);
+  });
 });
-
-async function tabWasBlocked(tabId: number): Promise<boolean> {
-  await ruleQueue;
-  return (await stateReady).blockedTabs.includes(tabId);
-}
 
 type PageMode = "on" | "native" | "signed-out" | "off";
 
 // returns true when the page loaded under the wrong blocking state and needs one reload
-async function notePageMode(tabId: number, mode: PageMode): Promise<boolean> {
-  const state = await stateReady;
-  if (mode === "on") {
-    const wasUnblocked = state.signedOut || state.nativeTabs.includes(tabId);
-    await saveState({ signedOut: false, nativeTabs: state.nativeTabs.filter((id) => id !== tabId) });
-    return wasUnblocked;
-  }
-  const blocked = await tabWasBlocked(tabId);
-  if (mode === "signed-out") await saveState({ signedOut: true });
-  if (mode === "native" && !state.nativeTabs.includes(tabId)) await saveState({ nativeTabs: [...state.nativeTabs, tabId] });
-  await disableForTab(tabId);
-  return blocked;
+function notePageMode(tabId: number, mode: PageMode): Promise<boolean> {
+  return runQueued(async () => {
+    const state = await stateReady;
+    if (mode === "on") {
+      const wasUnblocked = state.signedOut || state.nativeTabs.includes(tabId);
+      await saveState({ signedOut: false, nativeTabs: state.nativeTabs.filter((id) => id !== tabId) });
+      return wasUnblocked;
+    }
+    const blocked = state.blockedTabs.includes(tabId);
+    if (mode === "signed-out") await saveState({ signedOut: true });
+    if (mode === "native" && !state.nativeTabs.includes(tabId)) await saveState({ nativeTabs: [...state.nativeTabs, tabId] });
+    await syncBlockedRules(state.blockedTabs.filter((id) => id !== tabId));
+    return blocked;
+  });
 }
 
 // dev auto-reload: poll the dev server build-stamp; reload extension when it changes.

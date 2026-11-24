@@ -92,23 +92,23 @@ type Found<T> = { summary: SearchSummary; items: T[] };
 
 export function searchRepositories(query: string, sort: string, order: SearchOrder, page: number): Promise<Found<RepoResult>> {
   return fromPage("repositories", query, sort, order, page, pageRepoResult, async () => {
-    const data = await rawSearch("repositories", query, sort, order);
-    return summaryAnd(query, "repositories", data, readArray(data["items"]).map(parseRepoResult).filter((r): r is RepoResult => r !== null));
+    const data = await rawSearch("repositories", query, sort, order, page);
+    return summaryAnd(query, "repositories", page, data, readArray(data["items"]).map(parseRepoResult).filter((r): r is RepoResult => r !== null));
   });
 }
 
 export function searchIssues(query: string, sort: string, order: SearchOrder, pullOnly: boolean, page: number): Promise<Found<IssueResult>> {
   const type = pullOnly ? "pullrequests" : "issues";
   return fromPage(type, query, sort, order, page, pageIssueResult, async () => {
-    const data = await rawSearch("issues", `${query} ${pullOnly ? "type:pr" : "type:issue"}`, sort, order);
-    return summaryAnd(query, type, data, readArray(data["items"]).map(parseIssueResult).filter((r): r is IssueResult => r !== null));
+    const data = await rawSearch("issues", `${query} ${pullOnly ? "type:pr" : "type:issue"}`, sort, order, page);
+    return summaryAnd(query, type, page, data, readArray(data["items"]).map(parseIssueResult).filter((r): r is IssueResult => r !== null));
   });
 }
 
 export function searchUsers(query: string, sort: string, order: SearchOrder, page: number): Promise<Found<UserResult>> {
   return fromPage("users", query, sort, order, page, pageUserResult, async () => {
-    const data = await rawSearch("users", query, sort, order);
-    return summaryAnd(query, "users", data, readArray(data["items"]).map(parseUserResult).filter((r): r is UserResult => r !== null));
+    const data = await rawSearch("users", query, sort, order, page);
+    return summaryAnd(query, "users", page, data, readArray(data["items"]).map(parseUserResult).filter((r): r is UserResult => r !== null));
   });
 }
 
@@ -316,15 +316,15 @@ export async function searchCodePage(query: string, sort: string, order: SearchO
 
 export function searchCommits(query: string, sort: string, order: SearchOrder, page: number): Promise<Found<CommitResult>> {
   return fromPage("commits", query, sort, order, page, pageCommitResult, async () => {
-    const data = await rawSearch("commits", query, sort, order, "application/vnd.github.cloak-preview+json");
-    return summaryAnd(query, "commits", data, readArray(data["items"]).map(parseCommitResult).filter((r): r is CommitResult => r !== null));
+    const data = await rawSearch("commits", query, sort, order, page, "application/vnd.github.cloak-preview+json");
+    return summaryAnd(query, "commits", page, data, readArray(data["items"]).map(parseCommitResult).filter((r): r is CommitResult => r !== null));
   });
 }
 
 export function searchTopics(query: string, page: number): Promise<Found<TopicResult>> {
   return fromPage("topics", query, "best-match", "desc", page, pageTopicResult, async () => {
-    const data = await rawSearch("topics", query, "best-match", "desc", "application/vnd.github.mercy-preview+json");
-    return summaryAnd(query, "topics", data, readArray(data["items"]).map(parseTopicResult).filter((r): r is TopicResult => r !== null));
+    const data = await rawSearch("topics", query, "best-match", "desc", page, "application/vnd.github.mercy-preview+json");
+    return summaryAnd(query, "topics", page, data, readArray(data["items"]).map(parseTopicResult).filter((r): r is TopicResult => r !== null));
   });
 }
 
@@ -333,6 +333,7 @@ async function rawSearch(
   query: string,
   sort: string,
   order: SearchOrder,
+  page: number,
   accept = "application/vnd.github+json",
 ): Promise<Record<string, unknown>> {
   const trimmed = query.trim();
@@ -340,7 +341,8 @@ async function rawSearch(
     return { items: [], total_count: 0, incomplete_results: false };
   }
   const params = new URLSearchParams({ q: trimmed, per_page: "30" });
-  if (sort && sort !== "best-match") params.set("sort", sort);
+  if (page > 1) params.set("page", String(page));
+  if (sort && sort !== "best-match") params.set("s", sort);
   if (order) params.set("order", order);
   const resp = await fetchApi(`${API}/search/${segment}?${params.toString()}`, {
     credentials: "omit",
@@ -355,15 +357,18 @@ async function rawSearch(
   return (await resp.json()) as Record<string, unknown>;
 }
 
-function summaryAnd<T>(query: string, type: SearchType, data: Record<string, unknown>, items: T[]): { summary: SearchSummary; items: T[] } {
+function summaryAnd<T>(query: string, type: SearchType, page: number, data: Record<string, unknown>, items: T[]): { summary: SearchSummary; items: T[] } {
+  const totalCount = typeof data["total_count"] === "number" ? (data["total_count"] as number) : items.length;
+  // github's rest search api caps accessible results at 1000 items
+  const pageCount = Math.max(1, Math.ceil(Math.min(totalCount, 1000) / 30));
   return {
     summary: {
       query,
       type,
-      totalCount: typeof data["total_count"] === "number" ? (data["total_count"] as number) : items.length,
+      totalCount,
       incompleteResults: data["incomplete_results"] === true,
-      page: 1,
-      pageCount: 1,
+      page,
+      pageCount,
     },
     items,
   };

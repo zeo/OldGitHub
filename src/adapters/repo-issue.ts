@@ -898,7 +898,7 @@ function restActor(raw: unknown): Actor | null {
   return {
     login,
     avatarUrl: readString(a, "avatar_url") ?? `https://github.com/${login}.png?size=64`,
-    isAgent: /\[bot\]$/.test(login) || a["type"] === "Bot",
+    isAgent: login.endsWith("[bot]") || a["type"] === "Bot",
   };
 }
 

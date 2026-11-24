@@ -1,16 +1,32 @@
 import { AdapterFailure } from "./index";
-import { fetchRepoPage } from "./_page";
+import { extractEmbeddedPayload, fetchRepoPage, parseRepoPage } from "./_page";
 import { fetchApi } from "./rate-limit";
 
 export type FileList = { ref: string; paths: string[] };
 
 let last: { key: string; paths: Promise<string[]> } | null = null;
 
+function readRefInfo(html: string): { name?: unknown; currentOid?: unknown } | null {
+  try {
+    const payload = extractEmbeddedPayload(parseRepoPage(html)) as { payload?: Record<string, unknown> };
+    const p = payload?.payload;
+    if (p && typeof p === "object") {
+      const candidates = [p["refInfo"], (p["codeViewRepoRoute"] as Record<string, unknown> | undefined)?.["refInfo"], (p["codeViewTreeRoute"] as Record<string, unknown> | undefined)?.["refInfo"], (p["codeViewBlobLayoutRoute"] as Record<string, unknown> | undefined)?.["refInfo"]];
+      for (const c of candidates) {
+        if (c && typeof c === "object") return c as { name?: unknown; currentOid?: unknown };
+      }
+    }
+  } catch {
+    // fall back to direct pattern match if html has inline refInfo outside embeddedData
+  }
+  const raw = /"refInfo":(\{[^{}]*\})/.exec(html)?.[1];
+  return raw ? (JSON.parse(raw) as { name?: unknown; currentOid?: unknown }) : null;
+}
+
 // tree and blob pages name the ref they show; any other repo page means the default branch
 export async function getFileList(owner: string, repo: string, codePath: string | null): Promise<FileList> {
   const html = codePath ? await fetchCodePage(codePath) : await fetchRepoPage(owner, repo);
-  const raw = /"refInfo":(\{[^{}]*\})/.exec(html)?.[1];
-  const info = raw ? (JSON.parse(raw) as { name?: unknown; currentOid?: unknown }) : null;
+  const info = readRefInfo(html);
   if (typeof info?.name !== "string" || typeof info.currentOid !== "string") {
     throw new AdapterFailure("getFileList", "page has no refInfo");
   }

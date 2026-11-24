@@ -80,7 +80,7 @@ export async function getIssueList(
     // the issues page only counts its own state, so the other tab's count takes a second page
     const other: "open" | "closed" = state === "open" ? "closed" : "open";
     const [list, otherCount] = await Promise.all([
-      issuesRoute(await load(state, page)),
+      load(state, page).then(issuesRoute),
       load(other, 1).then((p) => readNumber(readObj(issuesRoute(p)["pageInfo"]) ?? {}, "totalCount") ?? 0, () => null),
     ]);
     const info = readObj(list["pageInfo"]) ?? {};
@@ -144,7 +144,7 @@ function parseIssueItem(raw: unknown): IssueRow | null {
   return {
     number,
     titleHtml: readString(readObj(r["titleHtml"]) ?? {}, "value") ?? escapeText(readString(r, "title") ?? ""),
-    state: /CLOSED$/.test(readString(r, "state") ?? "") ? "CLOSED" : "OPEN",
+    state: (readString(r, "state") ?? "").endsWith("CLOSED") ? "CLOSED" : "OPEN",
     stateReason: readString(r, "stateReason")?.replace(/^REPO_ISSUE_STATE_REASON_/, "") ?? null,
     createdAt: readString(r, "createdAt") ?? "",
     closedAt: readString(r, "closedAt"),
@@ -166,11 +166,11 @@ function parsePullItem(raw: unknown): IssueRow | null {
   if (!r || !number) return null;
   const login = readString(readObj(r["author"]) ?? {}, "displayLogin");
   const state = readString(r, "state") ?? "";
-  const merged = /MERGED$/.test(state);
+  const merged = state.endsWith("MERGED");
   return {
     number,
     titleHtml: readString(readObj(r["titleHtml"]) ?? {}, "value") ?? escapeText(readString(r, "title") ?? ""),
-    state: merged || /CLOSED$/.test(state) ? "CLOSED" : "OPEN",
+    state: merged || state.endsWith("CLOSED") ? "CLOSED" : "OPEN",
     stateReason: merged ? "MERGED" : null,
     createdAt: readString(r, "createdAt") ?? "",
     closedAt: readString(r, "closedAt"),
@@ -181,7 +181,7 @@ function parsePullItem(raw: unknown): IssueRow | null {
     assignees: [],
     milestone: null,
     isPullRequest: true,
-    isDraft: /DRAFT$/.test(readString(r, "displayState") ?? ""),
+    isDraft: (readString(r, "displayState") ?? "").endsWith("DRAFT"),
     merged,
   };
 }

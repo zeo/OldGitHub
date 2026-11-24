@@ -2,6 +2,7 @@ import { AdapterFailure } from "./index";
 import { extractEmbeddedPayload, fetchRepoPage, loadPagePayload, parseRepoPage } from "./_page";
 import { fetchApi, isApiRateLimited } from "./rate-limit";
 import { readProxyText } from "@/background/proxy-policy";
+import { encodePathSegments, safeDecodeURIComponent } from "@/util/html";
 
 export type TreeItem = {
   name: string;
@@ -234,8 +235,8 @@ async function loadBlobViaScrape(owner: string, repo: string, branch: string, pa
   // public repos: raw.githubusercontent.com works anonymously
   // private repos: github.com/raw redirects to a signed url and needs the session cookie
   // both go through the background service worker to bypass cross-origin cors
-  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  const encodedBranch = branch.split("/").map(encodeURIComponent).join("/");
+  const encodedPath = encodePathSegments(path);
+  const encodedBranch = encodePathSegments(branch);
   const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${encodedBranch}/${encodedPath}`;
   let proxy = await proxyFetchViaBackground(rawUrl, "omit");
   if (!proxy.ok) {
@@ -306,32 +307,32 @@ async function resolveBranchAndPath(owner: string, repo: string, refAndPath: str
     throw new AdapterFailure("getRepoBlob", "empty refAndPath");
   }
   if (segs.length === 1) {
-    return { branch: decodeURIComponent(segs[0]!), path: "" };
+    return { branch: safeDecodeURIComponent(segs[0]!), path: "" };
   }
   try {
-    const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${encodeURIComponent(decodeURIComponent(segs[0]!))}`;
+    const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${encodeURIComponent(safeDecodeURIComponent(segs[0]!))}`;
     const r = await fetchApi(refsUrl, { credentials: "omit", headers: { Accept: "application/vnd.github+json" } });
     if (r.ok) {
       const refs = (await r.json()) as Array<{ ref?: string }>;
       const names = refs.map((x) => (x.ref || "").replace(/^refs\/heads\//, "")).filter(Boolean);
       let best = "";
       for (const name of names) {
-        const enc = name.split("/").map(encodeURIComponent).join("/");
+        const enc = encodePathSegments(name);
         if (refAndPath === enc || refAndPath.startsWith(enc + "/")) {
           if (name.length > best.length) best = name;
         }
       }
       if (best) {
-        const enc = best.split("/").map(encodeURIComponent).join("/");
+        const enc = encodePathSegments(best);
         const rest = refAndPath === enc ? "" : refAndPath.slice(enc.length + 1);
-        return { branch: best, path: rest.split("/").map(decodeURIComponent).join("/") };
+        return { branch: best, path: rest.split("/").map(safeDecodeURIComponent).join("/") };
       }
     }
   } catch {
     // fall through
   }
-  const branch = decodeURIComponent(segs[0]!);
-  const path = segs.slice(1).map(decodeURIComponent).join("/");
+  const branch = safeDecodeURIComponent(segs[0]!);
+  const path = segs.slice(1).map(safeDecodeURIComponent).join("/");
   return { branch, path };
 }
 
