@@ -37,7 +37,7 @@ function bind(): void {
 function flashSaved(): void {
   const hint = document.querySelector<HTMLElement>("[data-status]");
   if (!hint) return;
-  hint.textContent = "Saved. Reload any open GitHub tab to see the change.";
+  hint.textContent = "Saved. Open GitHub tabs update automatically.";
   hint.hidden = false;
   if (statusTimer != null) window.clearTimeout(statusTimer);
   statusTimer = window.setTimeout(() => {

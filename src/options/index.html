@@ -63,7 +63,7 @@
           <p class="card__sub">Optional. Without one GitHub allows 60 API requests an hour from your IP address; with one, 5,000.</p>
         </header>
         <div class="card__body">
-          <p>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">fine-grained token</a> with "Public repositories" access and no extra permissions. To see your private repositories' Actions, compares and issue lists, pick those repositories and grant read-only Actions, Contents, Issues, Metadata and Pull requests.</p>
+          <p>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">fine-grained token</a> with "Public repositories" access and no extra permissions. To load private repository pull request conversations, check runs, and fallback metadata, pick those repositories and grant read-only Checks, Contents, Issues, Metadata and Pull requests.</p>
           <form class="token-form" data-token-form>
             <label class="sr-only" for="token">Token</label>
             <input id="token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_..." />
@@ -82,8 +82,8 @@
         </header>
         <div class="card__body">
           <p>OldGitHub rewrites the GitHub web UI in your browser to match the 2012-2013 layout. Authentication is your existing github.com session cookie.</p>
-          <p>A few pages are JS-only React forms that can't be re-rendered without their runtime (create-repo, create-issue, login, signup, account-settings sub-pages, gist.github.com). On those the themed top bar stays in place but GitHub's native body renders below it.</p>
-          <p>Flip the theme from any GitHub page using the sun/moon icon in the header bar.</p>
+          <p>A few pages are JS-only React forms that can't be re-rendered without their runtime (create-repo, create-issue, login, signup, gist.github.com). On those the themed top bar stays in place but GitHub's native body renders below it.</p>
+          <p>Flip the theme from any GitHub page using the gear icon in the header bar.</p>
           <p>Click the OldGitHub toolbar icon to turn the extension off or on for every GitHub tab. When a single page looks wrong, use "show GitHub's native page" on it; that tab stays native until you click "Turn it back on".</p>
         </div>
       </section>
